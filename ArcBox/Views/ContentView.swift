@@ -19,6 +19,7 @@ struct ContentView: View {
     @State private var machinesVM = MachinesViewModel()
     @State private var sandboxesVM = SandboxesViewModel()
     @State private var templatesVM = TemplatesViewModel()
+    @State private var runnerPlatformStore = RunnerPlatformStore()
 
     @State private var lastValidNav: NavItem? = .containers
 
@@ -147,6 +148,7 @@ struct ContentView: View {
                 .environment(machinesVM)
         case .runner:
             RunnersView()
+                .environment(runnerPlatformStore)
         case .sandboxes:
             SandboxesListView()
                 .environment(sandboxesVM)
