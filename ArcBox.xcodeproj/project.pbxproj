@@ -73,6 +73,7 @@
 		519C116D9CC62268CE4859D4 /* ExternalTerminalApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D70EF1BF223C47C7B8E71A5 /* ExternalTerminalApp.swift */; };
 		525ECDE24CB1E8ADC7AADB49 /* UpdaterDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9234FC5BCCDDCBF441A94880 /* UpdaterDelegate.swift */; };
 		56DB59DA2A954436369BAC24 /* SampleData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1808332CF700CF6900F556F5 /* SampleData.swift */; };
+		592084F442E916A94A8B9CBA /* RunnerSelectionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16087ADE0B07FDD6E3D719F4 /* RunnerSelectionDetailView.swift */; };
 		592D8D15F0AD149B578AC661 /* VolumesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209E974D66F4B2D9B5CDA2D9 /* VolumesListView.swift */; };
 		5D4AD52D29953C3DB6552B97 /* ContainerLogsTab+Formatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DD7F5E0115C839BB364D59F /* ContainerLogsTab+Formatting.swift */; };
 		5D859AD67E6BF46402B5B621 /* ServicesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4009DCC81EA64B23A77FB0C4 /* ServicesViewModel.swift */; };
@@ -231,12 +232,15 @@
 		F40C3E6023452858EEEA893F /* K8sModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6FDB677AE01E62877A17AC /* K8sModelsTests.swift */; };
 		F5350A9E11B4C65AAE8BD569 /* ServiceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13203BD67479A8191C1A3BD6 /* ServiceModel.swift */; };
 		F73AE01D7A98D475BBAD1B9D /* NetworkRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 620BCE892EDA3E7554384A0E /* NetworkRowView.swift */; };
+		F9B2E0EFEECE4F44B659E8D5 /* RunnerSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844E4C199E51918262A8C14F /* RunnerSelection.swift */; };
+		F9DFD7D1A67ECB96BEEC3D6F /* RunnerJobListItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BCD10A967FC56763AAAD3AD /* RunnerJobListItem.swift */; };
 		FA1617761F2AA43D4999DA82 /* TemplateDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F861F75EAD82307CECE21855 /* TemplateDetailView.swift */; };
 		FA631E839B38C6D0DBDBA928 /* ArcBoxAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 1EEA05F99067212B54970FA5 /* ArcBoxAuth */; };
 		FACCEFF5F4CDC1CCDB664C3D /* ImageEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C249CE2887E590B9F543B37 /* ImageEmptyState.swift */; };
 		FBDBF39F818DDE35E0B7D0DF /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = B23ADDA7527EDFFFD6615B12 /* SwiftTerm */; };
 		FBDC1F10288E1448184A91E3 /* IconButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E73318FC9D8EBCB39E5C0AE /* IconButton.swift */; };
 		FBE7E964F895EFE9C7818256 /* ContainerViewModel+Mapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D5BDCAAF11D1A6B52990E28 /* ContainerViewModel+Mapping.swift */; };
+		FD81DD803F100451034B3384 /* RunnerJobListItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D737D532B4BB4169914591 /* RunnerJobListItemTests.swift */; };
 		FF70A2FA2732211E1C4F7297 /* FleetViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B51BA58BAD575480118B2D2 /* FleetViewModel.swift */; };
 		FFAB94A328F83148EC0ED794 /* LocalRootFSOutlineCoordinator+Columns.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A4B5E95EA5A894B19867570 /* LocalRootFSOutlineCoordinator+Columns.swift */; };
 /* End PBXBuildFile section */
@@ -279,6 +283,7 @@
 		0EDE93A683D2613C431BEBF2 /* DockerCLIResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerCLIResolver.swift; sourceTree = "<group>"; };
 		11EB6AEBF371E6B88EF8D08E /* SandboxPortsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxPortsTab.swift; sourceTree = "<group>"; };
 		13203BD67479A8191C1A3BD6 /* ServiceModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceModel.swift; sourceTree = "<group>"; };
+		16087ADE0B07FDD6E3D719F4 /* RunnerSelectionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerSelectionDetailView.swift; sourceTree = "<group>"; };
 		17331246035D7AEF58CA2258 /* ImageRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageRowView.swift; sourceTree = "<group>"; };
 		1808332CF700CF6900F556F5 /* SampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleData.swift; sourceTree = "<group>"; };
 		185A238D021D6C976574528C /* ImageDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageDetailView.swift; sourceTree = "<group>"; };
@@ -343,6 +348,7 @@
 		61EE316315F864BA1BF0FFED /* MachinesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesViewModel.swift; sourceTree = "<group>"; };
 		620BCE892EDA3E7554384A0E /* NetworkRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkRowView.swift; sourceTree = "<group>"; };
 		6218E84D6C2A8595FE308B5E /* ImageLayerChain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageLayerChain.swift; sourceTree = "<group>"; };
+		62D737D532B4BB4169914591 /* RunnerJobListItemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerJobListItemTests.swift; sourceTree = "<group>"; };
 		63E327BEE2A1A04A55A730BF /* RunnerEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerEmptyState.swift; sourceTree = "<group>"; };
 		657D7543F1D47988AEC3339D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		66F91CF47E53375781959EC9 /* ServicesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicesListView.swift; sourceTree = "<group>"; };
@@ -366,6 +372,7 @@
 		7AB1B1CD1D5E0E961CD17118 /* MachinesViewModel+GRPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MachinesViewModel+GRPC.swift"; sourceTree = "<group>"; };
 		7B6FDB677AE01E62877A17AC /* K8sModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = K8sModelsTests.swift; sourceTree = "<group>"; };
 		7BC24B8A6E422D834614E5D5 /* ArcBoxAuth */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ArcBoxAuth; path = Packages/ArcBoxAuth; sourceTree = SOURCE_ROOT; };
+		7BCD10A967FC56763AAAD3AD /* RunnerJobListItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerJobListItem.swift; sourceTree = "<group>"; };
 		7BDFC648740B4664FCC1E5E5 /* RunnersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnersView.swift; sourceTree = "<group>"; };
 		7C15DE3BBE549F8F86D82642 /* CheckForUpdatesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckForUpdatesViewModel.swift; sourceTree = "<group>"; };
 		7C1C3441F788850AC771A0C1 /* VolumeEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeEmptyState.swift; sourceTree = "<group>"; };
@@ -377,6 +384,7 @@
 		7DDFA2EDA7A3AC8448696F91 /* VolumeFilesTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeFilesTab.swift; sourceTree = "<group>"; };
 		829D8DC499E6339D13A2ADE7 /* SandboxesViewModel+GRPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SandboxesViewModel+GRPC.swift"; sourceTree = "<group>"; };
 		83FBE0C82E0EB430C69EB944 /* GuestDataMount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestDataMount.swift; sourceTree = "<group>"; };
+		844E4C199E51918262A8C14F /* RunnerSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerSelection.swift; sourceTree = "<group>"; };
 		85321B230A582D1C0AF76B5C /* LocalRootFSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalRootFSService.swift; sourceTree = "<group>"; };
 		85F6CFF90B9BC6AE2836414C /* LocalRootFSOutlineCoordinator+Loading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocalRootFSOutlineCoordinator+Loading.swift"; sourceTree = "<group>"; };
 		8619720F1A99E2E6A431585C /* FleetEnrollmentCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FleetEnrollmentCoordinator.swift; sourceTree = "<group>"; };
@@ -629,6 +637,8 @@
 				A1FE07EA71512ACEE609B537 /* RunnerHostCapability.swift */,
 				3F3DBF7CBDB3176071B996D3 /* RunnerHostStatus.swift */,
 				B6BC28A842D0A91FA84517CC /* RunnerHostViewModel.swift */,
+				7BCD10A967FC56763AAAD3AD /* RunnerJobListItem.swift */,
+				844E4C199E51918262A8C14F /* RunnerSelection.swift */,
 				F6ABF0A0B6218A3FE504C7DA /* RunnersViewState.swift */,
 				1808332CF700CF6900F556F5 /* SampleData.swift */,
 				BA990161E9F1709745BE5796 /* SandboxModel.swift */,
@@ -951,6 +961,7 @@
 				8F9A6D7A71C8A071AB76AE2C /* RunnerImagePreparationStatusView.swift */,
 				080B7568EE5A517F8CC343FE /* RunnerJobRow.swift */,
 				B2387BC90EBBF4477B65367E /* RunnerJobsView.swift */,
+				16087ADE0B07FDD6E3D719F4 /* RunnerSelectionDetailView.swift */,
 				7BDFC648740B4664FCC1E5E5 /* RunnersView.swift */,
 			);
 			path = Runners;
@@ -1119,6 +1130,7 @@
 				A2B6587D59B9EFA18E51A3F3 /* ImagesViewModelTests.swift */,
 				7B6FDB677AE01E62877A17AC /* K8sModelsTests.swift */,
 				F0647CCB67160C2509345B5E /* MachineModelTests.swift */,
+				62D737D532B4BB4169914591 /* RunnerJobListItemTests.swift */,
 				DA8937BC21E9813E2F8AA7F2 /* RunnerPlatformStoreTests.swift */,
 				E902A97C32D4034C22684BBD /* RunnersViewModelTests.swift */,
 			);
@@ -1430,9 +1442,12 @@
 				DC8E940905BADCF4888BEA0A /* RunnerHostStatusBar.swift in Sources */,
 				510B8922C820BE4607F7817B /* RunnerHostViewModel.swift in Sources */,
 				D555C507200C70946F381C91 /* RunnerImagePreparationStatusView.swift in Sources */,
+				F9DFD7D1A67ECB96BEEC3D6F /* RunnerJobListItem.swift in Sources */,
 				4F2B260760140AEAEDBACBC2 /* RunnerJobRow.swift in Sources */,
 				096533539D74E8FA5A322C0A /* RunnerJobsView.swift in Sources */,
 				A32149C2AC3A6B3A7BE1B8EC /* RunnerPlatformStore.swift in Sources */,
+				F9B2E0EFEECE4F44B659E8D5 /* RunnerSelection.swift in Sources */,
+				592084F442E916A94A8B9CBA /* RunnerSelectionDetailView.swift in Sources */,
 				6FBDCCAB7F2960C0A0330A04 /* RunnersView.swift in Sources */,
 				BA69D54C021A974036846623 /* RunnersViewModel.swift in Sources */,
 				C19B191AF0DE9179608BF40A /* RunnersViewState.swift in Sources */,
@@ -1512,6 +1527,7 @@
 				0BCE503CC2BF6C2BEC9DC4EA /* ImagesViewModelTests.swift in Sources */,
 				F40C3E6023452858EEEA893F /* K8sModelsTests.swift in Sources */,
 				CCD9ABC3F69FE5DA233E85EC /* MachineModelTests.swift in Sources */,
+				FD81DD803F100451034B3384 /* RunnerJobListItemTests.swift in Sources */,
 				A45901889EB62F97532D443E /* RunnerPlatformStoreTests.swift in Sources */,
 				977BE039C964F896AB613634 /* RunnersViewModelTests.swift in Sources */,
 			);

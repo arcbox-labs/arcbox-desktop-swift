@@ -195,8 +195,8 @@ struct ContentView: View {
             MachineDetailView()
                 .environment(machinesVM)
         case .runner:
-            // Job / host detail arrives with RUN-12 / RUN-13.
-            DetailPlaceholderView()
+            RunnerSelectionDetailView()
+                .environment(runnerPlatformStore)
         case .sandboxes:
             SandboxDetailView()
                 .environment(sandboxesVM)
