@@ -30,6 +30,7 @@
 		172FA4919687A4616E0BC135 /* DaemonLoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E8FB9C9E3349126EF773522 /* DaemonLoadingView.swift */; };
 		1941A5EBBFB259911F7E9ADE /* SandboxesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A764F03F9EA5C3149B777338 /* SandboxesViewModel.swift */; };
 		1CA50DB029E0C7A18CAF87A2 /* LocalRootFSOutlineCoordinator+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45A5AAA9B74A59E7543D8D0 /* LocalRootFSOutlineCoordinator+Actions.swift */; };
+		1E07B971374B4CE76D32DBC2 /* RunnerHostDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3F1497910C2DE7F04BA5528 /* RunnerHostDetailView.swift */; };
 		20C4C1664AC3D1942C7D72CD /* SandboxesViewModel+GRPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829D8DC499E6339D13A2ADE7 /* SandboxesViewModel+GRPC.swift */; };
 		21D545F71EFE312362029E61 /* SandboxPortsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11EB6AEBF371E6B88EF8D08E /* SandboxPortsTab.swift */; };
 		22A38E75CD6CB3074F3BB6D4 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A8FF41635473729BF0A36E /* StatusBadge.swift */; };
@@ -49,6 +50,7 @@
 		3B38458299F141A08B8C7107 /* ImageTerminalTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB477EF803A15EDFF2685A23 /* ImageTerminalTab.swift */; };
 		3B6BCFE408976AA0CDD0A5F8 /* SandboxesViewModel+PortsFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B80964B0A136E03F5FDA0FE /* SandboxesViewModel+PortsFiles.swift */; };
 		3B817A9A7D75BB17FF688B75 /* RunnerHostStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F3DBF7CBDB3176071B996D3 /* RunnerHostStatus.swift */; };
+		3F06D58F1B4041869FEC4F19 /* RunnerHostJobSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2759FD2E220699E0BB1153A3 /* RunnerHostJobSummary.swift */; };
 		3F0B1B3F51E1663A5BA7EA66 /* SystemSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F734677F8F8EFD08CB32E8B3 /* SystemSettingsView.swift */; };
 		4113241C123BBBBDEC76E5B0 /* ToastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFB03A05EDADB4F1FA6E10A1 /* ToastView.swift */; };
 		41459C0A45497BA629B8C34D /* NetworksViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4ED3EC883A488801DE03195 /* NetworksViewModel.swift */; };
@@ -58,6 +60,7 @@
 		442BF334C252BDCD3E210745 /* PodRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F5C6F8F92ED8D843FAA6D89 /* PodRowView.swift */; };
 		442FF72709337D1BCAA0643D /* SandboxEventMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C68609B67AC82FF386CB92 /* SandboxEventMonitor.swift */; };
 		45029921A85B7F5C86F49E3B /* AboutView+ReleaseRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0100B138714BA1626E5E8D48 /* AboutView+ReleaseRow.swift */; };
+		45BB87866AFBADAF6F07CA76 /* FleetBackend+DisplayName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B81497897F5306643CC2AD1 /* FleetBackend+DisplayName.swift */; };
 		45BD43408706D6F5044BDEB2 /* VolumeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CEDB1A7E6E5F0EEA2214D21 /* VolumeTypes.swift */; };
 		46717964B62163546276C1D1 /* AboutView+Sections.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC98017408ED56AFF734125A /* AboutView+Sections.swift */; };
 		477DF414090DADD3A631F50B /* SandboxesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21565AF3B3606525539AE506 /* SandboxesListView.swift */; };
@@ -106,6 +109,8 @@
 		7895A0328F3567814B656CFD /* LocalRootFSOutlineCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F0D0444E612EC32D81A7E0C /* LocalRootFSOutlineCoordinator.swift */; };
 		7910184754585B4CF647FA92 /* ContainerDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1C6B2F85E39321931CEC3ED /* ContainerDetailView.swift */; };
 		79C5F3DA19E7431F8B28B6F0 /* MenuBarView+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC010DD9F0AEC7E4EA778C59 /* MenuBarView+Actions.swift */; };
+		7B283BBB6B3C8DA7B650328A /* RunnerHostOverviewTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8586B73ACB03595FB3074B38 /* RunnerHostOverviewTab.swift */; };
+		7B40CC08EA615C5CB027380A /* RunnerHostJobSummaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5758E839E4363E54EEECD99 /* RunnerHostJobSummaryTests.swift */; };
 		7D6BA204C7E5B022B6267289 /* RunnerHostCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FE07EA71512ACEE609B537 /* RunnerHostCapability.swift */; };
 		7DABE0FBDD17F88D47333964 /* CommandHint.swift in Sources */ = {isa = PBXBuildFile; fileRef = B65698313C3204F5F23E099B /* CommandHint.swift */; };
 		7DB0F638AAD7DCB4F8349402 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 9C709A3E8E1972F5BB841623 /* PostHog */; };
@@ -140,6 +145,7 @@
 		95820205B54ABC3FAF14EC8F /* MachinesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61EE316315F864BA1BF0FFED /* MachinesViewModel.swift */; };
 		967B79B7F3A20ACDDC610AD4 /* ContainerFilesTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A80B0A0F4FC2E7ECA0B844DD /* ContainerFilesTab.swift */; };
 		96C7FFF79579D1B999ABAF3F /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A093F9D88FA4D914DE6F45 /* Utilities.swift */; };
+		975051DCB1D5B9738AEF3661 /* FleetMachineStatus+DisplayName.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F4B62DCEFF676208ACD162 /* FleetMachineStatus+DisplayName.swift */; };
 		97746F2287918514ECD6F1C3 /* LocalRootFSOutlineCoordinator+Loading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85F6CFF90B9BC6AE2836414C /* LocalRootFSOutlineCoordinator+Loading.swift */; };
 		977632E34C7EC1E3FEEAA25E /* KubernetesState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E37F8C85EB27987F81FFB5F4 /* KubernetesState.swift */; };
 		977BE039C964F896AB613634 /* RunnersViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E902A97C32D4034C22684BBD /* RunnersViewModelTests.swift */; };
@@ -161,6 +167,7 @@
 		ABA9E2D6873BE5FF255045F3 /* AboutView+SystemInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0C5A43740FFD68902A2F77 /* AboutView+SystemInfo.swift */; };
 		AC66C291D8250EF48B8FE3D2 /* MenuBarView+Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC6744BCBFA0A05831AFED0E /* MenuBarView+Layout.swift */; };
 		AD3BD03BF47240DE0C8A9A56 /* TemplateRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D4E14745A6F16951FB5B8EB /* TemplateRowView.swift */; };
+		AD65518905804CCB175FD6CA /* RunnerHostOverviewStatusSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B96EF490DB110369883A43D6 /* RunnerHostOverviewStatusSection.swift */; };
 		ADE462B8234F0D1F9D8165B3 /* VolumesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699A57392F1D9366CFA78BAF /* VolumesViewModel.swift */; };
 		B29A0911581DF9A70350B726 /* NewSandboxSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF34CA0688377F7956F2FD3D /* NewSandboxSheet.swift */; };
 		B3DF6F1A9B47905BF6337A81 /* StorageSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F915D676AC7EDF66A67B77A9 /* StorageSettingsView.swift */; };
@@ -197,9 +204,11 @@
 		CC2502232C562D3167B2F3D2 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = B37EA00E3A32B9866C9BE293 /* Sparkle */; };
 		CCAF8E87C516B0ACE300BDCD /* PodsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08A76C0B459745654F31B3B2 /* PodsListView.swift */; };
 		CCD9ABC3F69FE5DA233E85EC /* MachineModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0647CCB67160C2509345B5E /* MachineModelTests.swift */; };
+		CF0180F7923FEC8E8C5FE917 /* RunnerHostOverviewJobsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0C6C10DE353C0ED6E2E85DF /* RunnerHostOverviewJobsSection.swift */; };
 		D0518D07973520530916560B /* ServiceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F238F21169A97B94193454CF /* ServiceDetailView.swift */; };
 		D0A2395C0C2BC0A77B175840 /* MachineEventMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2021CE387B9546EE87FA4CD5 /* MachineEventMonitor.swift */; };
 		D2AB4B6BF0723EE12A0DBC83 /* GuestDataMountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27130DDA57D2645C7E81D75D /* GuestDataMountTests.swift */; };
+		D2E52E2552B8D7E96A843632 /* RunnerHostIdentityTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C60393B474CFC92B46386C /* RunnerHostIdentityTab.swift */; };
 		D2F870759080FB9D1DF58A3A /* NewContainerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B011CA693D5A9EFCCF61AA2D /* NewContainerSheet.swift */; };
 		D32166A92BDA2FB6B6037D94 /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C649765AA76CFCBFC3302DA /* DeepLinkRouter.swift */; };
 		D49278FBAD2A7E36CD278147 /* MachineRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949DB8BB8139F8D3C37503E9 /* MachineRowView.swift */; };
@@ -210,6 +219,7 @@
 		D7149FCB6052803F6900926B /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = D50E2875839AD5944467DBC0 /* Sentry */; };
 		D745D0D7EF5FF65174C47F28 /* NewVolumeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 903FA72CEF39142ADA5CA378 /* NewVolumeSheet.swift */; };
 		D786BBF78698824ED9F5E048 /* ComingSoonPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE64C34A555B2A5BA02AD9FA /* ComingSoonPanel.swift */; };
+		D8E28DEE224DA7D44727E216 /* RunnerHostOverviewPoolsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E53A873988FE80AD4424FE13 /* RunnerHostOverviewPoolsSection.swift */; };
 		DAA8D86963F68C3BE402619B /* FleetAgentConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A8DB8D7DB7317B7B3E4775C /* FleetAgentConnection.swift */; };
 		DAC7224E4BF7F459BB7013CB /* RemoteIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18574DEF808329D8152A379 /* RemoteIconView.swift */; };
 		DC8E940905BADCF4888BEA0A /* RunnerHostStatusBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02391823A10B16B12627E6C /* RunnerHostStatusBar.swift */; };
@@ -218,6 +228,8 @@
 		E12C55C4C275DCBAB9DA8150 /* VolumeFilesTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DDFA2EDA7A3AC8448696F91 /* VolumeFilesTab.swift */; };
 		E387F94A583E46FCAE612008 /* TemplateModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6845260698FF44B2E54D301B /* TemplateModel.swift */; };
 		E69436579DA555FA6133A1CF /* ServiceRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A147995028C8DB6F49BBD8EF /* ServiceRowView.swift */; };
+		E809752CD798B29AFF096BD3 /* RunnerHostCapacityTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EFC35C028AEC068D062C12F /* RunnerHostCapacityTab.swift */; };
+		E8A6AABEC56C79575194CAAF /* RunnerHostSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 496FD50DEB793E0F91A70DA4 /* RunnerHostSettingsTab.swift */; };
 		E92C8245EE6AE51D99035E4D /* DockerClient in Frameworks */ = {isa = PBXBuildFile; productRef = 984278376FF4860E6FADC66F /* DockerClient */; };
 		E9B0A374B532221710729A34 /* ContainerTerminalTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1AFAED2CB7429B714C8A06 /* ContainerTerminalTab.swift */; };
 		E9DA27A7255C72A3FE6E5599 /* FleetControlServicing.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FE218992C260511CE601B8 /* FleetControlServicing.swift */; };
@@ -241,6 +253,7 @@
 		FBDC1F10288E1448184A91E3 /* IconButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E73318FC9D8EBCB39E5C0AE /* IconButton.swift */; };
 		FBE7E964F895EFE9C7818256 /* ContainerViewModel+Mapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D5BDCAAF11D1A6B52990E28 /* ContainerViewModel+Mapping.swift */; };
 		FD81DD803F100451034B3384 /* RunnerJobListItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D737D532B4BB4169914591 /* RunnerJobListItemTests.swift */; };
+		FF140AF8CD86CF1FD3AAAAAC /* RunnerHostDetailTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF537351518DBAB4EC8BAE61 /* RunnerHostDetailTab.swift */; };
 		FF70A2FA2732211E1C4F7297 /* FleetViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B51BA58BAD575480118B2D2 /* FleetViewModel.swift */; };
 		FFAB94A328F83148EC0ED794 /* LocalRootFSOutlineCoordinator+Columns.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A4B5E95EA5A894B19867570 /* LocalRootFSOutlineCoordinator+Columns.swift */; };
 /* End PBXBuildFile section */
@@ -287,6 +300,7 @@
 		17331246035D7AEF58CA2258 /* ImageRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageRowView.swift; sourceTree = "<group>"; };
 		1808332CF700CF6900F556F5 /* SampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleData.swift; sourceTree = "<group>"; };
 		185A238D021D6C976574528C /* ImageDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageDetailView.swift; sourceTree = "<group>"; };
+		19C60393B474CFC92B46386C /* RunnerHostIdentityTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerHostIdentityTab.swift; sourceTree = "<group>"; };
 		1A8DB8D7DB7317B7B3E4775C /* FleetAgentConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FleetAgentConnection.swift; sourceTree = "<group>"; };
 		1B18FDEC4B5AE8513C98D7B4 /* SandboxDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxDetailView.swift; sourceTree = "<group>"; };
 		1B80964B0A136E03F5FDA0FE /* SandboxesViewModel+PortsFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SandboxesViewModel+PortsFiles.swift"; sourceTree = "<group>"; };
@@ -303,6 +317,7 @@
 		23C69EC561EEA79ADE5A9000 /* ContainersViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainersViewModel.swift; sourceTree = "<group>"; };
 		269B74A3C7704AB81139FA52 /* ContainerLogsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerLogsModels.swift; sourceTree = "<group>"; };
 		27130DDA57D2645C7E81D75D /* GuestDataMountTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestDataMountTests.swift; sourceTree = "<group>"; };
+		2759FD2E220699E0BB1153A3 /* RunnerHostJobSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerHostJobSummary.swift; sourceTree = "<group>"; };
 		297FCAB334AF289575D13F72 /* NetworksListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworksListView.swift; sourceTree = "<group>"; };
 		2D053B8542825698996A16FE /* ArcBoxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ArcBoxTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2E3E6C9D6EBE0D9358FB396A /* TemplateEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateEmptyState.swift; sourceTree = "<group>"; };
@@ -322,6 +337,7 @@
 		46D7B7F6B349A602A7BA973E /* SandboxSnapshotsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxSnapshotsTab.swift; sourceTree = "<group>"; };
 		472F864720948B01C9F5D5A0 /* K8sClient */ = {isa = PBXFileReference; lastKnownFileType = folder; name = K8sClient; path = Packages/K8sClient; sourceTree = SOURCE_ROOT; };
 		474FD439D2B872416A0CC116 /* RunnersViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnersViewModel.swift; sourceTree = "<group>"; };
+		496FD50DEB793E0F91A70DA4 /* RunnerHostSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerHostSettingsTab.swift; sourceTree = "<group>"; };
 		49A8DDE58F61A6B736A63E11 /* SandboxMonitoringView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxMonitoringView.swift; sourceTree = "<group>"; };
 		4A4B5E95EA5A894B19867570 /* LocalRootFSOutlineCoordinator+Columns.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocalRootFSOutlineCoordinator+Columns.swift"; sourceTree = "<group>"; };
 		4A6DE83E6B8595E5E0F1299D /* ContainerGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerGroupView.swift; sourceTree = "<group>"; };
@@ -382,14 +398,17 @@
 		7D5BDCAAF11D1A6B52990E28 /* ContainerViewModel+Mapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ContainerViewModel+Mapping.swift"; sourceTree = "<group>"; };
 		7DAB7D8E92543D99A995003F /* CheckForUpdatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckForUpdatesView.swift; sourceTree = "<group>"; };
 		7DDFA2EDA7A3AC8448696F91 /* VolumeFilesTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeFilesTab.swift; sourceTree = "<group>"; };
+		7EFC35C028AEC068D062C12F /* RunnerHostCapacityTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerHostCapacityTab.swift; sourceTree = "<group>"; };
 		829D8DC499E6339D13A2ADE7 /* SandboxesViewModel+GRPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SandboxesViewModel+GRPC.swift"; sourceTree = "<group>"; };
 		83FBE0C82E0EB430C69EB944 /* GuestDataMount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestDataMount.swift; sourceTree = "<group>"; };
 		844E4C199E51918262A8C14F /* RunnerSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerSelection.swift; sourceTree = "<group>"; };
 		85321B230A582D1C0AF76B5C /* LocalRootFSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalRootFSService.swift; sourceTree = "<group>"; };
+		8586B73ACB03595FB3074B38 /* RunnerHostOverviewTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerHostOverviewTab.swift; sourceTree = "<group>"; };
 		85F6CFF90B9BC6AE2836414C /* LocalRootFSOutlineCoordinator+Loading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocalRootFSOutlineCoordinator+Loading.swift"; sourceTree = "<group>"; };
 		8619720F1A99E2E6A431585C /* FleetEnrollmentCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FleetEnrollmentCoordinator.swift; sourceTree = "<group>"; };
 		867A6CA0B4DD07BE74610FCB /* VolumeViewModel+Docker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VolumeViewModel+Docker.swift"; sourceTree = "<group>"; };
 		8AD5CF45B00B80D85A778AB4 /* MachineModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineModel.swift; sourceTree = "<group>"; };
+		8B81497897F5306643CC2AD1 /* FleetBackend+DisplayName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FleetBackend+DisplayName.swift"; sourceTree = "<group>"; };
 		8DB22F8A7AA46286F186A73F /* DockerEventMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerEventMonitor.swift; sourceTree = "<group>"; };
 		8ECCF18CC36CC3579EE2B5B9 /* MachinesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesView.swift; sourceTree = "<group>"; };
 		8F5C6F8F92ED8D843FAA6D89 /* PodRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodRowView.swift; sourceTree = "<group>"; };
@@ -448,6 +467,7 @@
 		B71D28721E41F8303DBF7232 /* MachineImageCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineImageCatalog.swift; sourceTree = "<group>"; };
 		B8254D67C0D80B99FC18DAD5 /* PullImageSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PullImageSheet.swift; sourceTree = "<group>"; };
 		B8F932C1467A5FB5CFBD0444 /* LocalRootFSOutlineCoordinator+DataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocalRootFSOutlineCoordinator+DataSource.swift"; sourceTree = "<group>"; };
+		B96EF490DB110369883A43D6 /* RunnerHostOverviewStatusSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerHostOverviewStatusSection.swift; sourceTree = "<group>"; };
 		B9C7ADBBD83C5F92EEBAAD88 /* MachineDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineDetailView.swift; sourceTree = "<group>"; };
 		B9EDD0CCB1C4698A31FC1ED1 /* LocalRootFSOutlineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalRootFSOutlineView.swift; sourceTree = "<group>"; };
 		BA69DFAC30647687529C962A /* ContainersListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainersListView.swift; sourceTree = "<group>"; };
@@ -468,6 +488,7 @@
 		CE1AFAED2CB7429B714C8A06 /* ContainerTerminalTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerTerminalTab.swift; sourceTree = "<group>"; };
 		D02391823A10B16B12627E6C /* RunnerHostStatusBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerHostStatusBar.swift; sourceTree = "<group>"; };
 		D12C2D038DE6CC49702F85F0 /* ContainersViewModel+Docker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ContainersViewModel+Docker.swift"; sourceTree = "<group>"; };
+		D3F1497910C2DE7F04BA5528 /* RunnerHostDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerHostDetailView.swift; sourceTree = "<group>"; };
 		D4ED3EC883A488801DE03195 /* NetworksViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworksViewModel.swift; sourceTree = "<group>"; };
 		DA8937BC21E9813E2F8AA7F2 /* RunnerPlatformStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerPlatformStoreTests.swift; sourceTree = "<group>"; };
 		DAE5A29026FA64A7C0A47122 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -475,11 +496,15 @@
 		DE564AAFEC0EF6D094409728 /* SandboxRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxRowView.swift; sourceTree = "<group>"; };
 		DF34CA0688377F7956F2FD3D /* NewSandboxSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewSandboxSheet.swift; sourceTree = "<group>"; };
 		E06B22BB8B92AF78C2B87ADC /* AboutView+LinkButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AboutView+LinkButton.swift"; sourceTree = "<group>"; };
+		E0C6C10DE353C0ED6E2E85DF /* RunnerHostOverviewJobsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerHostOverviewJobsSection.swift; sourceTree = "<group>"; };
 		E18EB65626D97DF7604580DF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E1C6B2F85E39321931CEC3ED /* ContainerDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerDetailView.swift; sourceTree = "<group>"; };
+		E1F4B62DCEFF676208ACD162 /* FleetMachineStatus+DisplayName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FleetMachineStatus+DisplayName.swift"; sourceTree = "<group>"; };
 		E37F8C85EB27987F81FFB5F4 /* KubernetesState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KubernetesState.swift; sourceTree = "<group>"; };
 		E38681FE9A98E55B1608E662 /* SandboxEventsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxEventsTab.swift; sourceTree = "<group>"; };
 		E3A8FF41635473729BF0A36E /* StatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBadge.swift; sourceTree = "<group>"; };
+		E53A873988FE80AD4424FE13 /* RunnerHostOverviewPoolsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerHostOverviewPoolsSection.swift; sourceTree = "<group>"; };
+		E5758E839E4363E54EEECD99 /* RunnerHostJobSummaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerHostJobSummaryTests.swift; sourceTree = "<group>"; };
 		E610512C9106BB92A47DC044 /* ContainersViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainersViewModelTests.swift; sourceTree = "<group>"; };
 		E69E766A830CB3A26231BA11 /* FleetSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FleetSettingsView.swift; sourceTree = "<group>"; };
 		E78A5DD895DA4DA3A83D1269 /* ListResizeHandle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListResizeHandle.swift; sourceTree = "<group>"; };
@@ -491,6 +516,7 @@
 		EC6744BCBFA0A05831AFED0E /* MenuBarView+Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenuBarView+Layout.swift"; sourceTree = "<group>"; };
 		ECF57E2C2B0281B8CEA6132C /* MenuBarView+Metrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenuBarView+Metrics.swift"; sourceTree = "<group>"; };
 		EE6C627A5BC34C783DAEAC31 /* LocalRootFSOutlineModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalRootFSOutlineModels.swift; sourceTree = "<group>"; };
+		EF537351518DBAB4EC8BAE61 /* RunnerHostDetailTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerHostDetailTab.swift; sourceTree = "<group>"; };
 		EFB03A05EDADB4F1FA6E10A1 /* ToastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastView.swift; sourceTree = "<group>"; };
 		F0647CCB67160C2509345B5E /* MachineModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineModelTests.swift; sourceTree = "<group>"; };
 		F238F21169A97B94193454CF /* ServiceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceDetailView.swift; sourceTree = "<group>"; };
@@ -635,6 +661,8 @@
 				0B8670CF269C853BD2039B34 /* NetworkModel.swift */,
 				A37BB3605830EBE3A1625452 /* PodModel.swift */,
 				A1FE07EA71512ACEE609B537 /* RunnerHostCapability.swift */,
+				EF537351518DBAB4EC8BAE61 /* RunnerHostDetailTab.swift */,
+				2759FD2E220699E0BB1153A3 /* RunnerHostJobSummary.swift */,
 				3F3DBF7CBDB3176071B996D3 /* RunnerHostStatus.swift */,
 				B6BC28A842D0A91FA84517CC /* RunnerHostViewModel.swift */,
 				7BCD10A967FC56763AAAD3AD /* RunnerJobListItem.swift */,
@@ -956,7 +984,17 @@
 		8F4B93C32E5781E0D3DE5A52 /* Runners */ = {
 			isa = PBXGroup;
 			children = (
+				8B81497897F5306643CC2AD1 /* FleetBackend+DisplayName.swift */,
+				E1F4B62DCEFF676208ACD162 /* FleetMachineStatus+DisplayName.swift */,
 				63E327BEE2A1A04A55A730BF /* RunnerEmptyState.swift */,
+				7EFC35C028AEC068D062C12F /* RunnerHostCapacityTab.swift */,
+				D3F1497910C2DE7F04BA5528 /* RunnerHostDetailView.swift */,
+				19C60393B474CFC92B46386C /* RunnerHostIdentityTab.swift */,
+				E0C6C10DE353C0ED6E2E85DF /* RunnerHostOverviewJobsSection.swift */,
+				E53A873988FE80AD4424FE13 /* RunnerHostOverviewPoolsSection.swift */,
+				B96EF490DB110369883A43D6 /* RunnerHostOverviewStatusSection.swift */,
+				8586B73ACB03595FB3074B38 /* RunnerHostOverviewTab.swift */,
+				496FD50DEB793E0F91A70DA4 /* RunnerHostSettingsTab.swift */,
 				D02391823A10B16B12627E6C /* RunnerHostStatusBar.swift */,
 				8F9A6D7A71C8A071AB76AE2C /* RunnerImagePreparationStatusView.swift */,
 				080B7568EE5A517F8CC343FE /* RunnerJobRow.swift */,
@@ -1130,6 +1168,7 @@
 				A2B6587D59B9EFA18E51A3F3 /* ImagesViewModelTests.swift */,
 				7B6FDB677AE01E62877A17AC /* K8sModelsTests.swift */,
 				F0647CCB67160C2509345B5E /* MachineModelTests.swift */,
+				E5758E839E4363E54EEECD99 /* RunnerHostJobSummaryTests.swift */,
 				62D737D532B4BB4169914591 /* RunnerJobListItemTests.swift */,
 				DA8937BC21E9813E2F8AA7F2 /* RunnerPlatformStoreTests.swift */,
 				E902A97C32D4034C22684BBD /* RunnersViewModelTests.swift */,
@@ -1361,8 +1400,10 @@
 				4B14BB17843A552B8D1B51BA /* ExternalTerminalDiscovery.swift in Sources */,
 				97E56AA0BEC7024FEBBE1B75 /* ExternalTerminalLauncher.swift in Sources */,
 				DAA8D86963F68C3BE402619B /* FleetAgentConnection.swift in Sources */,
+				45BB87866AFBADAF6F07CA76 /* FleetBackend+DisplayName.swift in Sources */,
 				E9DA27A7255C72A3FE6E5599 /* FleetControlServicing.swift in Sources */,
 				0E1E08820992C2853A6F23F3 /* FleetEnrollmentCoordinator.swift in Sources */,
+				975051DCB1D5B9738AEF3661 /* FleetMachineStatus+DisplayName.swift in Sources */,
 				C38303D18080C9AED2BD8D20 /* FleetRunnerImageReadiness.swift in Sources */,
 				C1CEE635A115E843DF66A65B /* FleetSettingsView.swift in Sources */,
 				FF70A2FA2732211E1C4F7297 /* FleetViewModel.swift in Sources */,
@@ -1438,6 +1479,16 @@
 				DAC7224E4BF7F459BB7013CB /* RemoteIconView.swift in Sources */,
 				A2FA1D274C5DADFC199EE437 /* RunnerEmptyState.swift in Sources */,
 				7D6BA204C7E5B022B6267289 /* RunnerHostCapability.swift in Sources */,
+				E809752CD798B29AFF096BD3 /* RunnerHostCapacityTab.swift in Sources */,
+				FF140AF8CD86CF1FD3AAAAAC /* RunnerHostDetailTab.swift in Sources */,
+				1E07B971374B4CE76D32DBC2 /* RunnerHostDetailView.swift in Sources */,
+				D2E52E2552B8D7E96A843632 /* RunnerHostIdentityTab.swift in Sources */,
+				3F06D58F1B4041869FEC4F19 /* RunnerHostJobSummary.swift in Sources */,
+				CF0180F7923FEC8E8C5FE917 /* RunnerHostOverviewJobsSection.swift in Sources */,
+				D8E28DEE224DA7D44727E216 /* RunnerHostOverviewPoolsSection.swift in Sources */,
+				AD65518905804CCB175FD6CA /* RunnerHostOverviewStatusSection.swift in Sources */,
+				7B283BBB6B3C8DA7B650328A /* RunnerHostOverviewTab.swift in Sources */,
+				E8A6AABEC56C79575194CAAF /* RunnerHostSettingsTab.swift in Sources */,
 				3B817A9A7D75BB17FF688B75 /* RunnerHostStatus.swift in Sources */,
 				DC8E940905BADCF4888BEA0A /* RunnerHostStatusBar.swift in Sources */,
 				510B8922C820BE4607F7817B /* RunnerHostViewModel.swift in Sources */,
@@ -1527,6 +1578,7 @@
 				0BCE503CC2BF6C2BEC9DC4EA /* ImagesViewModelTests.swift in Sources */,
 				F40C3E6023452858EEEA893F /* K8sModelsTests.swift in Sources */,
 				CCD9ABC3F69FE5DA233E85EC /* MachineModelTests.swift in Sources */,
+				7B40CC08EA615C5CB027380A /* RunnerHostJobSummaryTests.swift in Sources */,
 				FD81DD803F100451034B3384 /* RunnerJobListItemTests.swift in Sources */,
 				A45901889EB62F97532D443E /* RunnerPlatformStoreTests.swift in Sources */,
 				977BE039C964F896AB613634 /* RunnersViewModelTests.swift in Sources */,
