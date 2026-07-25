@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.30.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.29.1...v1.30.0) (2026-07-25)
+
+### Highlights
+
+**`docker build` is roughly an order of magnitude faster.** A simple cold build
+goes from ~8.1s to ~0.7s and a 12-stage build from ~12.7s to ~1.1s; container
+start drops from ~700ms to ~200ms. Three things got fixed underneath: Docker's
+metadata now lives on a dedicated ext4 volume instead of paying btrfs commit
+costs on every fsync, the guest kernel ships a tick rate and preemption model
+suited to container churn, and the container runtime binaries are exec'd from a
+read-only block image instead of over the host filesystem share.
+
+> [!IMPORTANT]
+> **First launch migrates your Docker metadata** to the new volume, keeping the
+> originals alongside it as `*.pre-ext4` directories. This is one-way: if you
+> later downgrade to an older ArcBox, Docker will start with an empty state
+> (images and containers appear to be gone). They are not deleted — restoring
+> the `*.pre-ext4` directories brings back the state as of the upgrade.
+
+
+
+### Features
+
+* **updater:** default new installs to auto-download and install updates ([5b9b0de](https://github.com/arcboxlabs/arcbox-desktop/commit/5b9b0de7f36241681ac1ae6871514def0abcc1eb))
+
+
+### Bug Fixes
+
+* **ui:** stop NavigationSplitView content column collapsing to vertical text ([6823c1e](https://github.com/arcboxlabs/arcbox-desktop/commit/6823c1ec63547fea47daa0dc0b2fcf3a052e97a4))
+
+
+### Refactoring
+
+* **updater:** replace Combine KVO bridge with Foundation observe ([d070db4](https://github.com/arcboxlabs/arcbox-desktop/commit/d070db411491c1e913f4ac7ffc33c8fbd126de6a))
+
+
+### Miscellaneous
+
+* bump arcbox version to v0.5.3 ([#327](https://github.com/arcboxlabs/arcbox-desktop/issues/327)) ([6f8d9c4](https://github.com/arcboxlabs/arcbox-desktop/commit/6f8d9c4cc93596876481a2b75eeeea3a166635f7))
+
 ## [1.29.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.29.0...v1.29.1) (2026-07-21)
 
 
