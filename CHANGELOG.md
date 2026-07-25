@@ -2,6 +2,24 @@
 
 ## [1.30.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.29.1...v1.30.0) (2026-07-25)
 
+### Highlights
+
+**`docker build` is roughly an order of magnitude faster.** A simple cold build
+goes from ~8.1s to ~0.7s and a 12-stage build from ~12.7s to ~1.1s; container
+start drops from ~700ms to ~200ms. Three things got fixed underneath: Docker's
+metadata now lives on a dedicated ext4 volume instead of paying btrfs commit
+costs on every fsync, the guest kernel ships a tick rate and preemption model
+suited to container churn, and the container runtime binaries are exec'd from a
+read-only block image instead of over the host filesystem share.
+
+> [!IMPORTANT]
+> **First launch migrates your Docker metadata** to the new volume, keeping the
+> originals alongside it as `*.pre-ext4` directories. This is one-way: if you
+> later downgrade to an older ArcBox, Docker will start with an empty state
+> (images and containers appear to be gone). They are not deleted — restoring
+> the `*.pre-ext4` directories brings back the state as of the upgrade.
+
+
 
 ### Features
 
