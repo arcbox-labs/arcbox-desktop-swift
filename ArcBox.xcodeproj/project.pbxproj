@@ -102,6 +102,7 @@
 		7F091F3F3F75F500937DC7BC /* ImageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD8BD8A4B6EEE9722D54739D /* ImageModel.swift */; };
 		801AAF363A7901B7D17F5C55 /* AccountSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA5247E3096D7A9D54A270A /* AccountSettingsView.swift */; };
 		807479D85C38FEE5E53218DD /* LocalRootFSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85321B230A582D1C0AF76B5C /* LocalRootFSService.swift */; };
+		8127661373B4B0D6B1423F67 /* LayeredRootFSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3029D85CCC770F8C1801A392 /* LayeredRootFSTests.swift */; };
 		82ECF33C9637C7C65B527336 /* ArcBoxClient in Frameworks */ = {isa = PBXBuildFile; productRef = CFE468A82BAC1B4D9AE25368 /* ArcBoxClient */; };
 		8466B000B68A87CEECA6756F /* DockerEventMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06DFFB59D72F27F14A233B81 /* DockerEventMonitorTests.swift */; };
 		84DDB437165AE31AD63C30F9 /* MenuBarView+Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECF57E2C2B0281B8CEA6132C /* MenuBarView+Metrics.swift */; };
@@ -203,6 +204,7 @@
 		F035F2D21380F9DD531E6B04 /* LocalRootFSOutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9EDD0CCB1C4698A31FC1ED1 /* LocalRootFSOutlineView.swift */; };
 		F07FF6E8891692D4D8807F3A /* LocalRootFSOutlineModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE6C627A5BC34C783DAEAC31 /* LocalRootFSOutlineModels.swift */; };
 		F0B6CC9DB9992CE44F2A7F70 /* AppViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F707491EC9A47AE534822664 /* AppViewModel.swift */; };
+		F0B924B312EABA596C870505 /* LayeredRootFS.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33250D1306B30B4E3D4C9B0E /* LayeredRootFS.swift */; };
 		F319F8722F145CCFA01650B6 /* GeneralSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F60CF8B8E81089BA2E8DC20 /* GeneralSettingsView.swift */; };
 		F40C3E6023452858EEEA893F /* K8sModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6FDB677AE01E62877A17AC /* K8sModelsTests.swift */; };
 		F5350A9E11B4C65AAE8BD569 /* ServiceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13203BD67479A8191C1A3BD6 /* ServiceModel.swift */; };
@@ -273,9 +275,11 @@
 		2D053B8542825698996A16FE /* ArcBoxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ArcBoxTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2E3E6C9D6EBE0D9358FB396A /* TemplateEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateEmptyState.swift; sourceTree = "<group>"; };
 		2E8FB9C9E3349126EF773522 /* DaemonLoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonLoadingView.swift; sourceTree = "<group>"; };
+		3029D85CCC770F8C1801A392 /* LayeredRootFSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayeredRootFSTests.swift; sourceTree = "<group>"; };
 		312B3A0CBD47EB616127BBE5 /* TerminalSessionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionBridge.swift; sourceTree = "<group>"; };
 		32115BE04C97CECA9C05A273 /* StartupProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupProgressView.swift; sourceTree = "<group>"; };
 		32C86546753C11A9E6CA8CB8 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
+		33250D1306B30B4E3D4C9B0E /* LayeredRootFS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayeredRootFS.swift; sourceTree = "<group>"; };
 		3DAC9EE4F067CB69F022C1E0 /* ActivityViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityViewModel.swift; sourceTree = "<group>"; };
 		3E30F5FC430804013B58C6F1 /* com.arcboxlabs.desktop.daemon.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = com.arcboxlabs.desktop.daemon.plist; sourceTree = "<group>"; };
 		3ED1683EF0A3490B8B7B5CF6 /* InfoTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoTableView.swift; sourceTree = "<group>"; };
@@ -786,6 +790,7 @@
 			children = (
 				83FBE0C82E0EB430C69EB944 /* GuestDataMount.swift */,
 				6218E84D6C2A8595FE308B5E /* ImageLayerChain.swift */,
+				33250D1306B30B4E3D4C9B0E /* LayeredRootFS.swift */,
 				85321B230A582D1C0AF76B5C /* LocalRootFSService.swift */,
 				7058C8975F3F2684714E24E2 /* SleepWakeManager.swift */,
 			);
@@ -1027,6 +1032,7 @@
 				C964312D5336EE55A8E4680B /* ImageLayerChainTests.swift */,
 				A2B6587D59B9EFA18E51A3F3 /* ImagesViewModelTests.swift */,
 				7B6FDB677AE01E62877A17AC /* K8sModelsTests.swift */,
+				3029D85CCC770F8C1801A392 /* LayeredRootFSTests.swift */,
 				F0647CCB67160C2509345B5E /* MachineModelTests.swift */,
 			);
 			path = ArcBoxTests;
@@ -1269,6 +1275,7 @@
 				9D6E13499CA3B4666836F0F1 /* InfoRow.swift in Sources */,
 				C8C56406446AE0906E11100C /* InfoTableView.swift in Sources */,
 				977632E34C7EC1E3FEEAA25E /* KubernetesState.swift in Sources */,
+				F0B924B312EABA596C870505 /* LayeredRootFS.swift in Sources */,
 				248D76E4E5597E56F48DA0F3 /* ListResizeHandle.swift in Sources */,
 				1CA50DB029E0C7A18CAF87A2 /* LocalRootFSOutlineCoordinator+Actions.swift in Sources */,
 				FFAB94A328F83148EC0ED794 /* LocalRootFSOutlineCoordinator+Columns.swift in Sources */,
@@ -1393,6 +1400,7 @@
 				8BBBA54130403D89D35986F7 /* ImageLayerChainTests.swift in Sources */,
 				0BCE503CC2BF6C2BEC9DC4EA /* ImagesViewModelTests.swift in Sources */,
 				F40C3E6023452858EEEA893F /* K8sModelsTests.swift in Sources */,
+				8127661373B4B0D6B1423F67 /* LayeredRootFSTests.swift in Sources */,
 				CCD9ABC3F69FE5DA233E85EC /* MachineModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

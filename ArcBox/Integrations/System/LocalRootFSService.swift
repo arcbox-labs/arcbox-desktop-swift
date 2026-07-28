@@ -59,8 +59,18 @@ nonisolated struct LocalRootFSService {
         .fileSizeKey,
         .contentModificationDateKey,
         .localizedTypeDescriptionKey,
+        .fileResourceTypeKey,
         .nameKey,
     ]
+
+    /// One directory entry as read from a single layer, carrying the overlay
+    /// bookkeeping that [`LayeredRootFS`] needs but a plain listing does not.
+    struct LayerItem {
+        let entry: LocalFileEntry
+        /// Overlayfs marks a file deleted in an upper layer with a character
+        /// device of rdev 0:0 under the deleted name.
+        let isWhiteout: Bool
+    }
 
     static func resolveRootURL(path: String?) throws -> URL {
         guard let rawPath = path?.trimmingCharacters(in: .whitespacesAndNewlines), !rawPath.isEmpty else {
@@ -80,9 +90,15 @@ nonisolated struct LocalRootFSService {
     }
 
     static func listDirectory(at directoryURL: URL, showHiddenFiles: Bool) throws -> [LocalFileEntry] {
+        try listLayerItems(at: directoryURL, showHiddenFiles: showHiddenFiles).map(\.entry)
+    }
+
+    /// Lists a directory keeping the overlay whiteout marker, so a layered
+    /// browse can hide both the marker and whatever it deletes underneath.
+    static func listLayerItems(at directoryURL: URL, showHiddenFiles: Bool) throws -> [LayerItem] {
         var coordinatorError: NSError?
         var capturedError: Error?
-        var entries: [LocalFileEntry] = []
+        var entries: [LayerItem] = []
 
         let coordinator = NSFileCoordinator(filePresenter: nil)
         coordinator.coordinate(readingItemAt: directoryURL, options: .withoutChanges, error: &coordinatorError) {
@@ -114,7 +130,7 @@ nonisolated struct LocalRootFSService {
                         kind = values.localizedTypeDescription ?? "Document"
                     }
 
-                    return LocalFileEntry(
+                    let entry = LocalFileEntry(
                         url: entryURL,
                         name: values.name ?? entryURL.lastPathComponent,
                         isDirectory: isDirectory,
@@ -126,9 +142,13 @@ nonisolated struct LocalRootFSService {
                         children: nil,
                         loadError: nil
                     )
+                    return LayerItem(
+                        entry: entry,
+                        isWhiteout: values.fileResourceType == .characterSpecial
+                    )
                 }
                 .sorted {
-                    $0.name.localizedStandardCompare($1.name) == .orderedAscending
+                    $0.entry.name.localizedStandardCompare($1.entry.name) == .orderedAscending
                 }
             } catch {
                 capturedError = error

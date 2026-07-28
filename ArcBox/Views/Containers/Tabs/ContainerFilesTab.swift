@@ -11,6 +11,7 @@ struct ContainerFilesTab: View {
 
     @State private var selectedPath: String?
     @State private var rootURL: URL?
+    @State private var layers: LayeredRootFS?
     @State private var errorMessage: String?
     @State private var isLoadingRoot = false
     @State private var refreshToken = UUID()
@@ -52,6 +53,13 @@ struct ContainerFilesTab: View {
                 .foregroundStyle(AppColors.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+
+            if let layers, layers.isComposed {
+                Text("merged from \(layers.layers.count) layers")
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppColors.textMuted)
+                    .fixedSize()
+            }
 
             Spacer()
 
@@ -100,6 +108,7 @@ struct ContainerFilesTab: View {
         } else if let rootURL {
             LocalRootFSOutlineView(
                 rootURL: rootURL,
+                layers: layers,
                 showHiddenFiles: showHiddenFiles,
                 reloadID: outlineReloadID,
                 selectedPath: $selectedPath,
@@ -128,9 +137,8 @@ struct ContainerFilesTab: View {
                 .padding(.horizontal, 20)
 
             Text(
-                "Container filesystems are browsed through the read-only ~/ArcBox export. "
-                    + "The view shows the container's own writable layer; "
-                    + "image layers stay in their own snapshots."
+                "Container filesystems are browsed through the read-only ~/ArcBox export, "
+                    + "merging the container's writable layer over the image layers below it."
             )
             .font(.system(size: 12))
             .foregroundStyle(AppColors.textMuted)
@@ -155,22 +163,24 @@ struct ContainerFilesTab: View {
         errorMessage = nil
         isLoadingRoot = true
         selectedPath = nil
+        layers = nil
 
-        // Inspect-provided path (classic graph drivers), else ask the daemon
-        // to resolve the container's snapshot layers (containerd image store,
-        // where inspect carries no GraphDriver paths).
-        var guestPath = container.resolvedRootFSMountPath
-        if guestPath == nil {
-            guestPath = await resolveViaDaemon()
+        // Inspect-provided path (classic graph drivers) is already a merged
+        // rootfs; under the containerd image store inspect carries no paths,
+        // so the daemon resolves the layer stack and the tab merges it.
+        var guestPaths: [String] = []
+        if let mountPath = container.resolvedRootFSMountPath {
+            guestPaths = [mountPath]
+        } else {
+            guestPaths = await resolveViaDaemon()
         }
 
-        // The resolved path is a guest path; browse it through the ~/ArcBox export.
-        guard let guestPath,
-            let hostURL = GuestDataMount.hostURL(forGuestPath: guestPath)
-        else {
+        // The resolved paths are guest paths; browse them through ~/ArcBox.
+        let hostURLs = guestPaths.compactMap(GuestDataMount.hostURL(forGuestPath:))
+        guard let rootHostURL = hostURLs.first else {
             rootURL = nil
             errorMessage =
-                guestPath == nil
+                guestPaths.isEmpty
                 ? "Container has no resolvable filesystem path."
                 : "Container filesystem path is outside the guest data root."
             isLoadingRoot = false
@@ -178,7 +188,13 @@ struct ContainerFilesTab: View {
         }
 
         do {
-            rootURL = try LocalRootFSService.resolveRootURL(path: hostURL.path)
+            rootURL = try LocalRootFSService.resolveRootURL(path: rootHostURL.path)
+            // Layers the export cannot currently serve would merge as empty
+            // and silently hide content, so compose only what is readable.
+            let readable = hostURLs.filter {
+                (try? LocalRootFSService.resolveRootURL(path: $0.path)) != nil
+            }
+            layers = readable.count > 1 ? LayeredRootFS(layers: readable) : nil
         } catch {
             rootURL = nil
             errorMessage = GuestDataMount.unavailableMessage(subject: "This container's filesystem")
@@ -187,24 +203,29 @@ struct ContainerFilesTab: View {
         isLoadingRoot = false
     }
 
-    /// Resolves the container's writable snapshot layer via the daemon.
+    /// Resolves the container's snapshot layer stack via the daemon.
     ///
     /// Under the containerd image store the layer directories live in
     /// containerd's snapshotter, so the daemon queries the guest and returns
-    /// guest paths; the writable (upper) layer holds everything the container
-    /// itself wrote.
-    private func resolveViaDaemon() async -> String? {
-        guard let arcboxClient else { return nil }
+    /// guest paths: the writable (upper) layer the container wrote, followed
+    /// by the image layers below it — overlay precedence order.
+    private func resolveViaDaemon() async -> [String] {
+        guard let arcboxClient else { return [] }
         var request = Arcbox_V1_ResolveContainerFsRequest()
         request.containerID = container.id
         do {
             let response = try await arcboxClient.system.resolveContainerFs(
                 request, options: ArcBoxClient.defaultCallOptions)
-            return response.upperDir.isEmpty ? nil : response.upperDir
+            var paths: [String] = []
+            if !response.upperDir.isEmpty {
+                paths.append(response.upperDir)
+            }
+            paths.append(contentsOf: response.lowerDirs.filter { !$0.isEmpty })
+            return paths
         } catch {
             Log.daemon.error(
                 "Failed to resolve container fs: \(error.localizedDescription, privacy: .private)")
-            return nil
+            return []
         }
     }
 

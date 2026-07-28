@@ -2,6 +2,9 @@ import SwiftUI
 
 struct LocalRootFSOutlineView: NSViewRepresentable {
     let rootURL: URL
+    /// Layer stack to merge while browsing. `nil` browses `rootURL` alone —
+    /// the plain single-directory case (volumes, machines, sandboxes).
+    var layers: LayeredRootFS?
     let showHiddenFiles: Bool
     let reloadID: String
     @Binding var selectedPath: String?
