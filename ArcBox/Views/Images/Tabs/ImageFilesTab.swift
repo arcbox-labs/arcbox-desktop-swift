@@ -29,6 +29,7 @@ struct ImageFilesTab: View {
 
     @State private var selectedPath: String?
     @State private var rootURL: URL?
+    @State private var layers: LayeredRootFS?
     @State private var resolvedRootFSMountPath: String?
     @State private var errorMessage: String?
     @State private var isLoadingRoot = false
@@ -123,6 +124,7 @@ struct ImageFilesTab: View {
         } else if let rootURL {
             LocalRootFSOutlineView(
                 rootURL: rootURL,
+                layers: layers,
                 showHiddenFiles: showHiddenFiles,
                 reloadID: outlineReloadID,
                 selectedPath: $selectedPath,
@@ -175,17 +177,25 @@ struct ImageFilesTab: View {
         isLoadingRoot = true
         selectedPath = nil
         rootURL = nil
+        layers = nil
 
         do {
-            // The layer directory is a guest path; browse it via ~/ArcBox.
-            let mountPoint = try await resolveImageRootFSMountPath()
-            resolvedRootFSMountPath = mountPoint
-            guard let hostURL = GuestDataMount.hostURL(forGuestPath: mountPoint) else {
+            // The layer directories are guest paths; browse them via ~/ArcBox.
+            let mountPoints = try await resolveImageLayerPaths()
+            resolvedRootFSMountPath = mountPoints.first
+            let hostURLs = mountPoints.compactMap(GuestDataMount.hostURL(forGuestPath:))
+            guard let rootHostURL = hostURLs.first else {
                 errorMessage = "Image layer path is outside the guest data root."
                 isLoadingRoot = false
                 return
             }
-            rootURL = try LocalRootFSService.resolveRootURL(path: hostURL.path)
+            rootURL = try LocalRootFSService.resolveRootURL(path: rootHostURL.path)
+            // Layers the export cannot currently serve would merge as empty
+            // and silently hide content, so compose only what is readable.
+            let readable = hostURLs.filter {
+                (try? LocalRootFSService.resolveRootURL(path: $0.path)) != nil
+            }
+            layers = readable.count > 1 ? LayeredRootFS(layers: readable) : nil
         } catch let error as ImageFilesTabError {
             resolvedRootFSMountPath = nil
             errorMessage = error.localizedDescription
@@ -196,7 +206,7 @@ struct ImageFilesTab: View {
         isLoadingRoot = false
     }
 
-    private func resolveImageRootFSMountPath() async throws -> String {
+    private func resolveImageLayerPaths() async throws -> [String] {
         guard let docker else {
             throw ImageFilesTabError.dockerUnavailable
         }
@@ -207,13 +217,14 @@ struct ImageFilesTab: View {
                 explicitPath: snapshot.rootfsMountPath,
                 labels: snapshot.labels
             ) {
-                return resolvedPath
+                return [resolvedPath]
             }
             // Containerd image store: inspect carries no layer paths; ask
-            // the daemon to resolve the layer chain and browse the top
-            // layer's directory.
-            if let resolvedPath = await resolveViaDaemon(diffIDs: snapshot.rootfsLayers) {
-                return resolvedPath
+            // the daemon to resolve the layer chain, then merge the layers
+            // into the filesystem the image would present when run.
+            let resolved = await resolveViaDaemon(diffIDs: snapshot.rootfsLayers)
+            if !resolved.isEmpty {
+                return resolved
             }
             throw ImageFilesTabError.missingRootPath
         } catch let error as ImageFilesTabError {
@@ -223,22 +234,23 @@ struct ImageFilesTab: View {
         }
     }
 
-    /// Resolves the image's top layer directory via the daemon, keyed by
-    /// the layer chain ID computed from the inspect diff IDs.
-    private func resolveViaDaemon(diffIDs: [String]) async -> String? {
+    /// Resolves the image's layer directories via the daemon, keyed by the
+    /// layer chain ID computed from the inspect diff IDs. The daemon returns
+    /// them in overlay precedence order, topmost layer first.
+    private func resolveViaDaemon(diffIDs: [String]) async -> [String] {
         guard let arcboxClient,
             let topChainID = ImageLayerChain.topChainID(diffIDs: diffIDs)
-        else { return nil }
+        else { return [] }
         var request = Arcbox_V1_ResolveImageFsRequest()
         request.topChainID = topChainID
         do {
             let response = try await arcboxClient.system.resolveImageFs(
                 request, options: ArcBoxClient.defaultCallOptions)
-            return response.lowerDirs.first
+            return response.lowerDirs.filter { !$0.isEmpty }
         } catch {
             Log.daemon.error(
                 "Failed to resolve image fs: \(error.localizedDescription, privacy: .private)")
-            return nil
+            return []
         }
     }
 
