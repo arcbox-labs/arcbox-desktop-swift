@@ -13,6 +13,7 @@ struct ContainerFilesTab: View {
     @State private var rootURL: URL?
     @State private var layers: LayeredRootFS?
     @State private var unavailableLayerCount = 0
+    @State private var totalLayerCount = 0
     @State private var errorMessage: String?
     @State private var isLoadingRoot = false
     @State private var refreshToken = UUID()
@@ -57,7 +58,7 @@ struct ContainerFilesTab: View {
 
             if let layers, layers.isComposed {
                 LayerMergeBadge(
-                    total: layers.layers.count,
+                    total: max(totalLayerCount, layers.layers.count),
                     unavailable: unavailableLayerCount
                 )
             }
@@ -115,6 +116,11 @@ struct ContainerFilesTab: View {
                 selectedPath: $selectedPath,
                 onOpenURL: { url in
                     _ = NSWorkspace.shared.open(url)
+                },
+                onUnreadableLayers: { count in
+                    // Keep the worst seen: a layer that fails once has already
+                    // left holes in what the user browsed.
+                    unavailableLayerCount = max(unavailableLayerCount, count)
                 }
             )
         } else {
@@ -165,6 +171,8 @@ struct ContainerFilesTab: View {
         isLoadingRoot = true
         selectedPath = nil
         layers = nil
+        unavailableLayerCount = 0
+        totalLayerCount = 0
 
         // Inspect-provided path (classic graph drivers) is already a merged
         // rootfs; under the containerd image store inspect carries no paths,
@@ -177,7 +185,12 @@ struct ContainerFilesTab: View {
         }
 
         // The resolved paths are guest paths; browse them through ~/ArcBox.
+        // A layer whose path falls outside the exported roots cannot be
+        // browsed at all, so it counts against the view's completeness rather
+        // than quietly shrinking the stack.
         let hostURLs = guestPaths.compactMap(GuestDataMount.hostURL(forGuestPath:))
+        totalLayerCount = guestPaths.count
+        let unmappableCount = guestPaths.count - hostURLs.count
         guard let rootHostURL = hostURLs.first else {
             rootURL = nil
             errorMessage =
@@ -194,8 +207,11 @@ struct ContainerFilesTab: View {
             // A layer the export cannot currently serve merges as empty, so
             // the view would be quietly incomplete; count them and say so
             // rather than passing a partial filesystem off as the whole one.
+            // Listings report further failures as they happen (a layer can
+            // die after this check), and the badge keeps the worst seen.
             unavailableLayerCount =
-                hostURLs.filter {
+                unmappableCount
+                + hostURLs.filter {
                     (try? LocalRootFSService.resolveRootURL(path: $0.path)) == nil
                 }.count
         } catch {

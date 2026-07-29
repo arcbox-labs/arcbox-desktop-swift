@@ -27,18 +27,41 @@ nonisolated struct LayeredRootFS {
     /// Whether composing is worth it at all: one layer merges to itself.
     var isComposed: Bool { layers.count > 1 }
 
+    /// The merged contents of one directory, plus how much of the stack the
+    /// merge could not actually read.
+    struct Listing {
+        let entries: [LocalFileEntry]
+        /// Layers that hold the path but failed to list it. Their files,
+        /// precedence and whiteouts are missing from `entries`, so a caller
+        /// showing this listing must be able to say it is incomplete.
+        let unreadableLayers: Int
+    }
+
     /// Lists the merged contents of a directory given relative to the stack
-    /// root. Layers that lack the directory contribute nothing; a layer that
-    /// cannot be read is skipped rather than failing the whole listing, so a
-    /// partially available export still browses.
-    func listDirectory(relativePath: String, showHiddenFiles: Bool) -> [LocalFileEntry] {
-        let listings = layers.map { layer -> [LocalRootFSService.LayerItem] in
+    /// root. A layer that cannot be read is skipped rather than failing the
+    /// whole listing, so a partially available export still browses — but the
+    /// skip is counted rather than hidden.
+    func listDirectory(relativePath: String, showHiddenFiles: Bool) -> Listing {
+        var listings: [[LocalRootFSService.LayerItem]] = []
+        var unreadable = 0
+
+        for layer in layers {
             let directory = Self.resolve(relativePath, in: layer)
-            return
-                (try? LocalRootFSService.listLayerItems(
-                    at: directory, showHiddenFiles: showHiddenFiles)) ?? []
+            do {
+                listings.append(
+                    try LocalRootFSService.listLayerItems(
+                        at: directory, showHiddenFiles: showHiddenFiles))
+            } catch {
+                // Most layers carry most paths not at all, which is normal and
+                // contributes nothing; a path that exists but will not open is
+                // a real gap in the merge.
+                if FileManager.default.fileExists(atPath: directory.path) {
+                    unreadable += 1
+                }
+            }
         }
-        return Self.merge(listings)
+
+        return Listing(entries: Self.merge(listings), unreadableLayers: unreadable)
     }
 
     /// Maps a host URL that came out of [`listDirectory`] back to its path

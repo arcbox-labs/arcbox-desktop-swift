@@ -14,8 +14,11 @@ extension LocalRootFSOutlineCoordinator {
 
         DispatchQueue.global(qos: .userInitiated).async {
             let entries: [LocalFileEntry]
+            var unreadableLayers = 0
             if let layers {
-                entries = layers.listDirectory(relativePath: "", showHiddenFiles: showHidden)
+                let listing = layers.listDirectory(relativePath: "", showHiddenFiles: showHidden)
+                entries = listing.entries
+                unreadableLayers = listing.unreadableLayers
             } else {
                 entries =
                     (try? FileSystemService.listDirectory(
@@ -24,6 +27,7 @@ extension LocalRootFSOutlineCoordinator {
 
             DispatchQueue.main.async {
                 guard currentGeneration == self.generation else { return }
+                self.parent.onUnreadableLayers?(unreadableLayers)
                 self.rootNodes = entries.map { LocalFileNode(entry: $0, parent: nil) }
                 self.outlineView?.reloadData()
                 self.adjustColumnWidths(force: true)
@@ -45,12 +49,15 @@ extension LocalRootFSOutlineCoordinator {
 
         DispatchQueue.global(qos: .userInitiated).async {
             let children: [LocalFileEntry]
+            var unreadableLayers = 0
             // The node carries the URL of whichever layer won it, so re-derive
             // its path relative to the stack: the merged children can come
             // from layers this node's own directory does not exist in.
             if let layers, let relativePath = layers.relativePath(forHostURL: url) {
-                children = layers.listDirectory(
+                let listing = layers.listDirectory(
                     relativePath: relativePath, showHiddenFiles: showHidden)
+                children = listing.entries
+                unreadableLayers = listing.unreadableLayers
             } else {
                 children =
                     (try? FileSystemService.listDirectory(at: url, showHiddenFiles: showHidden))
@@ -59,6 +66,7 @@ extension LocalRootFSOutlineCoordinator {
 
             DispatchQueue.main.async {
                 guard currentGeneration == self.generation else { return }
+                self.parent.onUnreadableLayers?(unreadableLayers)
                 node.isLoading = false
                 node.children = children.map { LocalFileNode(entry: $0, parent: node) }
                 self.outlineView?.reloadItem(node, reloadChildren: true)

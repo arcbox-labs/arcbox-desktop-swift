@@ -9,6 +9,10 @@ struct LocalRootFSOutlineView: NSViewRepresentable {
     let reloadID: String
     @Binding var selectedPath: String?
     let onOpenURL: (URL) -> Void
+    /// Reports, per listing, how many layers held the directory but could not
+    /// be read — a layer that dies after the tab loaded shows up here and
+    /// nowhere else, so the caller can keep its "incomplete" warning honest.
+    var onUnreadableLayers: ((Int) -> Void)?
 
     func makeCoordinator() -> LocalRootFSOutlineCoordinator {
         LocalRootFSOutlineCoordinator(parent: self)
