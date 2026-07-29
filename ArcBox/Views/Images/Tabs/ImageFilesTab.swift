@@ -30,6 +30,7 @@ struct ImageFilesTab: View {
     @State private var selectedPath: String?
     @State private var rootURL: URL?
     @State private var layers: LayeredRootFS?
+    @State private var unavailableLayerCount = 0
     @State private var resolvedRootFSMountPath: String?
     @State private var errorMessage: String?
     @State private var isLoadingRoot = false
@@ -76,6 +77,13 @@ struct ImageFilesTab: View {
                 .foregroundStyle(AppColors.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+
+            if let layers, layers.isComposed {
+                LayerMergeBadge(
+                    total: layers.layers.count,
+                    unavailable: unavailableLayerCount
+                )
+            }
 
             Spacer()
 
@@ -190,12 +198,14 @@ struct ImageFilesTab: View {
                 return
             }
             rootURL = try LocalRootFSService.resolveRootURL(path: rootHostURL.path)
-            // Layers the export cannot currently serve would merge as empty
-            // and silently hide content, so compose only what is readable.
-            let readable = hostURLs.filter {
-                (try? LocalRootFSService.resolveRootURL(path: $0.path)) != nil
-            }
-            layers = readable.count > 1 ? LayeredRootFS(layers: readable) : nil
+            layers = hostURLs.count > 1 ? LayeredRootFS(layers: hostURLs) : nil
+            // A layer the export cannot currently serve merges as empty, so
+            // the view would be quietly incomplete; count them and say so
+            // rather than passing a partial filesystem off as the whole one.
+            unavailableLayerCount =
+                hostURLs.filter {
+                    (try? LocalRootFSService.resolveRootURL(path: $0.path)) == nil
+                }.count
         } catch let error as ImageFilesTabError {
             resolvedRootFSMountPath = nil
             errorMessage = error.localizedDescription

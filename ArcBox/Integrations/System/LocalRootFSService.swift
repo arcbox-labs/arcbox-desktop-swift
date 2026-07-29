@@ -72,6 +72,21 @@ nonisolated struct LocalRootFSService {
         let isWhiteout: Bool
     }
 
+    /// Whether an entry is an overlay whiteout — a character device of
+    /// rdev 0:0 standing in for a name deleted in a lower layer.
+    ///
+    /// The device number is what separates bookkeeping from content: layers
+    /// legitimately carry character devices (an image shipping `/dev/null`,
+    /// a privileged container's own nodes), and classifying those as
+    /// deletions would hide both the device and whatever it shadows below.
+    /// Only character devices are stat'd, so the common entry pays nothing.
+    static func isWhiteout(_ url: URL, resourceType: URLFileResourceType?) -> Bool {
+        guard resourceType == .characterSpecial else { return false }
+        var status = stat()
+        guard lstat(url.path, &status) == 0 else { return false }
+        return status.st_rdev == 0
+    }
+
     static func resolveRootURL(path: String?) throws -> URL {
         guard let rawPath = path?.trimmingCharacters(in: .whitespacesAndNewlines), !rawPath.isEmpty else {
             throw RootFSError.missingRootPath
@@ -144,7 +159,7 @@ nonisolated struct LocalRootFSService {
                     )
                     return LayerItem(
                         entry: entry,
-                        isWhiteout: values.fileResourceType == .characterSpecial
+                        isWhiteout: isWhiteout(entryURL, resourceType: values.fileResourceType)
                     )
                 }
                 .sorted {

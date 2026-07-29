@@ -80,12 +80,12 @@ final class LayeredRootFSTests: XCTestCase {
 
     // MARK: relative path mapping
 
-    func testRelativePathResolvesAcrossLayers() {
-        let stack = LayeredRootFS(layers: [
-            URL(fileURLWithPath: "/mnt/upper"),
-            URL(fileURLWithPath: "/mnt/lower"),
-        ])
-        let unwrapped = try! XCTUnwrap(stack)
+    func testRelativePathResolvesAcrossLayers() throws {
+        let unwrapped = try XCTUnwrap(
+            LayeredRootFS(layers: [
+                URL(fileURLWithPath: "/mnt/upper"),
+                URL(fileURLWithPath: "/mnt/lower"),
+            ]))
 
         XCTAssertEqual(unwrapped.relativePath(forHostURL: URL(fileURLWithPath: "/mnt/upper")), "")
         XCTAssertEqual(
@@ -96,11 +96,11 @@ final class LayeredRootFSTests: XCTestCase {
         XCTAssertNil(unwrapped.relativePath(forHostURL: URL(fileURLWithPath: "/elsewhere/etc")))
     }
 
-    func testRelativePathDoesNotMatchSiblingPrefix() {
+    func testRelativePathDoesNotMatchSiblingPrefix() throws {
         // "/mnt/upper-backup" shares a string prefix with "/mnt/upper" but is
         // a different directory; treating it as layer content would browse
         // the wrong tree.
-        let stack = try! XCTUnwrap(LayeredRootFS(layers: [URL(fileURLWithPath: "/mnt/upper")]))
+        let stack = try XCTUnwrap(LayeredRootFS(layers: [URL(fileURLWithPath: "/mnt/upper")]))
 
         XCTAssertNil(
             stack.relativePath(forHostURL: URL(fileURLWithPath: "/mnt/upper-backup/etc")))
@@ -110,8 +110,8 @@ final class LayeredRootFSTests: XCTestCase {
         XCTAssertNil(LayeredRootFS(layers: []))
     }
 
-    func testSingleLayerIsNotComposed() {
-        let stack = try! XCTUnwrap(LayeredRootFS(layers: [URL(fileURLWithPath: "/mnt/only")]))
+    func testSingleLayerIsNotComposed() throws {
+        let stack = try XCTUnwrap(LayeredRootFS(layers: [URL(fileURLWithPath: "/mnt/only")]))
         XCTAssertFalse(stack.isComposed)
     }
 
@@ -165,5 +165,31 @@ final class LayeredRootFSTests: XCTestCase {
             stack.listDirectory(relativePath: "opt", showHiddenFiles: false).map(\.name),
             ["tool"]
         )
+    }
+
+    // MARK: whiteout classification
+
+    func testRealCharacterDeviceIsNotAWhiteout() throws {
+        // Overlay whiteouts are character devices of rdev 0:0. Layers also
+        // carry legitimate character devices (an image shipping /dev/null,
+        // a privileged container's nodes); classifying those as deletions
+        // would hide both the device and whatever it shadows below.
+        let devices = try LocalRootFSService.listLayerItems(
+            at: URL(fileURLWithPath: "/dev"), showHiddenFiles: true)
+        let null = try XCTUnwrap(devices.first { $0.entry.name == "null" })
+
+        XCTAssertFalse(null.isWhiteout)
+    }
+
+    func testRegularFileIsNotAWhiteout() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try "x".write(to: root.appendingPathComponent("file"), atomically: true, encoding: .utf8)
+
+        let items = try LocalRootFSService.listLayerItems(at: root, showHiddenFiles: false)
+
+        XCTAssertEqual(items.map(\.isWhiteout), [false])
     }
 }
