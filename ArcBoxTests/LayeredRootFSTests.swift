@@ -135,10 +135,11 @@ final class LayeredRootFSTests: XCTestCase {
                 root.appendingPathComponent("upper", isDirectory: true),
                 root.appendingPathComponent("lower", isDirectory: true),
             ]))
-        let merged = stack.listDirectory(relativePath: "etc", showHiddenFiles: false)
+        let listing = stack.listDirectory(relativePath: "etc", showHiddenFiles: false)
 
-        XCTAssertEqual(merged.map(\.name), ["hosts", "resolv.conf"])
-        XCTAssertEqual(try String(contentsOf: merged[0].url, encoding: .utf8), "container")
+        XCTAssertEqual(listing.entries.map(\.name), ["hosts", "resolv.conf"])
+        XCTAssertEqual(try String(contentsOf: listing.entries[0].url, encoding: .utf8), "container")
+        XCTAssertEqual(listing.unreadableLayers, 0)
     }
 
     func testListDirectorySkipsLayersMissingTheDirectory() throws {
@@ -161,10 +162,11 @@ final class LayeredRootFSTests: XCTestCase {
                 root.appendingPathComponent("lower", isDirectory: true),
             ]))
 
-        XCTAssertEqual(
-            stack.listDirectory(relativePath: "opt", showHiddenFiles: false).map(\.name),
-            ["tool"]
-        )
+        let listing = stack.listDirectory(relativePath: "opt", showHiddenFiles: false)
+        XCTAssertEqual(listing.entries.map(\.name), ["tool"])
+        // A layer that simply lacks the path is normal, not a read failure —
+        // counting it would put a permanent warning on every browse.
+        XCTAssertEqual(listing.unreadableLayers, 0)
     }
 
     // MARK: whiteout classification
@@ -191,5 +193,33 @@ final class LayeredRootFSTests: XCTestCase {
         let items = try LocalRootFSService.listLayerItems(at: root, showHiddenFiles: false)
 
         XCTAssertEqual(items.map(\.isWhiteout), [false])
+    }
+
+    func testListDirectoryCountsUnreadableLayers() throws {
+        // A path that exists but will not list (here: a regular file where a
+        // directory is expected) is a real hole in the merge — the caller has
+        // to be able to tell the user the view is incomplete.
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let good = root.appendingPathComponent("good/etc", isDirectory: true)
+        try FileManager.default.createDirectory(at: good, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("broken", isDirectory: true),
+            withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try "x".write(to: good.appendingPathComponent("hosts"), atomically: true, encoding: .utf8)
+        try "not a directory".write(
+            to: root.appendingPathComponent("broken/etc"), atomically: true, encoding: .utf8)
+
+        let stack = try XCTUnwrap(
+            LayeredRootFS(layers: [
+                root.appendingPathComponent("good", isDirectory: true),
+                root.appendingPathComponent("broken", isDirectory: true),
+            ]))
+        let listing = stack.listDirectory(relativePath: "etc", showHiddenFiles: false)
+
+        XCTAssertEqual(listing.entries.map(\.name), ["hosts"])
+        XCTAssertEqual(listing.unreadableLayers, 1)
     }
 }
