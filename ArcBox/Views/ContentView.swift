@@ -1,6 +1,30 @@
 import ArcBoxClient
 import SwiftUI
 
+/// Column geometry for the main window's three-column layout.
+///
+/// The window toolbar reserves one section for the content column — its
+/// navigation title and subtitle plus its `.primaryAction` items — ending at
+/// the split-view tracking separator. AppKit will not compress that section
+/// below its intrinsic width. If the column is allowed to be narrower, the
+/// separator stops following the split divider and the list's toolbar buttons
+/// render over the detail column instead of over the list they act on.
+///
+/// The section's intrinsic width is driven by the item count, not by the title
+/// text (measured identical for a one-character, a 39-character and a CJK
+/// title). On macOS 26: one item 212pt, two items 270pt, three items 316pt.
+/// `contentMin` clears the two-item case the widest list columns ship today.
+///
+/// Adding a third `.primaryAction` item to any list column would exceed
+/// `contentMin` — raise it alongside, and let
+/// `ContentViewColumnLayoutTests` confirm the new value.
+enum ColumnWidth {
+    static let sidebar: CGFloat = 180
+    static let contentMin: CGFloat = 280
+    static let contentIdeal: CGFloat = 320
+    static let contentMax: CGFloat = 600
+}
+
 struct ContentView: View {
     @Environment(AppViewModel.self) private var appVM
 
@@ -33,12 +57,16 @@ struct ContentView: View {
             // `(min:ideal:max:)` one across sibling branches makes the column
             // width latch near 0 on navigation, collapsing the list content to
             // one-character-per-line text (Activity/Templates collapse to 0).
+            //
+            // `ideal` only applies on a first launch: afterwards the split
+            // position is restored from the window's autosaved state, so `min`
+            // is what actually guarantees toolbar alignment. See `ColumnWidth`.
             contentColumn
                 .background(AppColors.background)
                 .navigationSplitViewColumnWidth(
-                    min: isContentColumnCollapsed ? 0 : 150,
-                    ideal: isContentColumnCollapsed ? 0 : 320,
-                    max: isContentColumnCollapsed ? 0 : 600
+                    min: isContentColumnCollapsed ? 0 : ColumnWidth.contentMin,
+                    ideal: isContentColumnCollapsed ? 0 : ColumnWidth.contentIdeal,
+                    max: isContentColumnCollapsed ? 0 : ColumnWidth.contentMax
                 )
         } detail: {
             detailPanel
@@ -96,7 +124,7 @@ struct ContentView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             SidebarAccountButton()
         }
-        .navigationSplitViewColumnWidth(180)
+        .navigationSplitViewColumnWidth(ColumnWidth.sidebar)
     }
 
     /// Sections rendered full-width in the detail column collapse the content

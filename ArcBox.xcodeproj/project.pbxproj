@@ -142,6 +142,7 @@
 		9E79E2BBA05690D9ECAED2CD /* SortMenuButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97E7E52D3A54846906EB064D /* SortMenuButton.swift */; };
 		9EAE5E0BF3CB9432D7A228C2 /* ContainersListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA69DFAC30647687529C962A /* ContainersListView.swift */; };
 		A03ACBF5074B007C8CD7B101 /* StartupProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32115BE04C97CECA9C05A273 /* StartupProgressView.swift */; };
+		A537498E1D8181BB0230E199 /* ContentViewColumnLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE7E377F9D8C89E24989DE3D /* ContentViewColumnLayoutTests.swift */; };
 		A75C60F77B89D7AEE365BC2E /* VolumeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDF2337ED21F8382F7ABB29A /* VolumeModel.swift */; };
 		A9E1DA5DBCAC015D9C41FF18 /* SandboxesViewModel+Snapshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F2D773B0312F0D5695D0ADA /* SandboxesViewModel+Snapshots.swift */; };
 		AA6D71D441665D617EC4597A /* TemplatesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 591B3B9F3D3A0B5C43EC7B55 /* TemplatesViewModel.swift */; };
@@ -432,6 +433,7 @@
 		DAE5A29026FA64A7C0A47122 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		DBEBBF08F0E4AC45D9C0BB83 /* ChangelogParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangelogParser.swift; sourceTree = "<group>"; };
 		DE564AAFEC0EF6D094409728 /* SandboxRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxRowView.swift; sourceTree = "<group>"; };
+		DE7E377F9D8C89E24989DE3D /* ContentViewColumnLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewColumnLayoutTests.swift; sourceTree = "<group>"; };
 		DF34CA0688377F7956F2FD3D /* NewSandboxSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewSandboxSheet.swift; sourceTree = "<group>"; };
 		E06B22BB8B92AF78C2B87ADC /* AboutView+LinkButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AboutView+LinkButton.swift"; sourceTree = "<group>"; };
 		E18EB65626D97DF7604580DF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -1039,6 +1041,7 @@
 				1DC5F65FECB2F80BA3AF1D84 /* ArcBoxClientErrorTests.swift */,
 				A10ED4BA65D6B9CC56B6B329 /* ChangelogParserTests.swift */,
 				E610512C9106BB92A47DC044 /* ContainersViewModelTests.swift */,
+				DE7E377F9D8C89E24989DE3D /* ContentViewColumnLayoutTests.swift */,
 				F5B3B3C54B6D49C6198E9E26 /* DeepLinkTests.swift */,
 				06DFFB59D72F27F14A233B81 /* DockerEventMonitorTests.swift */,
 				27130DDA57D2645C7E81D75D /* GuestDataMountTests.swift */,
@@ -1412,6 +1415,7 @@
 				C94515858BC220B73B93EC5D /* ArcBoxClientErrorTests.swift in Sources */,
 				31474CB365691C57A5568D14 /* ChangelogParserTests.swift in Sources */,
 				4D2029E55A7979B8BD9EE89A /* ContainersViewModelTests.swift in Sources */,
+				A537498E1D8181BB0230E199 /* ContentViewColumnLayoutTests.swift in Sources */,
 				EE2D38BC76500BF768EEE20F /* DeepLinkTests.swift in Sources */,
 				8466B000B68A87CEECA6756F /* DockerEventMonitorTests.swift in Sources */,
 				D2AB4B6BF0723EE12A0DBC83 /* GuestDataMountTests.swift in Sources */,
