@@ -30,9 +30,10 @@ struct ImageFilesTab: View {
     @State private var selectedPath: String?
     @State private var rootURL: URL?
     @State private var layers: LayeredRootFS?
-    /// Stack layers found unreadable, by index — a set so failures seen in
-    /// different directories union instead of collapsing to the worst one.
-    @State private var unreadableLayerIndices: Set<Int> = []
+    /// Stack layers missing from what was browsed, by index — a set so
+    /// exclusions seen in different directories union instead of collapsing
+    /// to the worst one.
+    @State private var excludedLayerIndices: Set<Int> = []
     /// Layers whose guest path maps to no exported root: never in the stack,
     /// so they have no index, but still missing from what the user sees.
     @State private var unmappableLayerCount = 0
@@ -87,7 +88,7 @@ struct ImageFilesTab: View {
             if let layers, layers.isComposed {
                 LayerMergeBadge(
                     total: max(totalLayerCount, layers.layers.count),
-                    unavailable: unreadableLayerIndices.count + unmappableLayerCount
+                    unavailable: excludedLayerIndices.count + unmappableLayerCount
                 )
             }
 
@@ -145,11 +146,11 @@ struct ImageFilesTab: View {
                 onOpenURL: { url in
                     _ = NSWorkspace.shared.open(url)
                 },
-                onUnreadableLayers: { indices in
-                    // Union, never replace: a layer that failed once has
-                    // already left holes in what the user browsed, and two
+                onExcludedLayers: { indices in
+                    // Union, never replace: a layer dropped once has already
+                    // left holes in what the user browsed, and two
                     // directories can fail on two different layers.
-                    unreadableLayerIndices.formUnion(indices)
+                    excludedLayerIndices.formUnion(indices)
                 }
             )
         } else {
@@ -198,7 +199,7 @@ struct ImageFilesTab: View {
         selectedPath = nil
         rootURL = nil
         layers = nil
-        unreadableLayerIndices = []
+        excludedLayerIndices = []
         unmappableLayerCount = 0
         totalLayerCount = 0
 
@@ -223,7 +224,7 @@ struct ImageFilesTab: View {
             // the view would be quietly incomplete; count them and say so
             // rather than passing a partial filesystem off as the whole one.
             unmappableLayerCount = unmappableCount
-            unreadableLayerIndices = Set(
+            excludedLayerIndices = Set(
                 hostURLs.enumerated()
                     .filter { (try? LocalRootFSService.resolveRootURL(path: $0.element.path)) == nil }
                     .map(\.offset))
