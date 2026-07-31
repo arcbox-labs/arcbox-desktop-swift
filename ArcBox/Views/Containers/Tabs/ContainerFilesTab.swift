@@ -10,16 +10,7 @@ struct ContainerFilesTab: View {
     @Environment(\.arcboxClient) private var arcboxClient
 
     @State private var selectedPath: String?
-    @State private var rootURL: URL?
-    @State private var layers: LayeredRootFS?
-    /// Stack layers missing from what was browsed, by index — a set so
-    /// exclusions seen in different directories union instead of collapsing
-    /// to the worst one.
-    @State private var excludedLayerIndices: Set<Int> = []
-    /// Layers whose guest path maps to no exported root: never in the stack,
-    /// so they have no index, but still missing from what the user sees.
-    @State private var unmappableLayerCount = 0
-    @State private var totalLayerCount = 0
+    @State private var stack = LayerStack()
     @State private var errorMessage: String?
     @State private var isLoadingRoot = false
     @State private var refreshToken = UUID()
@@ -56,18 +47,13 @@ struct ContainerFilesTab: View {
                 .font(.system(size: 12))
                 .foregroundStyle(AppColors.textSecondary)
 
-            Text(rootURL?.path ?? container.resolvedRootFSMountPath ?? "No rootfs mount path")
+            Text(stack.rootURL?.path ?? container.resolvedRootFSMountPath ?? "No rootfs mount path")
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundStyle(AppColors.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
 
-            if let layers, layers.isComposed {
-                LayerMergeBadge(
-                    total: max(totalLayerCount, layers.layers.count),
-                    unavailable: excludedLayerIndices.count + unmappableLayerCount
-                )
-            }
+            LayerMergeBadge(stack: stack)
 
             Spacer()
 
@@ -113,22 +99,17 @@ struct ContainerFilesTab: View {
             }
         } else if let errorMessage {
             errorState(errorMessage)
-        } else if let rootURL {
+        } else if let rootURL = stack.rootURL {
             LocalRootFSOutlineView(
                 rootURL: rootURL,
-                layers: layers,
+                layers: stack.layers,
                 showHiddenFiles: showHiddenFiles,
                 reloadID: outlineReloadID,
                 selectedPath: $selectedPath,
                 onOpenURL: { url in
                     _ = NSWorkspace.shared.open(url)
                 },
-                onExcludedLayers: { indices in
-                    // Union, never replace: a layer dropped once has already
-                    // left holes in what the user browsed, and two
-                    // directories can fail on two different layers.
-                    excludedLayerIndices.formUnion(indices)
-                }
+                onExcludedLayers: { stack.exclude($0) }
             )
         } else {
             errorState("Container has no configured rootfs mount path.")
@@ -177,50 +158,37 @@ struct ContainerFilesTab: View {
         errorMessage = nil
         isLoadingRoot = true
         selectedPath = nil
-        layers = nil
-        excludedLayerIndices = []
-        unmappableLayerCount = 0
-        totalLayerCount = 0
+        stack = LayerStack()
+        defer { isLoadingRoot = false }
 
         // Inspect-provided path (classic graph drivers) is already a merged
         // rootfs; under the containerd image store inspect carries no paths,
         // so the daemon resolves the layer stack and the tab merges it.
-        var guestPaths: [String] = []
+        let guestPaths: [String]
         if let mountPath = container.resolvedRootFSMountPath {
             guestPaths = [mountPath]
         } else {
             guestPaths = await resolveViaDaemon()
         }
 
-        // The resolved paths are guest paths; browse them through ~/ArcBox.
-        // The stack stops at the first layer the host cannot browse: it still
-        // decides what lies beneath it, so merging past it would surface
-        // entries it may replace or delete.
-        let resolution = LayeredRootFS.resolveHostLayers(guestPaths: guestPaths)
-        let hostURLs = resolution.hostURLs
-        totalLayerCount = guestPaths.count
-        unmappableLayerCount = resolution.excludedCount
-        guard let rootHostURL = hostURLs.first else {
-            rootURL = nil
-            errorMessage =
-                guestPaths.isEmpty
-                ? "Container has no resolvable filesystem path."
-                : "Container filesystem path is outside the guest data root."
-            isLoadingRoot = false
+        stack = await LayerStack.resolve(guestPaths: guestPaths)
+        guard stack.rootURL != nil else {
+            errorMessage = Self.unresolvedMessage(guestPaths: guestPaths)
             return
         }
+        // Listings report further exclusions as they happen — a layer can
+        // die after this point — and the badge unions them.
+    }
 
-        do {
-            rootURL = try LocalRootFSService.resolveRootURL(path: rootHostURL.path)
-            layers = hostURLs.count > 1 ? LayeredRootFS(layers: hostURLs) : nil
-            // Listings report further exclusions as they happen — a layer can
-            // die after this point — and the badge unions them.
-        } catch {
-            rootURL = nil
-            errorMessage = GuestDataMount.unavailableMessage(subject: "This container's filesystem")
+    private static func unresolvedMessage(guestPaths: [String]) -> String {
+        switch LayerStack.unresolved(guestPaths: guestPaths) {
+        case .noPaths:
+            return "Container has no resolvable filesystem path."
+        case .outsideExport:
+            return "Container filesystem path is outside the guest data root."
+        case .exportUnavailable:
+            return GuestDataMount.unavailableMessage(subject: "This container's filesystem")
         }
-
-        isLoadingRoot = false
     }
 
     /// Resolves the container's snapshot layer stack via the daemon.

@@ -8,12 +8,29 @@ import SwiftUI
 /// it were complete — files unique to that layer, and the deletions it
 /// records, simply would not appear.
 struct LayerMergeBadge: View {
-    let total: Int
-    let unavailable: Int
+    private let total: Int
+    private let unavailable: Int
+    private let describesAStack: Bool
+
+    /// Describes a browsed stack, and renders nothing when there is no stack
+    /// to describe — a single-layer subject, or one that could not be
+    /// browsed at all.
+    init(stack: LayerStack) {
+        total = stack.reportedLayers
+        unavailable = stack.missingLayers
+        describesAStack = stack.describesAStack
+    }
 
     private var isComplete: Bool { unavailable == 0 }
 
+    @ViewBuilder
     var body: some View {
+        if describesAStack {
+            badge
+        }
+    }
+
+    private var badge: some View {
         HStack(spacing: 4) {
             if !isComplete {
                 Image(systemName: "exclamationmark.triangle.fill")
@@ -33,8 +50,10 @@ struct LayerMergeBadge: View {
         )
     }
 
-    private var label: String {
-        isComplete
+    private var label: String { Self.label(total: total, unavailable: unavailable) }
+
+    static func label(total: Int, unavailable: Int) -> String {
+        unavailable == 0
             ? "merged from \(total) layers"
             : "merged from \(total - unavailable) of \(total) layers"
     }

@@ -5,6 +5,23 @@ import XCTest
 final class LayeredRootFSTests: XCTestCase {
     // MARK: merge precedence
 
+    /// Creates a directory that exists but cannot be listed — the real
+    /// "the layer is there and will not open" condition.
+    ///
+    /// A regular file standing in for a directory does NOT reproduce it: that
+    /// is ordinary overlay shadowing, which the merge is supposed to accept
+    /// silently, so using one here would assert the opposite of the intent.
+    private func makeUnreadableDirectory(at url: URL) throws {
+        try XCTSkipIf(getuid() == 0, "permissions do not restrict root")
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o000], ofItemAtPath: url.path)
+        addTeardownBlock {
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o755], ofItemAtPath: url.path)
+        }
+    }
+
     private func item(
         _ name: String, isWhiteout: Bool = false, layer: String = "l"
     )
@@ -110,11 +127,6 @@ final class LayeredRootFSTests: XCTestCase {
         XCTAssertNil(LayeredRootFS(layers: []))
     }
 
-    func testSingleLayerIsNotComposed() throws {
-        let stack = try XCTUnwrap(LayeredRootFS(layers: [URL(fileURLWithPath: "/mnt/only")]))
-        XCTAssertFalse(stack.isComposed)
-    }
-
     // MARK: on-disk merge
 
     func testListDirectoryMergesRealDirectories() throws {
@@ -209,8 +221,7 @@ final class LayeredRootFSTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
 
         try "x".write(to: good.appendingPathComponent("hosts"), atomically: true, encoding: .utf8)
-        try "not a directory".write(
-            to: root.appendingPathComponent("broken/etc"), atomically: true, encoding: .utf8)
+        try makeUnreadableDirectory(at: root.appendingPathComponent("broken/etc"))
 
         let stack = try XCTUnwrap(
             LayeredRootFS(layers: [
@@ -240,9 +251,9 @@ final class LayeredRootFSTests: XCTestCase {
             at: b.appendingPathComponent("etc"), withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
-        // Each layer has one path that exists but cannot be listed.
-        try "x".write(to: a.appendingPathComponent("etc"), atomically: true, encoding: .utf8)
-        try "x".write(to: b.appendingPathComponent("opt"), atomically: true, encoding: .utf8)
+        // Each layer has one directory that exists but cannot be listed.
+        try makeUnreadableDirectory(at: a.appendingPathComponent("etc"))
+        try makeUnreadableDirectory(at: b.appendingPathComponent("opt"))
 
         let stack = try XCTUnwrap(LayeredRootFS(layers: [a, b]))
 
@@ -267,7 +278,7 @@ final class LayeredRootFSTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
 
         // `etc` exists in the upper layer but will not list.
-        try "x".write(to: upper.appendingPathComponent("etc"), atomically: true, encoding: .utf8)
+        try makeUnreadableDirectory(at: upper.appendingPathComponent("etc"))
         try "stale".write(
             to: lower.appendingPathComponent("passwd"), atomically: true, encoding: .utf8)
 
@@ -293,7 +304,7 @@ final class LayeredRootFSTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
 
         try "top".write(to: top.appendingPathComponent("hosts"), atomically: true, encoding: .utf8)
-        try "x".write(to: mid.appendingPathComponent("etc"), atomically: true, encoding: .utf8)
+        try makeUnreadableDirectory(at: mid.appendingPathComponent("etc"))
         try "bottom".write(
             to: bottom.appendingPathComponent("resolv.conf"), atomically: true, encoding: .utf8)
 
@@ -359,5 +370,85 @@ final class LayeredRootFSTests: XCTestCase {
 
         XCTAssertEqual(listing.entries.map(\.name), [])
         XCTAssertEqual(listing.excludedLayers, [1, 2])
+    }
+
+    func testResolveHostLayersCanTruncateToASingleSurvivor() {
+        // The case the badge used to go silent on: the stack collapses to one
+        // browsable layer, so there is no composed stack left to hang a
+        // warning off — but four fifths of the filesystem is missing.
+        let resolution = LayeredRootFS.resolveHostLayers(guestPaths: [
+            "/var/lib/docker/volumes",
+            "/somewhere/else/layer1",
+            "/somewhere/else/layer2",
+        ])
+
+        XCTAssertEqual(resolution.hostURLs.count, 1)
+        XCTAssertEqual(resolution.excludedCount, 2)
+    }
+
+    func testBadgeLabelReportsPartialMerges() {
+        XCTAssertEqual(LayerMergeBadge.label(total: 5, unavailable: 0), "merged from 5 layers")
+        XCTAssertEqual(
+            LayerMergeBadge.label(total: 5, unavailable: 4), "merged from 1 of 5 layers")
+    }
+
+    // MARK: browsing composition
+
+    func testExpandingAMergedDirectoryMergesAcrossEveryLayer() throws {
+        // The seam the outline depends on and nothing covered: a directory
+        // node carries the URL of whichever layer won it, so expanding it has
+        // to go back through the stack rather than list that layer alone.
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let upper = root.appendingPathComponent("upper/etc", isDirectory: true)
+        let lower = root.appendingPathComponent("lower/etc", isDirectory: true)
+        try FileManager.default.createDirectory(at: upper, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: lower, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try "u".write(to: upper.appendingPathComponent("hosts"), atomically: true, encoding: .utf8)
+        try "l".write(
+            to: lower.appendingPathComponent("resolv.conf"), atomically: true, encoding: .utf8)
+
+        let stack = try XCTUnwrap(
+            LayeredRootFS(layers: [
+                root.appendingPathComponent("upper", isDirectory: true),
+                root.appendingPathComponent("lower", isDirectory: true),
+            ]))
+
+        let rootListing = stack.listDirectory(relativePath: "", showHiddenFiles: false)
+        let etc = try XCTUnwrap(rootListing.entries.first { $0.name == "etc" })
+        // `etc` was won by the upper layer, whose copy holds only `hosts`.
+        let relativePath = try XCTUnwrap(stack.relativePath(forHostURL: etc.url))
+        let children = stack.listDirectory(relativePath: relativePath, showHiddenFiles: false)
+
+        XCTAssertEqual(relativePath, "etc")
+        XCTAssertEqual(children.entries.map(\.name), ["hosts", "resolv.conf"])
+    }
+
+    func testNonDirectoryInALowerLayerIsShadowedWithoutWarning() throws {
+        // An upper directory over a lower file is ordinary overlay shadowing:
+        // the merge stops there because the file hides everything beneath it,
+        // and reporting that as an excluded layer would cry wolf.
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let upperFoo = root.appendingPathComponent("upper/foo", isDirectory: true)
+        let lower = root.appendingPathComponent("lower", isDirectory: true)
+        try FileManager.default.createDirectory(at: upperFoo, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: lower, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try "u".write(to: upperFoo.appendingPathComponent("inside"), atomically: true, encoding: .utf8)
+        try "shadowed".write(
+            to: lower.appendingPathComponent("foo"), atomically: true, encoding: .utf8)
+
+        let stack = try XCTUnwrap(
+            LayeredRootFS(layers: [
+                root.appendingPathComponent("upper", isDirectory: true), lower,
+            ]))
+        let listing = stack.listDirectory(relativePath: "foo", showHiddenFiles: false)
+
+        XCTAssertEqual(listing.entries.map(\.name), ["inside"])
+        XCTAssertEqual(listing.excludedLayers, [])
     }
 }
