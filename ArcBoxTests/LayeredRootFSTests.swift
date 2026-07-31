@@ -360,4 +360,24 @@ final class LayeredRootFSTests: XCTestCase {
         XCTAssertEqual(listing.entries.map(\.name), [])
         XCTAssertEqual(listing.excludedLayers, [1, 2])
     }
+
+    func testResolveHostLayersCanTruncateToASingleSurvivor() {
+        // The case the badge used to go silent on: the stack collapses to one
+        // browsable layer, so there is no composed stack left to hang a
+        // warning off — but four fifths of the filesystem is missing.
+        let resolution = LayeredRootFS.resolveHostLayers(guestPaths: [
+            "/var/lib/docker/volumes",
+            "/somewhere/else/layer1",
+            "/somewhere/else/layer2",
+        ])
+
+        XCTAssertEqual(resolution.hostURLs.count, 1)
+        XCTAssertEqual(resolution.excludedCount, 2)
+    }
+
+    func testBadgeLabelReportsPartialMerges() {
+        XCTAssertEqual(LayerMergeBadge.label(total: 5, unavailable: 0), "merged from 5 layers")
+        XCTAssertEqual(
+            LayerMergeBadge.label(total: 5, unavailable: 4), "merged from 1 of 5 layers")
+    }
 }

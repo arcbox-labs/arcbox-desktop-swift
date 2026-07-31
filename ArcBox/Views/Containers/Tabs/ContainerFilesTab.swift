@@ -62,9 +62,13 @@ struct ContainerFilesTab: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
 
-            if let layers, layers.isComposed {
+            // Keyed on what the daemon reported, not on the surviving stack:
+            // a stack truncated to a single browsable layer drops `layers`,
+            // and that is exactly when the view is least complete and least
+            // able to say so.
+            if totalLayerCount > 1 {
                 LayerMergeBadge(
-                    total: max(totalLayerCount, layers.layers.count),
+                    total: totalLayerCount,
                     unavailable: excludedLayerIndices.count + unmappableLayerCount
                 )
             }

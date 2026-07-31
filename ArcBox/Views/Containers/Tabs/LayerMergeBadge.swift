@@ -33,8 +33,10 @@ struct LayerMergeBadge: View {
         )
     }
 
-    private var label: String {
-        isComplete
+    private var label: String { Self.label(total: total, unavailable: unavailable) }
+
+    static func label(total: Int, unavailable: Int) -> String {
+        unavailable == 0
             ? "merged from \(total) layers"
             : "merged from \(total - unavailable) of \(total) layers"
     }
