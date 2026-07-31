@@ -37,26 +37,47 @@ struct ActivityView: View {
             }
     }
 
+    /// Rates come from deltas, so the first usable frame is two samples in — a
+    /// second or two at the daemon's 1 Hz cadence. Rather than hold the screen
+    /// back behind a spinner for that, the real layout goes up immediately and
+    /// carries redacted values until the numbers are real. Nothing false is
+    /// shown, nothing moves when the data lands, and there is no separate
+    /// loading screen to perceive.
     @ViewBuilder
     private var content: some View {
-        if let stats = vm.current {
+        if streamHasGivenUp {
+            unavailable
+        } else {
             ActivityContainerTable(
-                containers: stats.containers,
+                containers: vm.current?.containers ?? [],
                 docker: dockerContainers,
-                searchText: searchText
+                searchText: searchText,
+                // "No containers" is a finding; before the first frame it would
+                // be a guess.
+                hasLoaded: vm.current != nil
             )
             .safeAreaInset(edge: .top, spacing: 0) {
                 ActivityMetricStrip(
-                    stats: stats,
+                    stats: vm.current,
                     cpuHistory: vm.cpuHistory,
                     memoryHistory: vm.memoryHistory,
                     networkHistory: vm.networkHistory
                 )
+                // Only the strip redacts. The table's column headers are known
+                // labels, not pending data, and `TableColumn` gives no handle
+                // to exempt them — an empty table under live headers already
+                // reads as rows on the way.
+                .redacted(reason: vm.current == nil ? .placeholder : [])
             }
             .softScrollEdge(for: .top)
-        } else {
-            waitingForData
         }
+    }
+
+    /// A stream that keeps failing before its first sample is not loading, and
+    /// must stop looking like it.
+    private var streamHasGivenUp: Bool {
+        guard vm.current == nil, case .reconnecting(let attempt) = vm.phase else { return false }
+        return attempt >= 3
     }
 
     /// Docker's view of the containers the stats stream reports, keyed by ID.
@@ -79,26 +100,14 @@ struct ActivityView: View {
             "System VM · \(stats.onlineCPUs) cores · \(StatsFormat.bytes(stats.memoryTotalBytes)) · up \(StatsFormat.uptime(stats.uptime))"
     }
 
-    /// Distinguishes a first connection from a stream that keeps failing before
-    /// its first sample, so a persistent error stops looking like a spinner
-    /// that will resolve on its own.
     @ViewBuilder
-    private var waitingForData: some View {
-        if case .reconnecting(let attempt) = vm.phase, attempt >= 3 {
-            ContentUnavailableView {
-                Label("Stats Unavailable", systemImage: "waveform.path.ecg")
-            } description: {
+    private var unavailable: some View {
+        ContentUnavailableView {
+            Label("Stats Unavailable", systemImage: "waveform.path.ecg")
+        } description: {
+            if case .reconnecting(let attempt) = vm.phase {
                 Text("The daemon's stats stream keeps dropping. Retrying — attempt \(attempt).")
             }
-        } else {
-            VStack(spacing: 12) {
-                ProgressView()
-                    .controlSize(.large)
-                Text("Waiting for the first sample…")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }

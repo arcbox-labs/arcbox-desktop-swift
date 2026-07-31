@@ -18,6 +18,10 @@ struct ActivityContainerTable: View {
     /// than emptying it.
     let docker: [String: ActivityContainerFacts]
     let searchText: String
+    /// False until the first usable frame. An empty table means "nothing is
+    /// running" only once something has been read; before that it means
+    /// "not known yet", and saying the first would be a guess.
+    let hasLoaded: Bool
 
     @State private var sortOrder = [
         KeyPathComparator(\ActivityRow.cpuPercent, order: .reverse)
@@ -110,7 +114,9 @@ struct ActivityContainerTable: View {
     /// the same work.
     @ViewBuilder
     private var emptyState: some View {
-        if containers.isEmpty {
+        if !hasLoaded {
+            EmptyView()
+        } else if containers.isEmpty {
             ContentUnavailableView(
                 "No Running Containers",
                 systemImage: "cube",
