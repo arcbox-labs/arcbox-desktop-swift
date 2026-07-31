@@ -12,7 +12,12 @@ struct ContainerFilesTab: View {
     @State private var selectedPath: String?
     @State private var rootURL: URL?
     @State private var layers: LayeredRootFS?
-    @State private var unavailableLayerCount = 0
+    /// Stack layers found unreadable, by index — a set so failures seen in
+    /// different directories union instead of collapsing to the worst one.
+    @State private var unreadableLayerIndices: Set<Int> = []
+    /// Layers whose guest path maps to no exported root: never in the stack,
+    /// so they have no index, but still missing from what the user sees.
+    @State private var unmappableLayerCount = 0
     @State private var totalLayerCount = 0
     @State private var errorMessage: String?
     @State private var isLoadingRoot = false
@@ -59,7 +64,7 @@ struct ContainerFilesTab: View {
             if let layers, layers.isComposed {
                 LayerMergeBadge(
                     total: max(totalLayerCount, layers.layers.count),
-                    unavailable: unavailableLayerCount
+                    unavailable: unreadableLayerIndices.count + unmappableLayerCount
                 )
             }
 
@@ -117,10 +122,11 @@ struct ContainerFilesTab: View {
                 onOpenURL: { url in
                     _ = NSWorkspace.shared.open(url)
                 },
-                onUnreadableLayers: { count in
-                    // Keep the worst seen: a layer that fails once has already
-                    // left holes in what the user browsed.
-                    unavailableLayerCount = max(unavailableLayerCount, count)
+                onUnreadableLayers: { indices in
+                    // Union, never replace: a layer that failed once has
+                    // already left holes in what the user browsed, and two
+                    // directories can fail on two different layers.
+                    unreadableLayerIndices.formUnion(indices)
                 }
             )
         } else {
@@ -171,7 +177,8 @@ struct ContainerFilesTab: View {
         isLoadingRoot = true
         selectedPath = nil
         layers = nil
-        unavailableLayerCount = 0
+        unreadableLayerIndices = []
+        unmappableLayerCount = 0
         totalLayerCount = 0
 
         // Inspect-provided path (classic graph drivers) is already a merged
@@ -209,11 +216,11 @@ struct ContainerFilesTab: View {
             // rather than passing a partial filesystem off as the whole one.
             // Listings report further failures as they happen (a layer can
             // die after this check), and the badge keeps the worst seen.
-            unavailableLayerCount =
-                unmappableCount
-                + hostURLs.filter {
-                    (try? LocalRootFSService.resolveRootURL(path: $0.path)) == nil
-                }.count
+            unmappableLayerCount = unmappableCount
+            unreadableLayerIndices = Set(
+                hostURLs.enumerated()
+                    .filter { (try? LocalRootFSService.resolveRootURL(path: $0.element.path)) == nil }
+                    .map(\.offset))
         } catch {
             rootURL = nil
             errorMessage = GuestDataMount.unavailableMessage(subject: "This container's filesystem")

@@ -139,7 +139,7 @@ final class LayeredRootFSTests: XCTestCase {
 
         XCTAssertEqual(listing.entries.map(\.name), ["hosts", "resolv.conf"])
         XCTAssertEqual(try String(contentsOf: listing.entries[0].url, encoding: .utf8), "container")
-        XCTAssertEqual(listing.unreadableLayers, 0)
+        XCTAssertEqual(listing.unreadableLayers, [])
     }
 
     func testListDirectorySkipsLayersMissingTheDirectory() throws {
@@ -166,7 +166,7 @@ final class LayeredRootFSTests: XCTestCase {
         XCTAssertEqual(listing.entries.map(\.name), ["tool"])
         // A layer that simply lacks the path is normal, not a read failure —
         // counting it would put a permanent warning on every browse.
-        XCTAssertEqual(listing.unreadableLayers, 0)
+        XCTAssertEqual(listing.unreadableLayers, [])
     }
 
     // MARK: whiteout classification
@@ -220,6 +220,35 @@ final class LayeredRootFSTests: XCTestCase {
         let listing = stack.listDirectory(relativePath: "etc", showHiddenFiles: false)
 
         XCTAssertEqual(listing.entries.map(\.name), ["hosts"])
-        XCTAssertEqual(listing.unreadableLayers, 1)
+        // Identify *which* layer failed: a caller browsing several
+        // directories unions these, and a bare count would collapse
+        // failures in different layers into one.
+        XCTAssertEqual(listing.unreadableLayers, [1])
+    }
+
+    func testDistinctDirectoriesReportDistinctFailingLayers() throws {
+        // The case a bare count loses: /etc fails on one layer and /opt on
+        // another, so a caller unioning these sees two layers with holes,
+        // not one.
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let a = root.appendingPathComponent("a", isDirectory: true)
+        let b = root.appendingPathComponent("b", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: a.appendingPathComponent("opt"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: b.appendingPathComponent("etc"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        // Each layer has one path that exists but cannot be listed.
+        try "x".write(to: a.appendingPathComponent("etc"), atomically: true, encoding: .utf8)
+        try "x".write(to: b.appendingPathComponent("opt"), atomically: true, encoding: .utf8)
+
+        let stack = try XCTUnwrap(LayeredRootFS(layers: [a, b]))
+
+        XCTAssertEqual(
+            stack.listDirectory(relativePath: "etc", showHiddenFiles: false).unreadableLayers, [0])
+        XCTAssertEqual(
+            stack.listDirectory(relativePath: "opt", showHiddenFiles: false).unreadableLayers, [1])
     }
 }
