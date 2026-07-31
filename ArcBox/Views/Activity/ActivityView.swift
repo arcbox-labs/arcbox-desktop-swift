@@ -10,9 +10,14 @@ import SwiftUI
 struct ActivityView: View {
     @Environment(ActivityViewModel.self) private var vm
     @Environment(\.arcboxClient) private var arcboxClient
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         content
+            // Keyed on the arrival of data, not on the data: the screen
+            // materialises once, and the 1 Hz samples inside it do not drag the
+            // whole hierarchy through a transition every second.
+            .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: vm.current == nil)
             .navigationTitle("Activity")
             .navigationSubtitle(subtitle)
             .toolbar {

@@ -71,6 +71,8 @@ private enum MetricTint {
 /// Label, headline number, a figure (sparkline or gauge) and a caption, at the
 /// one shape every tile in the strip shares.
 private struct MetricTile<Figure: View>: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     let title: LocalizedStringKey
     let value: String
     let caption: String
@@ -78,6 +80,10 @@ private struct MetricTile<Figure: View>: View {
     @ViewBuilder var figure: Figure
 
     var body: some View {
+        // Label and caption share one tint and separate by weight and size.
+        // Reaching for `.tertiary` instead would stack a faint grey on a
+        // translucent surface with content moving behind it, which is where
+        // legibility goes first.
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption.weight(.medium))
@@ -85,18 +91,42 @@ private struct MetricTile<Figure: View>: View {
             Text(value)
                 .font(.system(.title2, design: .rounded, weight: .semibold))
                 .monospacedDigit()
-                .contentTransition(.numericText())
+                .contentTransition(reduceMotion ? .identity : .numericText())
                 .foregroundStyle(valueColor)
-                .animation(.smooth(duration: 0.25), value: value)
+                .liveValueAnimation(value)
             figure
                 .frame(height: 30)
             Text(caption)
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Motion
+
+extension View {
+    /// Settles a value that the stream, not the user, changed.
+    ///
+    /// Critically damped, because nothing here was thrown: overshoot belongs to
+    /// motion a gesture handed momentum to. Dropped outright under Reduce
+    /// Motion — SwiftUI adapts its own transitions for that setting, but not
+    /// animations you write.
+    fileprivate func liveValueAnimation<V: Equatable>(_ value: V) -> some View {
+        modifier(LiveValueAnimation(value: value))
+    }
+}
+
+private struct LiveValueAnimation<V: Equatable>: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    let value: V
+
+    func body(content: Content) -> some View {
+        content.animation(reduceMotion ? nil : .smooth(duration: 0.3), value: value)
     }
 }
 
@@ -137,7 +167,7 @@ private struct Sparkline: View {
         .chartYAxis(.hidden)
         .chartYScale(domain: domain ?? autoDomain)
         .chartLegend(.hidden)
-        .animation(.smooth(duration: 0.25), value: points.last?.index)
+        .liveValueAnimation(points.last?.index)
         .accessibilityHidden(true)
     }
 
@@ -166,7 +196,7 @@ private struct PressureTile: View {
             .gaugeStyle(.linearCapacity)
             .tint(tint)
             .opacity(stats.hasMemoryPressure ? 1 : 0.35)
-            .animation(.smooth(duration: 0.25), value: level)
+            .liveValueAnimation(level)
         }
     }
 

@@ -37,7 +37,11 @@ private struct GlassSurface: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if #available(macOS 26, *) {
-            content.glassEffect(.regular, in: .rect(corners: .concentric(minimum: .fixed(cornerRadius))))
+            content
+                .glassEffect(.regular, in: .rect(corners: .concentric(minimum: .fixed(cornerRadius))))
+                // Arrive as a material rather than a rectangle fading up: the
+                // surface takes shape and gathers its blur on the way in.
+                .glassEffectTransition(.materialize)
         } else {
             content
                 .background(AppColors.surfaceCard, in: .rect(cornerRadius: cornerRadius))
