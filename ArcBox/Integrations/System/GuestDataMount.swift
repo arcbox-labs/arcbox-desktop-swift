@@ -32,25 +32,32 @@ nonisolated enum GuestDataMount {
     }
 
     /// Rewrites a guest path under one of the exported roots to its host URL
-    /// under `~/ArcBox`, or `nil` if the path is not within an exported root.
+    /// under `exportRoot`, or `nil` if the path is not within an exported root.
     ///
     /// Guest paths can come from image/container labels, i.e. untrusted input;
     /// any `.`/`..` component is rejected so a crafted label cannot escape the
     /// export once the URL is standardized downstream.
-    static func hostURL(forGuestPath guestPath: String) -> URL? {
+    ///
+    /// `exportRoot` is where the export is mounted. It is a parameter rather
+    /// than a hardcoded `~/ArcBox` so that the resolution rules layered on top
+    /// of it — truncation, exclusion counting — can be exercised against a
+    /// directory tree the caller controls instead of a live NFS mount.
+    static func hostURL(forGuestPath guestPath: String, exportRoot: URL = rootURL) -> URL? {
         let trimmed = guestPath.trimmingCharacters(in: .whitespacesAndNewlines)
         // Check containerd first: its prefix is not nested inside the docker
         // root, but keeping the more specific mapping first stays correct if
         // that ever changes.
-        if let url = rewrite(trimmed, root: guestContainerdRoot, to: containerdHostRoot) {
+        if let url = rewrite(
+            trimmed, root: guestContainerdRoot, to: containerdHostRoot(under: exportRoot))
+        {
             return url
         }
-        return rewrite(trimmed, root: guestDataRoot, to: rootURL)
+        return rewrite(trimmed, root: guestDataRoot, to: exportRoot)
     }
 
     /// Host location of the containerd child export.
-    private static var containerdHostRoot: URL {
-        rootURL.appendingPathComponent("containerd")
+    private static func containerdHostRoot(under exportRoot: URL) -> URL {
+        exportRoot.appendingPathComponent("containerd")
     }
 
     private static func rewrite(_ path: String, root: String, to hostRoot: URL) -> URL? {

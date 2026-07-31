@@ -49,9 +49,11 @@ nonisolated struct LayerStack {
     ///
     /// Runs off the main actor: resolution stats every layer, and on a
     /// wedged export each stat blocks until NFS gives up.
-    static func resolve(guestPaths: [String]) async -> LayerStack {
+    static func resolve(
+        guestPaths: [String], exportRoot: URL = GuestDataMount.rootURL
+    ) async -> LayerStack {
         let resolution = await Task.detached {
-            LayeredRootFS.resolveHostLayers(guestPaths: guestPaths)
+            LayeredRootFS.resolveHostLayers(guestPaths: guestPaths, exportRoot: exportRoot)
         }.value
 
         var stack = LayerStack()
