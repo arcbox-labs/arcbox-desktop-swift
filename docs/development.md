@@ -6,13 +6,17 @@
 git clone https://github.com/arcboxlabs/arcbox-desktop.git
 cd arcbox-desktop
 
-cp Local.xcconfig.example Local.xcconfig   # set DEVELOPMENT_TEAM, SENTRY_DSN
+cp Local.xcconfig.example Local.xcconfig   # set DEVELOPMENT_TEAM
 make build
 ```
 
+`DEVELOPMENT_TEAM` is the only value you have to fill in. The Sentry, PostHog, and OIDC placeholders can
+stay as they are — each one is checked for its placeholder at startup, so telemetry and platform sign-in
+simply stay off.
+
 | Command | What it does |
 |---|---|
-| `make build` | Swift only, no embedded Rust binaries |
+| `make build` | Debug, Swift only, no embedded Rust binaries |
 | `make test` | full test suite |
 | `make format` / `make lint` | swift-format and SwiftLint |
 | `make generate-xcodeproj` | run after adding or removing a file |
