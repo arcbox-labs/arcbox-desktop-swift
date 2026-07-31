@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.31.3](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.31.2...v1.31.3) (2026-07-31)
+
+
+### Bug Fixes
+
+* **ui:** keep the toolbar separator on every column ([bbb8d6d](https://github.com/arcboxlabs/arcbox-desktop/commit/bbb8d6dc19942f11810422d50e1e94db0f5c4a8e))
+
+
+### Miscellaneous
+
+* **xtask:** drop dead ArcBoxHelper signing step ([1b9ee33](https://github.com/arcboxlabs/arcbox-desktop/commit/1b9ee3350599b8507b112c360175f88d5199b093))
+
+
+### Documentation
+
+* add CONTRIBUTING, SECURITY, and issue templates ([596cb66](https://github.com/arcboxlabs/arcbox-desktop/commit/596cb6625a1fb2662b1f5ac51c13461e01b48dda))
+* correct stale claims in AGENTS.md and xtask/README ([32b14e5](https://github.com/arcboxlabs/arcbox-desktop/commit/32b14e58cd683c1c4aca75f4cae427006b9f7b98))
+* distinguish `make dmg` from `make dmg-signed` ([b25950e](https://github.com/arcboxlabs/arcbox-desktop/commit/b25950e62c6eeff699a51d55d2a089edb13e099b))
+* rewrite README around the product, move dev setup to docs/ ([06cd1f5](https://github.com/arcboxlabs/arcbox-desktop/commit/06cd1f5b86fb72b02d6666f4a14ae98b1e091b84))
+
+
+### CI
+
+* gate the xtask crate ([5062a83](https://github.com/arcboxlabs/arcbox-desktop/commit/5062a832c585a194a4c718a43cc8a3d6e425d990))
+
 ## [1.31.2](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.31.1...v1.31.2) (2026-07-31)
 
 
