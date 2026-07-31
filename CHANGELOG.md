@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.31.2](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.31.1...v1.31.2) (2026-07-31)
+
+
+### Bug Fixes
+
+* **ci:** make the build and test steps actually gate ([c4c0cea](https://github.com/arcboxlabs/arcbox-desktop/commit/c4c0cea4ecf1d750e39aa0f1f62d64917123e294))
+* **ui:** keep the content column wider than its toolbar section ([2ea1c7d](https://github.com/arcboxlabs/arcbox-desktop/commit/2ea1c7d88a832a57b0584ae8c747c0e3269c8255))
+
 ## [1.31.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.31.0...v1.31.1) (2026-07-31)
 
 
