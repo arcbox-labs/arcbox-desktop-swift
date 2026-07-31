@@ -11,9 +11,27 @@ struct LayerMergeBadge: View {
     let total: Int
     let unavailable: Int
 
+    /// Describes a browsed stack. Renders nothing for a subject that has a
+    /// single layer, since there is nothing to be incomplete about.
+    init(stack: LayerStack) {
+        self.init(total: stack.reportedLayers, unavailable: stack.missingLayers)
+    }
+
+    init(total: Int, unavailable: Int) {
+        self.total = total
+        self.unavailable = unavailable
+    }
+
     private var isComplete: Bool { unavailable == 0 }
 
+    @ViewBuilder
     var body: some View {
+        if total > 1 {
+            badge
+        }
+    }
+
+    private var badge: some View {
         HStack(spacing: 4) {
             if !isComplete {
                 Image(systemName: "exclamationmark.triangle.fill")

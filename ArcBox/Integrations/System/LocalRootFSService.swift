@@ -105,11 +105,16 @@ nonisolated struct LocalRootFSService {
     }
 
     static func listDirectory(at directoryURL: URL, showHiddenFiles: Bool) throws -> [LocalFileEntry] {
-        try listLayerItems(at: directoryURL, showHiddenFiles: showHiddenFiles).map(\.entry)
+        try listLayerItems(at: directoryURL, showHiddenFiles: showHiddenFiles)
+            .map(\.entry)
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     /// Lists a directory keeping the overlay whiteout marker, so a layered
     /// browse can hide both the marker and whatever it deletes underneath.
+    ///
+    /// Unordered: a merge across layers has to sort the union anyway, and
+    /// sorting each layer first would be work thrown away.
     static func listLayerItems(at directoryURL: URL, showHiddenFiles: Bool) throws -> [LayerItem] {
         var coordinatorError: NSError?
         var capturedError: Error?
@@ -161,9 +166,6 @@ nonisolated struct LocalRootFSService {
                         entry: entry,
                         isWhiteout: isWhiteout(entryURL, resourceType: values.fileResourceType)
                     )
-                }
-                .sorted {
-                    $0.entry.name.localizedStandardCompare($1.entry.name) == .orderedAscending
                 }
             } catch {
                 capturedError = error

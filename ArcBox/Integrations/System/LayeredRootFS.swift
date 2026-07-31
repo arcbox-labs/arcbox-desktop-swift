@@ -52,12 +52,12 @@ nonisolated struct LayeredRootFS {
         var listings: [[LocalRootFSService.LayerItem]] = []
         var excluded: Set<Int> = []
 
+        let readings = readLayers(relativePath: relativePath, showHiddenFiles: showHiddenFiles)
+
         for (index, layer) in layers.enumerated() {
             let directory = Self.resolve(relativePath, in: layer)
             do {
-                listings.append(
-                    try LocalRootFSService.listLayerItems(
-                        at: directory, showHiddenFiles: showHiddenFiles))
+                listings.append(try readings[index].get())
             } catch {
                 switch Self.fileType(of: directory) {
                 case nil where Self.fileType(of: layer) != nil:
@@ -87,6 +87,36 @@ nonisolated struct LayeredRootFS {
         }
 
         return Listing(entries: Self.merge(listings), excludedLayers: excluded)
+    }
+
+    /// Reads the same relative directory from every layer at once.
+    ///
+    /// The listings are independent, and each is a round trip to the guest
+    /// over NFS, so reading them in sequence would make one directory expand
+    /// cost the stack depth in latency. Ordering is preserved by index, and
+    /// [`listDirectory`] still consumes the results top-down, so truncation
+    /// behaves exactly as it would have sequentially — the only difference is
+    /// that a truncated tail was fetched and then discarded, which is the
+    /// rare path.
+    private func readLayers(
+        relativePath: String,
+        showHiddenFiles: Bool
+    ) -> [Result<[LocalRootFSService.LayerItem], Error>] {
+        let lock = NSLock()
+        var readings: [Int: Result<[LocalRootFSService.LayerItem], Error>] = [:]
+
+        DispatchQueue.concurrentPerform(iterations: layers.count) { index in
+            let directory = Self.resolve(relativePath, in: layers[index])
+            let reading = Result {
+                try LocalRootFSService.listLayerItems(
+                    at: directory, showHiddenFiles: showHiddenFiles)
+            }
+            lock.lock()
+            readings[index] = reading
+            lock.unlock()
+        }
+
+        return layers.indices.map { readings[$0]! }
     }
 
     /// Layer paths mapped onto the export, and how many were left behind.
