@@ -15,6 +15,20 @@ func parseISO8601Date(_ string: String?) -> Date {
     return formatter.date(from: string) ?? .distantPast
 }
 
+/// Formats a byte count, always as a numeral.
+///
+/// `ByteCountFormatStyle` — and `ByteCountFormatter` before it — spell zero out
+/// by default: "Zero kB". That reads as a word dropped into a column of
+/// numbers, breaks the digit alignment those columns depend on, and is the one
+/// value a live counter sits at most of the time. Every byte figure in the app
+/// goes through here so the default cannot creep back in one call site at a
+/// time.
+/// `nonisolated` because this is pure formatting and its callers are not all on
+/// the main actor — file-size columns resolve off it.
+nonisolated func formattedBytes(_ count: Int64, style: ByteCountFormatStyle.Style = .file) -> String {
+    count.formatted(.byteCount(style: style, spellsOutZero: false))
+}
+
 /// Shared utility for relative time display
 func relativeTime(from date: Date) -> String {
     let interval = Date().timeIntervalSince(date)
