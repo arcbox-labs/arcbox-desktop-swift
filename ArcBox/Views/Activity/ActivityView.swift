@@ -9,11 +9,15 @@ import SwiftUI
 /// against stay on screen while you scan containers.
 struct ActivityView: View {
     @Environment(ActivityViewModel.self) private var vm
+    @Environment(ContainersViewModel.self) private var containersVM
     @Environment(\.arcboxClient) private var arcboxClient
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    @State private var searchText = ""
+
     var body: some View {
         content
+            .searchable(text: $searchText, placement: .toolbar, prompt: "Filter Containers")
             // Keyed on the arrival of data, not on the data: the screen
             // materialises once, and the 1 Hz samples inside it do not drag the
             // whole hierarchy through a transition every second.
@@ -36,28 +40,35 @@ struct ActivityView: View {
     @ViewBuilder
     private var content: some View {
         if let stats = vm.current {
-            ActivityContainerTable(containers: stats.containers)
-                .overlay {
-                    if stats.containers.isEmpty {
-                        ContentUnavailableView(
-                            "No Running Containers",
-                            systemImage: "cube",
-                            description: Text("Per-container usage appears here while containers are running.")
-                        )
-                    }
-                }
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    ActivityMetricStrip(
-                        stats: stats,
-                        cpuHistory: vm.cpuHistory,
-                        memoryHistory: vm.memoryHistory,
-                        networkHistory: vm.networkHistory
-                    )
-                }
-                .softScrollEdge(for: .top)
+            ActivityContainerTable(
+                containers: stats.containers,
+                docker: dockerContainers,
+                searchText: searchText
+            )
+            .safeAreaInset(edge: .top, spacing: 0) {
+                ActivityMetricStrip(
+                    stats: stats,
+                    cpuHistory: vm.cpuHistory,
+                    memoryHistory: vm.memoryHistory,
+                    networkHistory: vm.networkHistory
+                )
+            }
+            .softScrollEdge(for: .top)
         } else {
             waitingForData
         }
+    }
+
+    /// Docker's view of the containers the stats stream reports, keyed by ID.
+    /// The two sources are independent, so this is a join, not a lookup: an ID
+    /// the Engine has not reported simply contributes nothing.
+    private var dockerContainers: [String: ActivityContainerFacts] {
+        Dictionary(
+            containersVM.containers.map {
+                ($0.id, ActivityContainerFacts(project: $0.composeProject, image: $0.image))
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
     }
 
     /// The machine's shape, once known — the toolbar's own line for the

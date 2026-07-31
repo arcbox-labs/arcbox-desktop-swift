@@ -21,6 +21,7 @@
 		0C35F427DABEE19C0C583BE1 /* ContainersViewModel+Docker.swift in Sources */ = {isa = PBXBuildFile; fileRef = D12C2D038DE6CC49702F85F0 /* ContainersViewModel+Docker.swift */; };
 		0C6B829AD5010FDB0E749471 /* PullImageSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8254D67C0D80B99FC18DAD5 /* PullImageSheet.swift */; };
 		0E680E7A421A91FFB668D65E /* SandboxEventsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = E38681FE9A98E55B1608E662 /* SandboxEventsTab.swift */; };
+		0EB4E66405DD58C377BCE0E6 /* ActivityRowGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CD990EEEF43CDA673BC1816 /* ActivityRowGroupingTests.swift */; };
 		11E29BA2E32899164106A9E7 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5A780F10224ACC8C1B53D1E /* AvatarView.swift */; };
 		13B8650DED39F97A96660608 /* ErrorReporting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54DE8B823FD1E94B0073AC5A /* ErrorReporting.swift */; };
 		14F016496706C25F9CF50D75 /* Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06688AB84392716F1108AE36 /* Logging.swift */; };
@@ -199,6 +200,7 @@
 		D6D1C18BADA9AB8CAE608A7F /* SidebarAccountButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7607A876F6C88A440DA53BE1 /* SidebarAccountButton.swift */; };
 		D745D0D7EF5FF65174C47F28 /* NewVolumeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 903FA72CEF39142ADA5CA378 /* NewVolumeSheet.swift */; };
 		D786BBF78698824ED9F5E048 /* ComingSoonPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE64C34A555B2A5BA02AD9FA /* ComingSoonPanel.swift */; };
+		DA5B57293BC69B7D95AABBA8 /* ActivityRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0201CD86DCD5E042D07FF66F /* ActivityRow.swift */; };
 		DAC7224E4BF7F459BB7013CB /* RemoteIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18574DEF808329D8152A379 /* RemoteIconView.swift */; };
 		DC9E1747A0F6F6574688BBD0 /* arcbox.version in Resources */ = {isa = PBXBuildFile; fileRef = AC70A79B919D909CF6D811B4 /* arcbox.version */; };
 		DDF9F74BA0638A51322686DE /* PodsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF5B0B3EC77FB12D8B4EA6A /* PodsViewModel.swift */; };
@@ -254,6 +256,7 @@
 /* Begin PBXFileReference section */
 		00AE70F2EF523D6E02FFF371 /* ArcBoxClient */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ArcBoxClient; path = Packages/ArcBoxClient; sourceTree = SOURCE_ROOT; };
 		0100B138714BA1626E5E8D48 /* AboutView+ReleaseRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AboutView+ReleaseRow.swift"; sourceTree = "<group>"; };
+		0201CD86DCD5E042D07FF66F /* ActivityRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRow.swift; sourceTree = "<group>"; };
 		03C9AACAD52AFF216B6A69E0 /* ImagesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagesListView.swift; sourceTree = "<group>"; };
 		064086AEC8C204E8224DF45A /* DockerContextManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerContextManager.swift; sourceTree = "<group>"; };
 		06688AB84392716F1108AE36 /* Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logging.swift; sourceTree = "<group>"; };
@@ -291,6 +294,7 @@
 		32C86546753C11A9E6CA8CB8 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 		33250D1306B30B4E3D4C9B0E /* LayeredRootFS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayeredRootFS.swift; sourceTree = "<group>"; };
 		3572105F94A4F2399F9446D4 /* LiquidGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlass.swift; sourceTree = "<group>"; };
+		3CD990EEEF43CDA673BC1816 /* ActivityRowGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRowGroupingTests.swift; sourceTree = "<group>"; };
 		3DAC9EE4F067CB69F022C1E0 /* ActivityViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityViewModel.swift; sourceTree = "<group>"; };
 		3E30F5FC430804013B58C6F1 /* com.arcboxlabs.desktop.daemon.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = com.arcboxlabs.desktop.daemon.plist; sourceTree = "<group>"; };
 		3ED1683EF0A3490B8B7B5CF6 /* InfoTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoTableView.swift; sourceTree = "<group>"; };
@@ -892,6 +896,7 @@
 			children = (
 				B050286A2450880AC2C95342 /* ActivityContainerTable.swift */,
 				61F15E941FF769135D0AA218 /* ActivityMetricStrip.swift */,
+				0201CD86DCD5E042D07FF66F /* ActivityRow.swift */,
 				5B3D2AE66CD9DD4A18CADB71 /* ActivityView.swift */,
 				47B33A34931421365A5BCAE6 /* StatsFormat.swift */,
 			);
@@ -1050,6 +1055,7 @@
 		F40F93A7C5C0CC3834C9D722 /* ArcBoxTests */ = {
 			isa = PBXGroup;
 			children = (
+				3CD990EEEF43CDA673BC1816 /* ActivityRowGroupingTests.swift */,
 				1DC5F65FECB2F80BA3AF1D84 /* ArcBoxClientErrorTests.swift */,
 				A10ED4BA65D6B9CC56B6B329 /* ChangelogParserTests.swift */,
 				E610512C9106BB92A47DC044 /* ContainersViewModelTests.swift */,
@@ -1238,6 +1244,7 @@
 				801AAF363A7901B7D17F5C55 /* AccountSettingsView.swift in Sources */,
 				759C82DCC614CABAA93AABC4 /* ActivityContainerTable.swift in Sources */,
 				7C881FAC221912F138CD65E7 /* ActivityMetricStrip.swift in Sources */,
+				DA5B57293BC69B7D95AABBA8 /* ActivityRow.swift in Sources */,
 				ECA0B439D329FA52C529ABE8 /* ActivityView.swift in Sources */,
 				09A2217B8D33E2BD87D23713 /* ActivityViewModel.swift in Sources */,
 				5F8BD0B16CBBDC44080F6EA5 /* Analytics.swift in Sources */,
@@ -1428,6 +1435,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0EB4E66405DD58C377BCE0E6 /* ActivityRowGroupingTests.swift in Sources */,
 				C94515858BC220B73B93EC5D /* ArcBoxClientErrorTests.swift in Sources */,
 				31474CB365691C57A5568D14 /* ChangelogParserTests.swift in Sources */,
 				4D2029E55A7979B8BD9EE89A /* ContainersViewModelTests.swift in Sources */,
