@@ -16,10 +16,18 @@ struct ActivityView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var searchText = ""
+    @State private var isSearching = false
 
     var body: some View {
         content
-            .searchable(text: $searchText, placement: .toolbar, prompt: "Filter Containers")
+            .searchable(text: $searchText, isPresented: $isSearching, prompt: "Filter Containers")
+            // Dismissing the field has to drop the query with it, or the table
+            // stays filtered with nothing on screen explaining the missing
+            // rows. Every other list in the app does this; the placement is
+            // left to the system for the same reason.
+            .onChange(of: isSearching) { _, searching in
+                if !searching { searchText = "" }
+            }
             // Keyed on the arrival of data, not on the data: the screen
             // materialises once, and the 1 Hz samples inside it do not drag the
             // whole hierarchy through a transition every second.
