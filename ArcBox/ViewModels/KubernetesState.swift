@@ -150,7 +150,7 @@ class KubernetesState {
         var failures = 0
 
         while !Task.isCancelled, generation == self.generation {
-            setLoading(true)
+            markBothLoading()
             receivedSnapshot = false
 
             do {
@@ -169,9 +169,11 @@ class KubernetesState {
                 Log.pods.error(
                     "Kubernetes watch failed: \(error.localizedDescription, privacy: .private)")
                 ErrorReporting.capture(error, domain: .kubernetes, operation: "watch")
-                // Keep the user's selection so it restores if the cluster comes back.
-                podsModel.dropItems()
-                servicesModel.dropItems()
+                // Keep the last known lists on screen. A dropped watch is routine — the idle
+                // timeout alone will end a quiet one — and blanking the UI for every reconnect
+                // is worse than briefly showing data that is a few seconds stale. Only an
+                // actual teardown clears them.
+                //
                 // Drop the client so the next attempt re-fetches the kubeconfig and reconnects.
                 k8sClient = nil
             }
@@ -182,11 +184,16 @@ class KubernetesState {
         }
     }
 
+    // Each stream clears only its own loading flag: the two initial LISTs land independently,
+    // and clearing both on the first would show the slower list an empty state instead of a
+    // spinner.
+
     private func streamPods(_ k8s: K8sClient, generation: Int) async throws {
         for try await pods in k8s.podStream() {
             guard generation == self.generation else { return }
             podsModel.apply(pods)
-            noteSnapshot()
+            podsModel.isLoading = false
+            receivedSnapshot = true
         }
     }
 
@@ -194,13 +201,9 @@ class KubernetesState {
         for try await services in k8s.serviceStream() {
             guard generation == self.generation else { return }
             servicesModel.apply(services)
-            noteSnapshot()
+            servicesModel.isLoading = false
+            receivedSnapshot = true
         }
-    }
-
-    private func noteSnapshot() {
-        receivedSnapshot = true
-        setLoading(false)
     }
 
     private static func backoff(afterFailures failures: Int) -> Duration {
@@ -218,8 +221,10 @@ class KubernetesState {
         return created
     }
 
-    private func setLoading(_ loading: Bool) {
-        podsModel.isLoading = loading
-        servicesModel.isLoading = loading
+    /// Both lists are waiting whenever a connection attempt starts; they stop independently as
+    /// their own first snapshot lands.
+    private func markBothLoading() {
+        podsModel.isLoading = true
+        servicesModel.isLoading = true
     }
 }

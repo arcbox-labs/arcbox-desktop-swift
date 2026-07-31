@@ -50,7 +50,10 @@ extension K8sClient {
         path: String,
         of listType: List.Type
     ) -> AsyncThrowingStream<[List.Item], any Error> {
-        AsyncThrowingStream { continuation in
+        // Every element is a complete snapshot, so only the newest one is worth keeping. The
+        // default unbounded buffer would grow with burst size × list size during a rollout and
+        // march the UI through intermediate states it can no longer act on.
+        AsyncThrowingStream<[List.Item], any Error>(bufferingPolicy: .bufferingNewest(1)) { continuation in
             let task = Task {
                 do {
                     while !Task.isCancelled {

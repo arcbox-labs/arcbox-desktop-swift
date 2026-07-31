@@ -49,11 +49,6 @@ class PodsViewModel {
         pods = items.compactMap { Self.mapPod($0) }
     }
 
-    /// Drop loaded pods but keep the selection, so it restores if the cluster comes back.
-    func dropItems() {
-        pods = []
-    }
-
     /// Clear all pod data when K8s is stopped.
     func clear() {
         pods = []

@@ -48,11 +48,6 @@ class ServicesViewModel {
         services = items.compactMap { Self.mapService($0) }
     }
 
-    /// Drop loaded services but keep the selection, so it restores if the cluster comes back.
-    func dropItems() {
-        services = []
-    }
-
     /// Clear all service data when K8s is stopped.
     func clear() {
         services = []
