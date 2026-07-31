@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.31.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.30.1...v1.31.0) (2026-07-31)
+
+
+### Features
+
+* **files:** merge layers into one filesystem view ([6bd0dbc](https://github.com/arcboxlabs/arcbox-desktop/commit/6bd0dbcbd3b2a04c313dfadae8093338c79eea83))
+
+
+### Bug Fixes
+
+* **files:** classify whiteouts by device number, surface unavailable layers ([f7bcbed](https://github.com/arcboxlabs/arcbox-desktop/commit/f7bcbed5f3ac377e9d02a52bce9f020d3ba79f6c))
+* **files:** keep the incomplete-view warning truthful at runtime ([ccd7209](https://github.com/arcboxlabs/arcbox-desktop/commit/ccd7209e0aceeea3f4bf3aa6185c40f6584b5e5c))
+* **files:** truncate the stack at an unbrowsable layer too ([149b56a](https://github.com/arcboxlabs/arcbox-desktop/commit/149b56aa0f8d6c98afcff4d8b433cc9a622a91d9))
+* **files:** truncate the stack at an unreadable layer ([77faa0f](https://github.com/arcboxlabs/arcbox-desktop/commit/77faa0fd324d232744fcafff1ed88254e1fc120c))
+* **files:** union failing layers by identity, not by worst count ([01f5268](https://github.com/arcboxlabs/arcbox-desktop/commit/01f5268686225b1eaa1658e62955112b0e9f2a08))
+
+
+### Miscellaneous
+
+* bump arcbox version to v0.5.5 ([#336](https://github.com/arcboxlabs/arcbox-desktop/issues/336)) ([da388ec](https://github.com/arcboxlabs/arcbox-desktop/commit/da388ec47250a75f1e345fd7b87162855a323506))
+
 ## [1.30.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.30.0...v1.30.1) (2026-07-31)
 
 ### Highlights
