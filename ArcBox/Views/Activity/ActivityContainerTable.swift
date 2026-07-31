@@ -1,19 +1,29 @@
 import ArcBoxClient
 import SwiftUI
 
-/// Per-container resource usage.
+/// Per-container resource usage, grouped by Compose project.
 ///
-/// A native `Table` so columns sort, resize and reorder the way every other Mac
-/// table does, and so a row stays selected while the numbers update underneath
-/// it. Sorting defaults to the busiest container first, as in Activity Monitor.
+/// A native `Table` so columns sort, resize, reorder and hide the way every
+/// other Mac table does, and so a row stays selected while the numbers update
+/// underneath it. Sorting defaults to the busiest first, as in Activity
+/// Monitor.
 struct ActivityContainerTable: View {
+    @Environment(AppViewModel.self) private var appVM
+    @Environment(ContainersViewModel.self) private var containersVM
+
     let containers: [ContainerResourceStats]
+    /// Docker's view of the same containers, keyed by ID. Supplies the project
+    /// a row groups under and the fields search matches beyond the name. Absent
+    /// while the Engine has not reported yet, which flattens the table rather
+    /// than emptying it.
+    let docker: [String: ActivityContainerFacts]
+    let searchText: String
 
     @State private var sortOrder = [
-        KeyPathComparator(\ContainerResourceStats.cpuPercent, order: .reverse)
+        KeyPathComparator(\ActivityRow.cpuPercent, order: .reverse)
     ]
-    @State private var selection: ContainerResourceStats.ID?
-    @State private var columnLayout = TableColumnCustomization<ContainerResourceStats>()
+    @State private var selection: ActivityRow.ID?
+    @State private var columnLayout = TableColumnCustomization<ActivityRow>()
     /// `TableColumnCustomization` is `Codable` but not `RawRepresentable`, so it
     /// rides in `AppStorage` as its own encoding rather than through a
     /// retroactive conformance on a type we do not own.
@@ -21,64 +31,171 @@ struct ActivityContainerTable: View {
 
     var body: some View {
         Table(
-            containers.sorted(using: sortOrder),
+            of: ActivityRow.self,
             selection: $selection,
             sortOrder: $sortOrder,
             columnCustomization: $columnLayout
         ) {
-            TableColumn("Container", value: \.displayName) { container in
-                Text(container.displayName)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .help(container.id)
+            TableColumn("Container", value: \.title) { row in
+                title(row)
             }
-            .width(min: 140, ideal: 260)
-            .customizationID("container")
+            .width(min: 160, ideal: 280)
             // Hiding the column that says which row is which leaves a table of
             // anonymous numbers.
             .disabledCustomizationBehavior(.visibility)
+            .customizationID("container")
 
-            TableColumn("CPU", value: \.cpuPercent) { container in
-                reading(StatsFormat.percent(container.cpuPercent))
+            TableColumn("CPU", value: \.cpuPercent) { row in
+                reading(StatsFormat.percent(row.cpuPercent), isProject: row.isProject)
             }
             .width(min: 56, ideal: 68)
             .customizationID("cpu")
 
-            TableColumn("Memory", value: \.memoryCurrentBytes) { container in
-                reading(memoryReading(container))
+            TableColumn("Memory", value: \.memoryCurrentBytes) { row in
+                reading(memoryReading(row), isProject: row.isProject)
             }
             .width(min: 96, ideal: 150)
             .customizationID("memory")
 
-            TableColumn("Disk R/W", value: \.diskBytesPerSecond) { container in
+            TableColumn("Disk R/W", value: \.diskBytesPerSecond) { row in
                 reading(
-                    "\(StatsFormat.rate(container.diskReadBytesPerSecond)) / \(StatsFormat.rate(container.diskWriteBytesPerSecond))"
+                    "\(StatsFormat.rate(row.diskReadBytesPerSecond)) / \(StatsFormat.rate(row.diskWriteBytesPerSecond))",
+                    isProject: row.isProject
                 )
             }
             .width(min: 120, ideal: 170)
             .customizationID("disk")
 
-            TableColumn("Net ↓/↑", value: \.networkBytesPerSecond) { container in
+            TableColumn("Net ↓/↑", value: \.networkBytesPerSecond) { row in
                 reading(
-                    "\(StatsFormat.rate(container.networkReceiveBytesPerSecond)) / \(StatsFormat.rate(container.networkTransmitBytesPerSecond))"
+                    "\(StatsFormat.rate(row.networkReceiveBytesPerSecond)) / \(StatsFormat.rate(row.networkTransmitBytesPerSecond))",
+                    isProject: row.isProject
                 )
             }
             .width(min: 120, ideal: 170)
             .customizationID("network")
 
-            TableColumn("PIDs", value: \.pids) { container in
-                reading(container.pids.formatted())
+            TableColumn("PIDs", value: \.pids) { row in
+                reading(row.pids.formatted(), isProject: row.isProject)
             }
             .width(min: 44, ideal: 56)
             .customizationID("pids")
+        } rows: {
+            ForEach(groups) { group in
+                if group.children.isEmpty {
+                    TableRow(group.summary)
+                } else {
+                    DisclosureTableRow(group.summary) {
+                        ForEach(group.children) { TableRow($0) }
+                    }
+                }
+            }
         }
         .tableStyle(.inset)
         .alternatingRowBackgrounds()
+        .overlay { emptyState }
+        .contextMenu(forSelectionType: ActivityRow.ID.self) { ids in
+            menu(for: ids)
+        } primaryAction: { ids in
+            if let id = ids.first { reveal(id) }
+        }
         .task { restoreColumnLayout() }
         .onChange(of: columnLayout) { _, layout in
             storedColumnLayout = (try? JSONEncoder().encode(layout)) ?? Data()
         }
     }
+
+    /// Both empty states live here because filtering does: the view above
+    /// cannot tell "nothing is running" from "nothing matches" without redoing
+    /// the same work.
+    @ViewBuilder
+    private var emptyState: some View {
+        if containers.isEmpty {
+            ContentUnavailableView(
+                "No Running Containers",
+                systemImage: "cube",
+                description: Text("Per-container usage appears here while containers are running.")
+            )
+        } else if groups.isEmpty {
+            ContentUnavailableView.search(text: searchText)
+        }
+    }
+
+    private var groups: [ActivityRowGroup] {
+        let rows = containers.map(ActivityRow.init).filter(matchesSearch)
+        return ActivityRowGrouping.groups(
+            for: rows,
+            projects: docker.compactMapValues(\.project),
+            sortedBy: sortOrder
+        )
+    }
+
+    /// Matches the Containers list: name, image and project, so a query that
+    /// finds a container there finds it here too.
+    private func matchesSearch(_ row: ActivityRow) -> Bool {
+        guard !searchText.isEmpty else { return true }
+        let query = searchText.lowercased()
+        if row.title.lowercased().contains(query) { return true }
+        guard let id = row.containerID, let container = docker[id] else { return false }
+        return container.image.lowercased().contains(query)
+            || (container.project?.lowercased().contains(query) ?? false)
+    }
+
+    // MARK: - Cells
+
+    @ViewBuilder
+    private func title(_ row: ActivityRow) -> some View {
+        if row.isProject {
+            Label(row.title, systemImage: "square.stack.3d.up")
+                .font(.body.weight(.medium))
+                .lineLimit(1)
+        } else {
+            Text(row.title)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help(row.containerID ?? row.title)
+        }
+    }
+
+    /// Numbers read down the column, so they are trailing-aligned and share a
+    /// digit width. A project's totals carry the same weight as its title.
+    private func reading(_ text: String, isProject: Bool) -> some View {
+        Text(text)
+            .monospacedDigit()
+            .fontWeight(isProject ? .medium : .regular)
+            .foregroundStyle(isProject ? .primary : .secondary)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
+    private func memoryReading(_ row: ActivityRow) -> String {
+        guard row.memoryLimitBytes > 0 else {
+            return StatsFormat.bytes(row.memoryCurrentBytes)
+        }
+        return "\(StatsFormat.bytes(row.memoryCurrentBytes)) / \(StatsFormat.bytes(row.memoryLimitBytes))"
+    }
+
+    // MARK: - Actions
+
+    @ViewBuilder
+    private func menu(for ids: Set<ActivityRow.ID>) -> some View {
+        // Every action here addresses one container; a project row and a
+        // multiple selection have no single subject.
+        if ids.count == 1, let id = ids.first, docker[id] != nil {
+            Button("Show in Containers") { reveal(id) }
+            Button("Copy Container ID") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(id, forType: .string)
+            }
+        }
+    }
+
+    private func reveal(_ id: ActivityRow.ID) {
+        guard docker[id] != nil else { return }
+        containersVM.selectedID = id
+        appVM.currentNav = .containers
+    }
+
+    // MARK: - Column layout
 
     /// A layout saved by a build with different columns decodes into something
     /// that no longer matches them; dropping it loses a preference, which beats
@@ -86,31 +203,8 @@ struct ActivityContainerTable: View {
     private func restoreColumnLayout() {
         guard !storedColumnLayout.isEmpty,
             let restored = try? JSONDecoder().decode(
-                TableColumnCustomization<ContainerResourceStats>.self, from: storedColumnLayout)
+                TableColumnCustomization<ActivityRow>.self, from: storedColumnLayout)
         else { return }
         columnLayout = restored
     }
-
-    /// Numbers read down the column, so they are trailing-aligned and share a
-    /// digit width.
-    private func reading(_ text: String) -> some View {
-        Text(text)
-            .monospacedDigit()
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .trailing)
-    }
-
-    private func memoryReading(_ container: ContainerResourceStats) -> String {
-        guard container.memoryLimitBytes > 0 else {
-            return StatsFormat.bytes(container.memoryCurrentBytes)
-        }
-        return "\(StatsFormat.bytes(container.memoryCurrentBytes)) / \(StatsFormat.bytes(container.memoryLimitBytes))"
-    }
-}
-
-extension ContainerResourceStats {
-    /// Combined throughput, so the paired read/write columns can sort on the
-    /// figure the column actually shows.
-    var diskBytesPerSecond: Double { diskReadBytesPerSecond + diskWriteBytesPerSecond }
-    var networkBytesPerSecond: Double { networkReceiveBytesPerSecond + networkTransmitBytesPerSecond }
 }
