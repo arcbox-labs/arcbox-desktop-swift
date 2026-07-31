@@ -43,10 +43,10 @@ class PodsViewModel {
         selectedID = id
     }
 
-    /// Replace the list with a fetch result. Called by ``KubernetesState``, which owns the client
-    /// and the refresh loop.
-    func apply(_ list: PodList) {
-        pods = list.items.compactMap { Self.mapPod($0) }
+    /// Replace the list with a watch snapshot. Called by ``KubernetesState``, which owns the
+    /// client and the stream.
+    func apply(_ items: [Pod]) {
+        pods = items.compactMap { Self.mapPod($0) }
     }
 
     /// Drop loaded pods but keep the selection, so it restores if the cluster comes back.

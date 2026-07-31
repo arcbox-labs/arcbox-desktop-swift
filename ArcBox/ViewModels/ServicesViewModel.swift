@@ -42,10 +42,10 @@ class ServicesViewModel {
         selectedID = id
     }
 
-    /// Replace the list with a fetch result. Called by ``KubernetesState``, which owns the client
-    /// and the refresh loop.
-    func apply(_ list: ServiceList) {
-        services = list.items.compactMap { Self.mapService($0) }
+    /// Replace the list with a watch snapshot. Called by ``KubernetesState``, which owns the
+    /// client and the stream.
+    func apply(_ items: [K8sService]) {
+        services = items.compactMap { Self.mapService($0) }
     }
 
     /// Drop loaded services but keep the selection, so it restores if the cluster comes back.

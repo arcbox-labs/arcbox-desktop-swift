@@ -3,23 +3,20 @@ import K8sClient
 import OSLog
 import SwiftUI
 
-/// Owns the Kubernetes session: the one `K8sClient`, the one refresh loop, and the two view
-/// models they feed.
+/// Owns the Kubernetes session: the one `K8sClient`, the watch streams, and the two view models
+/// they feed.
 ///
-/// These three responsibilities used to be split across the list views (refresh cadence), the
-/// view models (a `K8sClient` each) and this type (the `enabled` flag), so nothing could enforce
-/// that teardown and refresh happened in a defined order. Every transition now funnels through
-/// ``setEnabled(_:client:)``, and results are written back only when they belong to the current
+/// These responsibilities used to be split across the list views (refresh cadence), the view
+/// models (a `K8sClient` each) and this type (the `enabled` flag), so nothing could enforce that
+/// teardown and refresh happened in a defined order. Every transition now funnels through
+/// ``setEnabled(_:client:)``, and snapshots are written back only when they belong to the current
 /// ``generation`` — a superseded response is dropped rather than racing a teardown.
 @MainActor
 @Observable
 class KubernetesState {
-    /// Cadence once the cluster has answered, or has stopped answering for good.
-    private static let pollInterval = Duration.seconds(10)
-    /// Faster cadence while waiting for a freshly started API server to come up.
-    private static let warmupInterval = Duration.seconds(2)
-    /// Warmup attempts before settling into ``pollInterval``.
-    private static let warmupAttempts = 15
+    /// Reconnect backoff bounds, applied when a watch stream fails.
+    private static let minBackoff = Duration.seconds(2)
+    private static let maxBackoff = Duration.seconds(15)
 
     private(set) var enabled: Bool = false
     var isStarting: Bool = false
@@ -31,9 +28,12 @@ class KubernetesState {
     let servicesModel = ServicesViewModel()
 
     private var k8sClient: K8sClient?
-    private var refreshTask: Task<Void, Never>?
+    private var sessionTask: Task<Void, Never>?
     /// Bumped on every teardown; in-flight work compares against it before writing back.
     private var generation: Int = 0
+    /// Whether the current connection attempt delivered data, so backoff resets on a
+    /// connection that worked and then dropped rather than growing forever.
+    private var receivedSnapshot = false
 
     /// Check current K8s cluster status via gRPC.
     func checkStatus(client: ArcBoxClient?) async {
@@ -115,78 +115,97 @@ class KubernetesState {
     private func setEnabled(_ newValue: Bool, client: ArcBoxClient?) {
         guard newValue != enabled else { return }
         enabled = newValue
-        if newValue {
-            startRefreshing(client: client)
+        if newValue, let client {
+            startSession(client: client)
         } else {
             endSession()
         }
     }
 
-    private func startRefreshing(client: ArcBoxClient?) {
-        refreshTask?.cancel()
+    private func startSession(client: ArcBoxClient) {
+        sessionTask?.cancel()
         let generation = self.generation
-        refreshTask = Task { [weak self] in
-            await self?.runRefreshLoop(generation: generation, client: client)
+        sessionTask = Task { [weak self] in
+            await self?.runSession(generation: generation, client: client)
         }
     }
 
     private func endSession() {
         generation &+= 1
-        refreshTask?.cancel()
-        refreshTask = nil
-        // Releasing the client invalidates its URLSession and frees the TLS delegate.
+        sessionTask?.cancel()
+        sessionTask = nil
+        // Releasing the client invalidates its URLSessions and frees the TLS delegates.
         k8sClient = nil
         podsModel.clear()
         servicesModel.clear()
     }
 
-    // MARK: - Refresh
+    // MARK: - Watch
 
-    private func runRefreshLoop(generation: Int, client: ArcBoxClient?) async {
-        var attempts = 0
-        var settled = false
+    /// Hold watches on pods and services open, reconnecting with backoff when they fail.
+    ///
+    /// Routine interruptions — the server closing an idle watch, or expiring the
+    /// `resourceVersion` — are handled inside the streams and never reach here.
+    private func runSession(generation: Int, client: ArcBoxClient) async {
+        var failures = 0
+
         while !Task.isCancelled, generation == self.generation {
-            let succeeded = await refresh(generation: generation, client: client)
-            attempts += 1
-            if succeeded || attempts >= Self.warmupAttempts {
-                settled = true
+            setLoading(true)
+            receivedSnapshot = false
+
+            do {
+                let k8s = try await resolveClient(client, generation: generation)
+                guard generation == self.generation else { return }
+
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask { try await self.streamPods(k8s, generation: generation) }
+                    group.addTask { try await self.streamServices(k8s, generation: generation) }
+                    try await group.waitForAll()
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                guard generation == self.generation else { return }
+                Log.pods.error(
+                    "Kubernetes watch failed: \(error.localizedDescription, privacy: .private)")
+                ErrorReporting.capture(error, domain: .kubernetes, operation: "watch")
+                // Keep the user's selection so it restores if the cluster comes back.
+                podsModel.dropItems()
+                servicesModel.dropItems()
+                // Drop the client so the next attempt re-fetches the kubeconfig and reconnects.
+                k8sClient = nil
             }
-            try? await Task.sleep(for: settled ? Self.pollInterval : Self.warmupInterval)
+
+            guard !Task.isCancelled, generation == self.generation else { return }
+            failures = receivedSnapshot ? 1 : failures + 1
+            try? await Task.sleep(for: Self.backoff(afterFailures: failures))
         }
     }
 
-    /// Fetch both resource kinds over the shared client. Returns `true` when the cluster answered.
-    private func refresh(generation: Int, client: ArcBoxClient?) async -> Bool {
-        guard let client else { return false }
-        setLoading(true)
-        defer {
-            if generation == self.generation { setLoading(false) }
-        }
-
-        do {
-            let k8s = try await resolveClient(client, generation: generation)
-            guard generation == self.generation else { return false }
-
-            async let podList = Perf.measure("pod.list") { try await k8s.listAllPods() }
-            async let serviceList = Perf.measure("service.list") { try await k8s.listAllServices() }
-            let (pods, services) = try await (podList, serviceList)
-
-            guard generation == self.generation else { return false }
+    private func streamPods(_ k8s: K8sClient, generation: Int) async throws {
+        for try await pods in k8s.podStream() {
+            guard generation == self.generation else { return }
             podsModel.apply(pods)
-            servicesModel.apply(services)
-            return true
-        } catch {
-            guard generation == self.generation else { return false }
-            Log.pods.error(
-                "Error refreshing Kubernetes resources: \(error.localizedDescription, privacy: .private)")
-            ErrorReporting.capture(error, domain: .kubernetes, operation: "refresh")
-            // Keep the user's selection so it restores if the cluster comes back.
-            podsModel.dropItems()
-            servicesModel.dropItems()
-            // Drop the client so the next tick re-fetches the kubeconfig and reconnects.
-            k8sClient = nil
-            return false
+            noteSnapshot()
         }
+    }
+
+    private func streamServices(_ k8s: K8sClient, generation: Int) async throws {
+        for try await services in k8s.serviceStream() {
+            guard generation == self.generation else { return }
+            servicesModel.apply(services)
+            noteSnapshot()
+        }
+    }
+
+    private func noteSnapshot() {
+        receivedSnapshot = true
+        setLoading(false)
+    }
+
+    private static func backoff(afterFailures failures: Int) -> Duration {
+        let doubled = minBackoff * Double(1 << min(failures - 1, 3))
+        return min(doubled, maxBackoff)
     }
 
     private func resolveClient(_ client: ArcBoxClient, generation: Int) async throws -> K8sClient {
