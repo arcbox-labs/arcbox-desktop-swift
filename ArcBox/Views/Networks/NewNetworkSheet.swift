@@ -10,7 +10,6 @@ struct NewNetworkSheet: View {
     @State private var name = ""
     @State private var enableIPv6 = false
     @State private var isCreating = false
-    @State private var errorMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -24,12 +23,7 @@ struct NewNetworkSheet: View {
                 .font(.system(size: 13))
                 .foregroundStyle(AppColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.system(size: 12))
-                        .foregroundStyle(AppColors.error)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                SheetErrorMessage(message: vm.lastError)
             }
             .padding(.bottom, 22)
 
@@ -123,22 +117,16 @@ struct NewNetworkSheet: View {
         .padding(.top, 22)
         .padding(.bottom, 18)
         .frame(width: 640, height: 430)
+        // Do not open showing a failure from an earlier action.
+        .task { vm.lastError = nil }
     }
 
     private func createNetwork() {
-        errorMessage = nil
         isCreating = true
-
         Task {
-            let failure = await vm.createNetwork(name: name, enableIPv6: enableIPv6, docker: docker)
-            await MainActor.run {
-                isCreating = false
-                if let failure {
-                    errorMessage = failure
-                } else {
-                    dismiss()
-                }
-            }
+            let ok = await vm.createNetwork(name: name, enableIPv6: enableIPv6, docker: docker)
+            isCreating = false
+            if ok { dismiss() }
         }
     }
 }

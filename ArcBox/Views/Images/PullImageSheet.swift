@@ -36,6 +36,7 @@ struct PullImageSheet: View {
                     .font(.system(size: 11))
                     .foregroundStyle(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+                SheetErrorMessage(message: vm.lastError)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -104,5 +105,7 @@ struct PullImageSheet: View {
             .overlay(alignment: .top) { Divider() }
         }
         .frame(width: 480, height: 270)
+        // Do not open showing a failure from an earlier action.
+        .task { vm.lastError = nil }
     }
 }

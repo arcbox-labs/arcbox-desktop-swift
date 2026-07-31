@@ -148,6 +148,8 @@ struct NewContainerSheet: View {
 
             // Footer buttons
             HStack {
+                SheetErrorMessage(message: vm.lastError)
+
                 Spacer()
 
                 Button("Cancel") {
@@ -191,5 +193,7 @@ struct NewContainerSheet: View {
             .overlay(alignment: .top) { Divider() }
         }
         .frame(width: 480, height: 560)
+        // Do not open showing a failure from an earlier action.
+        .task { vm.lastError = nil }
     }
 }

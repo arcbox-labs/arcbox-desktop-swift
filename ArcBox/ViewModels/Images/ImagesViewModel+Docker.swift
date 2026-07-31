@@ -93,7 +93,11 @@ extension ImagesViewModel {
 
     /// Pull an image from a registry. Returns true on success.
     func pullImage(_ reference: String, platform: String?, docker: DockerClient?) async -> Bool {
-        guard let docker else { return false }
+        lastError = nil
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return false
+        }
         let parsed = parseImageReference(reference)
 
         do {
@@ -108,6 +112,7 @@ extension ImagesViewModel {
             Log.image.error(
                 "Error pulling image \(reference, privacy: .private): \(String(describing: error), privacy: .private)")
             ErrorReporting.capture(error, domain: .image, operation: "pull")
+            lastError = error.localizedDescription
             return false
         }
     }

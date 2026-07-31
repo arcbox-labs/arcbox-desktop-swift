@@ -94,14 +94,19 @@ class NetworksViewModel {
         await loadNetworks(docker: docker)
     }
 
-    func createNetwork(name: String, enableIPv6: Bool, docker: DockerClient?) async -> String? {
-        guard let docker else {
-            return "Docker client unavailable."
-        }
-
+    /// Create a bridge network. Returns true on success; the failure message lands in `lastError`.
+    func createNetwork(name: String, enableIPv6: Bool, docker: DockerClient?) async -> Bool {
+        lastError = nil
+        // Validate the input before the dependency: a blank name is the user's to fix either way.
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else {
-            return "Network name is required."
+            lastError = "Network name is required."
+            return false
+        }
+
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return false
         }
 
         let payload = Operations.NetworkCreate.Input.Body.jsonPayload(
@@ -116,25 +121,26 @@ class NetworksViewModel {
             case .created:
                 Log.network.info("Created network \(trimmedName, privacy: .private)")
                 await loadNetworks(docker: docker)
-                return nil
+                return true
             case let .badRequest(response):
-                return Self.errorMessage(from: response.body)
+                lastError = Self.errorMessage(from: response.body)
             case let .forbidden(response):
-                return Self.errorMessage(from: response.body)
+                lastError = Self.errorMessage(from: response.body)
             case let .notFound(response):
-                return Self.errorMessage(from: response.body)
+                lastError = Self.errorMessage(from: response.body)
             case let .internalServerError(response):
-                return Self.errorMessage(from: response.body)
+                lastError = Self.errorMessage(from: response.body)
             case let .undocumented(status, _):
-                return "Unexpected response status: \(status)."
+                lastError = "Unexpected response status: \(status)."
             }
         } catch {
             Log.network.error(
                 "Error creating network \(trimmedName, privacy: .private): \(error.localizedDescription, privacy: .private)"
             )
             ErrorReporting.capture(error, domain: .network, operation: "create")
-            return error.localizedDescription
+            lastError = error.localizedDescription
         }
+        return false
     }
 
     private static func errorMessage<T>(from body: T) -> String where T: Sendable {

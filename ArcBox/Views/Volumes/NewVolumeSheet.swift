@@ -25,6 +25,7 @@ struct NewVolumeSheet: View {
                 .font(.system(size: 11))
                 .foregroundStyle(AppColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+                SheetErrorMessage(message: vm.lastError)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -85,5 +86,7 @@ struct NewVolumeSheet: View {
             .overlay(alignment: .top) { Divider() }
         }
         .frame(width: 480, height: 240)
+        // Do not open showing a failure from an earlier action.
+        .task { vm.lastError = nil }
     }
 }
