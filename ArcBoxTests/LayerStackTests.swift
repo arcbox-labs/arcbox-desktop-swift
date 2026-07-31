@@ -60,4 +60,18 @@ final class LayerStackTests: XCTestCase {
             LayerStack.unresolved(guestPaths: ["/var/lib/docker/definitely-absent-\(UUID())"]),
             .exportUnavailable)
     }
+
+    func testAnUnbrowsableStackDescribesNothing() async {
+        // Nothing was merged, so a badge reading "merged from 0 of 2 layers"
+        // beside the unresolved-filesystem error would state something that
+        // did not happen.
+        let stack = await LayerStack.resolve(guestPaths: [
+            "/somewhere/else/upper",
+            "/somewhere/else/lower",
+        ])
+
+        XCTAssertNil(stack.rootURL)
+        XCTAssertEqual(stack.reportedLayers, 2)
+        XCTAssertFalse(stack.describesAStack)
+    }
 }

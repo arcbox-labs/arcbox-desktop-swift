@@ -8,25 +8,24 @@ import SwiftUI
 /// it were complete — files unique to that layer, and the deletions it
 /// records, simply would not appear.
 struct LayerMergeBadge: View {
-    let total: Int
-    let unavailable: Int
+    private let total: Int
+    private let unavailable: Int
+    private let describesAStack: Bool
 
-    /// Describes a browsed stack. Renders nothing for a subject that has a
-    /// single layer, since there is nothing to be incomplete about.
+    /// Describes a browsed stack, and renders nothing when there is no stack
+    /// to describe — a single-layer subject, or one that could not be
+    /// browsed at all.
     init(stack: LayerStack) {
-        self.init(total: stack.reportedLayers, unavailable: stack.missingLayers)
-    }
-
-    init(total: Int, unavailable: Int) {
-        self.total = total
-        self.unavailable = unavailable
+        total = stack.reportedLayers
+        unavailable = stack.missingLayers
+        describesAStack = stack.describesAStack
     }
 
     private var isComplete: Bool { unavailable == 0 }
 
     @ViewBuilder
     var body: some View {
-        if total > 1 {
+        if describesAStack {
             badge
         }
     }

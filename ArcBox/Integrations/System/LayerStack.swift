@@ -26,9 +26,13 @@ nonisolated struct LayerStack {
     /// Layers whose content the user is not seeing.
     var missingLayers: Int { excludedIndices.count + unbrowsableLayers }
 
-    /// Whether there is a stack worth describing. A subject with a single
-    /// layer has nothing to be incomplete about.
-    var describesAStack: Bool { reportedLayers > 1 }
+    /// Whether there is a browsed stack worth describing.
+    ///
+    /// A subject with a single layer has nothing to be incomplete about, and
+    /// one with no browsable root was never merged at all — describing that
+    /// as "merged from 0 of N layers" states something that did not happen,
+    /// next to an error that already explains why.
+    var describesAStack: Bool { rootURL != nil && reportedLayers > 1 }
 
     /// Why a stack could not be browsed at all.
     enum Unresolved: Equatable {
