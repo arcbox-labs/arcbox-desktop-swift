@@ -139,7 +139,7 @@ final class LayeredRootFSTests: XCTestCase {
 
         XCTAssertEqual(listing.entries.map(\.name), ["hosts", "resolv.conf"])
         XCTAssertEqual(try String(contentsOf: listing.entries[0].url, encoding: .utf8), "container")
-        XCTAssertEqual(listing.unreadableLayers, [])
+        XCTAssertEqual(listing.excludedLayers, [])
     }
 
     func testListDirectorySkipsLayersMissingTheDirectory() throws {
@@ -166,7 +166,7 @@ final class LayeredRootFSTests: XCTestCase {
         XCTAssertEqual(listing.entries.map(\.name), ["tool"])
         // A layer that simply lacks the path is normal, not a read failure —
         // counting it would put a permanent warning on every browse.
-        XCTAssertEqual(listing.unreadableLayers, [])
+        XCTAssertEqual(listing.excludedLayers, [])
     }
 
     // MARK: whiteout classification
@@ -195,7 +195,7 @@ final class LayeredRootFSTests: XCTestCase {
         XCTAssertEqual(items.map(\.isWhiteout), [false])
     }
 
-    func testListDirectoryCountsUnreadableLayers() throws {
+    func testListDirectoryReportsExcludedLayers() throws {
         // A path that exists but will not list (here: a regular file where a
         // directory is expected) is a real hole in the merge — the caller has
         // to be able to tell the user the view is incomplete.
@@ -223,7 +223,7 @@ final class LayeredRootFSTests: XCTestCase {
         // Identify *which* layer failed: a caller browsing several
         // directories unions these, and a bare count would collapse
         // failures in different layers into one.
-        XCTAssertEqual(listing.unreadableLayers, [1])
+        XCTAssertEqual(listing.excludedLayers, [1])
     }
 
     func testDistinctDirectoriesReportDistinctFailingLayers() throws {
@@ -247,8 +247,65 @@ final class LayeredRootFSTests: XCTestCase {
         let stack = try XCTUnwrap(LayeredRootFS(layers: [a, b]))
 
         XCTAssertEqual(
-            stack.listDirectory(relativePath: "etc", showHiddenFiles: false).unreadableLayers, [0])
+            stack.listDirectory(relativePath: "etc", showHiddenFiles: false).excludedLayers, [0, 1])
         XCTAssertEqual(
-            stack.listDirectory(relativePath: "opt", showHiddenFiles: false).unreadableLayers, [1])
+            stack.listDirectory(relativePath: "opt", showHiddenFiles: false).excludedLayers, [1])
+    }
+
+    func testUnreadableUpperLayerHidesLowerEntriesRatherThanShowingStaleOnes() throws {
+        // The upper layer decides what the lower one is allowed to show: it
+        // can replace a file or whiteout it entirely. If it cannot be read,
+        // surfacing the lower layer's copy would show content the container
+        // does not actually have — worse than showing nothing. The stack
+        // truncates at the failure instead.
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let upper = root.appendingPathComponent("upper", isDirectory: true)
+        let lower = root.appendingPathComponent("lower/etc", isDirectory: true)
+        try FileManager.default.createDirectory(at: upper, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: lower, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        // `etc` exists in the upper layer but will not list.
+        try "x".write(to: upper.appendingPathComponent("etc"), atomically: true, encoding: .utf8)
+        try "stale".write(
+            to: lower.appendingPathComponent("passwd"), atomically: true, encoding: .utf8)
+
+        let stack = try XCTUnwrap(
+            LayeredRootFS(layers: [upper, root.appendingPathComponent("lower", isDirectory: true)]))
+        let listing = stack.listDirectory(relativePath: "etc", showHiddenFiles: false)
+
+        XCTAssertEqual(listing.entries.map(\.name), [])
+        XCTAssertEqual(listing.excludedLayers, [0, 1])
+    }
+
+    func testLayersAboveAnUnreadableOneStillMerge() throws {
+        // Precedence runs downward, so nothing below can override what the
+        // readable top layers already decided — those entries stay sound.
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let top = root.appendingPathComponent("top/etc", isDirectory: true)
+        let mid = root.appendingPathComponent("mid", isDirectory: true)
+        let bottom = root.appendingPathComponent("bottom/etc", isDirectory: true)
+        for dir in [top, mid, bottom] {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try "top".write(to: top.appendingPathComponent("hosts"), atomically: true, encoding: .utf8)
+        try "x".write(to: mid.appendingPathComponent("etc"), atomically: true, encoding: .utf8)
+        try "bottom".write(
+            to: bottom.appendingPathComponent("resolv.conf"), atomically: true, encoding: .utf8)
+
+        let stack = try XCTUnwrap(
+            LayeredRootFS(layers: [
+                root.appendingPathComponent("top", isDirectory: true),
+                mid,
+                root.appendingPathComponent("bottom", isDirectory: true),
+            ]))
+        let listing = stack.listDirectory(relativePath: "etc", showHiddenFiles: false)
+
+        XCTAssertEqual(listing.entries.map(\.name), ["hosts"])
+        XCTAssertEqual(listing.excludedLayers, [1, 2])
     }
 }

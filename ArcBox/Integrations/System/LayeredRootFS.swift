@@ -27,25 +27,32 @@ nonisolated struct LayeredRootFS {
     /// Whether composing is worth it at all: one layer merges to itself.
     var isComposed: Bool { layers.count > 1 }
 
-    /// The merged contents of one directory, plus which layers the merge
-    /// could not actually read.
+    /// The merged contents of one directory, plus which layers are missing
+    /// from it.
     struct Listing {
         let entries: [LocalFileEntry]
-        /// Indices into `layers` that hold the path but failed to list it.
-        /// Their files, precedence and whiteouts are missing from `entries`,
-        /// so a caller showing this listing must be able to say it is
-        /// incomplete — and identifying *which* layers lets callers union
+        /// Indices into `layers` whose content is not represented in
+        /// `entries`: the layer that failed to list, and — because its
+        /// whiteouts and replacements are unknowable — everything beneath
+        /// it. A caller showing this listing must be able to say it is
+        /// incomplete; identifying *which* layers lets callers union
         /// failures across directories instead of undercounting them.
-        let unreadableLayers: Set<Int>
+        let excludedLayers: Set<Int>
     }
 
     /// Lists the merged contents of a directory given relative to the stack
-    /// root. A layer that cannot be read is skipped rather than failing the
-    /// whole listing, so a partially available export still browses — but the
-    /// skip is reported rather than hidden.
+    /// root.
+    ///
+    /// A layer that cannot be read truncates the stack rather than being
+    /// skipped over. Skipping would let entries from lower layers surface
+    /// even though the unreadable layer may delete or replace them — showing
+    /// files the container or image does not actually have, which is worse
+    /// than showing fewer. Everything *above* the failure is unaffected:
+    /// lower layers can never override it. So the listing stays sound and
+    /// merely loses depth, and the loss is reported.
     func listDirectory(relativePath: String, showHiddenFiles: Bool) -> Listing {
         var listings: [[LocalRootFSService.LayerItem]] = []
-        var unreadable: Set<Int> = []
+        var excluded: Set<Int> = []
 
         for (index, layer) in layers.enumerated() {
             let directory = Self.resolve(relativePath, in: layer)
@@ -54,16 +61,16 @@ nonisolated struct LayeredRootFS {
                     try LocalRootFSService.listLayerItems(
                         at: directory, showHiddenFiles: showHiddenFiles))
             } catch {
-                // Most layers carry most paths not at all, which is normal and
-                // contributes nothing; a path that exists but will not open is
-                // a real gap in the merge.
-                if FileManager.default.fileExists(atPath: directory.path) {
-                    unreadable.insert(index)
-                }
+                // A layer that simply lacks the path holds no opinion about
+                // it — a whiteout would have to live inside that very
+                // directory — so it is normal and the merge continues.
+                guard FileManager.default.fileExists(atPath: directory.path) else { continue }
+                excluded.formUnion(index..<layers.count)
+                break
             }
         }
 
-        return Listing(entries: Self.merge(listings), unreadableLayers: unreadable)
+        return Listing(entries: Self.merge(listings), excludedLayers: excluded)
     }
 
     /// Maps a host URL that came out of [`listDirectory`] back to its path
