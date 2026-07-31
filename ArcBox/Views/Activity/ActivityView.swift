@@ -75,7 +75,8 @@ struct ActivityView: View {
     /// constants the tiles would otherwise have to repeat.
     private var subtitle: String {
         guard let stats = vm.current else { return "System VM" }
-        return "System VM · \(stats.onlineCPUs) cores · \(StatsFormat.bytes(stats.memoryTotalBytes))"
+        return
+            "System VM · \(stats.onlineCPUs) cores · \(StatsFormat.bytes(stats.memoryTotalBytes)) · up \(StatsFormat.uptime(stats.uptime))"
     }
 
     /// Distinguishes a first connection from a stream that keeps failing before

@@ -23,4 +23,13 @@ enum StatsFormat {
     static func load(_ value: Double) -> String {
         value.formatted(.number.precision(.fractionLength(2)))
     }
+
+    /// Uptime at the two coarsest units that apply — "5d 3h", "3h 12m", "8m".
+    ///
+    /// Deliberately no seconds: this sits in the window subtitle, and a figure
+    /// that rewrites itself every second is chrome that never stops moving.
+    static func uptime(_ duration: Duration) -> String {
+        duration.formatted(
+            .units(allowed: [.days, .hours, .minutes], width: .narrow, maximumUnitCount: 2))
+    }
 }
