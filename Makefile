@@ -29,7 +29,7 @@ PROVISIONING_PROFILE ?=
 
 ABCTL := $(ARCBOX_DIR)/target/release/abctl
 
-.PHONY: build test format lint generate-xcodeproj bump-arcbox verify-arcbox-protobuf build-rust prefetch dmg dmg-signed dmg-release clean help
+.PHONY: build test format lint lint-xtask test-xtask generate-xcodeproj bump-arcbox verify-arcbox-protobuf build-rust prefetch dmg dmg-signed dmg-release clean help
 
 help:
 	@echo "ArcBox build targets:"
@@ -38,6 +38,8 @@ help:
 	@echo "  make test           Build and run the test suite"
 	@echo "  make format         Apply swift-format in place"
 	@echo "  make lint           Run swift-format --strict and swiftlint (as CI does)"
+	@echo "  make lint-xtask     Run cargo fmt --check and clippy -D warnings on xtask/"
+	@echo "  make test-xtask     Run the xtask test suite"
 	@echo "  make generate-xcodeproj  Regenerate ArcBox.xcodeproj from project.yml"
 	@echo "  make bump-arcbox VERSION=vX.Y.Z"
 	@echo "                         Update arcbox.version and regenerate protobuf client"
@@ -126,6 +128,21 @@ format:
 lint:
 	$(SWIFT_SOURCES) | xargs -0 $(TOOL) swift-format lint --strict
 	$(TOOL) swiftlint lint --strict --config .swiftlint.yml
+
+## ── xtask (Rust) ──────────────────────────────────────
+
+# The targets above cover Swift only. xtask owns embedding, signing, and
+# packaging, so a regression there breaks releases rather than the app — it
+# gets its own gate instead of riding along on `cargo xtask protocol verify`,
+# which merely compiles the crate and never runs its tests.
+XTASK_MANIFEST = --manifest-path xtask/Cargo.toml
+
+lint-xtask:
+	cargo fmt $(XTASK_MANIFEST) -- --check
+	cargo clippy $(XTASK_MANIFEST) --all-targets -- -D warnings
+
+test-xtask:
+	cargo test $(XTASK_MANIFEST)
 
 ## ── Xcode Project ─────────────────────────────────────
 
