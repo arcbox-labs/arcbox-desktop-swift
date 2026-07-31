@@ -1,0 +1,14 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Runtime issues (containers, VMs, networking, abctl)
+    url: https://github.com/arcboxlabs/arcbox/issues
+    about: The daemon and CLI live in the arcbox repo.
+  - name: Questions and discussion
+    url: https://arcbox.link/discord
+    about: Ask on Discord — usually faster than an issue.
+  - name: Documentation
+    url: https://arcbox.link/docs
+    about: Install, configuration, and CLI reference.
+  - name: Report a security vulnerability
+    url: https://github.com/arcboxlabs/arcbox-desktop/blob/master/SECURITY.md
+    about: Email security@arcbox.dev — please do not open a public issue.

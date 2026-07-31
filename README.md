@@ -70,10 +70,10 @@ and embedded at build time.
 
 ## Contributing
 
-Build instructions, the Makefile targets, and the project layout live in
-[docs/development.md](docs/development.md); [AGENTS.md](AGENTS.md) covers code style and the SwiftUI
-pitfalls specific to this app. Bug reports and feature requests go to
-[Issues](https://github.com/arcboxlabs/arcbox-desktop/issues).
+Start with [CONTRIBUTING.md](CONTRIBUTING.md); the build itself is in
+[docs/development.md](docs/development.md). Bug reports and feature requests go to
+[Issues](https://github.com/arcboxlabs/arcbox-desktop/issues); vulnerabilities go to
+[security@arcbox.dev](SECURITY.md) instead, never to a public issue.
 
 ## License
 
