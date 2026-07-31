@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Browses an overlay layer stack as one merged filesystem.
 ///
@@ -23,9 +24,6 @@ nonisolated struct LayeredRootFS {
         guard !layers.isEmpty else { return nil }
         self.layers = layers
     }
-
-    /// Whether composing is worth it at all: one layer merges to itself.
-    var isComposed: Bool { layers.count > 1 }
 
     /// The merged contents of one directory, plus which layers are missing
     /// from it.
@@ -61,17 +59,29 @@ nonisolated struct LayeredRootFS {
                     try LocalRootFSService.listLayerItems(
                         at: directory, showHiddenFiles: showHiddenFiles))
             } catch {
-                // A layer that is present but simply lacks this path holds no
-                // opinion about it — a whiteout would have to live inside that
-                // very directory — so it is normal and the merge continues.
-                // A layer that is missing outright is unavailable, and its
-                // whiteouts are as unknowable as an unreadable one's.
-                let layerPresent = FileManager.default.fileExists(atPath: layer.path)
-                let pathPresent = FileManager.default.fileExists(atPath: directory.path)
-                if layerPresent && !pathPresent {
+                switch Self.fileType(of: directory) {
+                case nil where Self.fileType(of: layer) != nil:
+                    // The layer is present but simply lacks this path, so it
+                    // holds no opinion about it — a whiteout would have to
+                    // live inside that very directory. Normal; keep merging.
                     continue
+                case .some(let type) where type != S_IFDIR:
+                    // A non-directory shadows everything below it, exactly as
+                    // the kernel would stop merging here. The listing is
+                    // complete, so this is not a gap to report.
+                    return Listing(entries: Self.merge(listings), excludedLayers: excluded)
+                default:
+                    // Either the layer is gone outright or the directory is
+                    // there and will not open. Both leave whiteouts and
+                    // replacements unknowable, so nothing below can be shown.
+                    Log.container.error(
+                        """
+                        layer \(index, privacy: .public) excluded from merge: \
+                        \(error.localizedDescription, privacy: .public)
+                        """
+                    )
+                    excluded.formUnion(index..<layers.count)
                 }
-                excluded.formUnion(index..<layers.count)
                 break
             }
         }
@@ -99,12 +109,15 @@ nonisolated struct LayeredRootFS {
     static func resolveHostLayers(guestPaths: [String]) -> Resolution {
         var hostURLs: [URL] = []
         for guestPath in guestPaths {
+            // Hand back what the check produced: callers would otherwise
+            // repeat the same existence check to standardize the URL, and on
+            // a wedged export that check blocks.
             guard let hostURL = GuestDataMount.hostURL(forGuestPath: guestPath),
-                (try? LocalRootFSService.resolveRootURL(path: hostURL.path)) != nil
+                let resolved = try? LocalRootFSService.resolveRootURL(path: hostURL.path)
             else {
                 break
             }
-            hostURLs.append(hostURL)
+            hostURLs.append(resolved)
         }
         return Resolution(
             hostURLs: hostURLs,
@@ -152,5 +165,15 @@ nonisolated struct LayeredRootFS {
 
     private static func resolve(_ relativePath: String, in layer: URL) -> URL {
         relativePath.isEmpty ? layer : layer.appendingPathComponent(relativePath)
+    }
+
+    /// The `S_IFMT` bits at `url`, or `nil` if nothing is there.
+    ///
+    /// Deliberately `lstat`: a symlink is a non-directory to overlayfs and
+    /// shadows lower layers, and following it here would merge past it.
+    private static func fileType(of url: URL) -> mode_t? {
+        var status = stat()
+        guard lstat(url.path, &status) == 0 else { return nil }
+        return status.st_mode & S_IFMT
     }
 }

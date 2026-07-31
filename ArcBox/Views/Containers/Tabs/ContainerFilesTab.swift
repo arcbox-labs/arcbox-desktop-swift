@@ -200,31 +200,41 @@ struct ContainerFilesTab: View {
         // The stack stops at the first layer the host cannot browse: it still
         // decides what lies beneath it, so merging past it would surface
         // entries it may replace or delete.
-        let resolution = LayeredRootFS.resolveHostLayers(guestPaths: guestPaths)
-        let hostURLs = resolution.hostURLs
+        // Off the main actor: resolution stats every layer, and those stats
+        // block for as long as a wedged export takes to fail.
+        let resolution = await Task.detached {
+            LayeredRootFS.resolveHostLayers(guestPaths: guestPaths)
+        }.value
         totalLayerCount = guestPaths.count
         unmappableLayerCount = resolution.excludedCount
-        guard let rootHostURL = hostURLs.first else {
+
+        guard let rootHostURL = resolution.hostURLs.first else {
             rootURL = nil
-            errorMessage =
-                guestPaths.isEmpty
-                ? "Container has no resolvable filesystem path."
-                : "Container filesystem path is outside the guest data root."
+            errorMessage = Self.unresolvedMessage(guestPaths: guestPaths)
             isLoadingRoot = false
             return
         }
 
-        do {
-            rootURL = try LocalRootFSService.resolveRootURL(path: rootHostURL.path)
-            layers = hostURLs.count > 1 ? LayeredRootFS(layers: hostURLs) : nil
-            // Listings report further exclusions as they happen — a layer can
-            // die after this point — and the badge unions them.
-        } catch {
-            rootURL = nil
-            errorMessage = GuestDataMount.unavailableMessage(subject: "This container's filesystem")
-        }
-
+        // Already validated and standardized by the resolution above.
+        rootURL = rootHostURL
+        layers =
+            resolution.hostURLs.count > 1 ? LayeredRootFS(layers: resolution.hostURLs) : nil
+        // Listings report further exclusions as they happen — a layer can
+        // die after this point — and the badge unions them.
         isLoadingRoot = false
+    }
+
+    /// Why the top layer could not be browsed: a path outside the exported
+    /// roots is a different problem from an export that is not mounted, and
+    /// only the second one is fixed by starting the VM.
+    private static func unresolvedMessage(guestPaths: [String]) -> String {
+        guard let first = guestPaths.first else {
+            return "Container has no resolvable filesystem path."
+        }
+        guard GuestDataMount.hostURL(forGuestPath: first) != nil else {
+            return "Container filesystem path is outside the guest data root."
+        }
+        return GuestDataMount.unavailableMessage(subject: "This container's filesystem")
     }
 
     /// Resolves the container's snapshot layer stack via the daemon.

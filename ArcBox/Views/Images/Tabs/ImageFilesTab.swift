@@ -214,17 +214,27 @@ struct ImageFilesTab: View {
             // The stack stops at the first layer the host cannot browse: it
             // still decides what lies beneath it, so merging past it would
             // surface entries it may replace or delete.
-            let resolution = LayeredRootFS.resolveHostLayers(guestPaths: mountPoints)
-            let hostURLs = resolution.hostURLs
+            // Off the main actor: resolution stats every layer, and those
+            // stats block for as long as a wedged export takes to fail.
+            let resolution = await Task.detached {
+                LayeredRootFS.resolveHostLayers(guestPaths: mountPoints)
+            }.value
             totalLayerCount = mountPoints.count
             unmappableLayerCount = resolution.excludedCount
-            guard let rootHostURL = hostURLs.first else {
-                errorMessage = "Image layer path is outside the guest data root."
+
+            guard let rootHostURL = resolution.hostURLs.first else {
+                errorMessage =
+                    mountPoints.first.flatMap(GuestDataMount.hostURL(forGuestPath:)) == nil
+                    ? "Image layer path is outside the guest data root."
+                    : GuestDataMount.unavailableMessage(subject: "This image's layers")
                 isLoadingRoot = false
                 return
             }
-            rootURL = try LocalRootFSService.resolveRootURL(path: rootHostURL.path)
-            layers = hostURLs.count > 1 ? LayeredRootFS(layers: hostURLs) : nil
+
+            // Already validated and standardized by the resolution above.
+            rootURL = rootHostURL
+            layers =
+                resolution.hostURLs.count > 1 ? LayeredRootFS(layers: resolution.hostURLs) : nil
             // Listings report further exclusions as they happen — a layer can
             // die after this point — and the badge unions them.
         } catch let error as ImageFilesTabError {
