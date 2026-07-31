@@ -93,7 +93,8 @@ DESTINATION ?= platform=macOS
 # local and CI on the same command.
 #
 # SKIP_RUST_BUILD=1: the embed phase pulls prebuilt binaries from ../arcbox.
-# These targets compile and test Swift; use `make dmg` for a runnable bundle.
+# These targets compile and test Swift; use `make dmg-signed` for a bundle whose
+# daemon survives launch (`make dmg` ad-hoc signs it and drops its entitlements).
 XCODEBUILD_FLAGS = \
 	-project ArcBox.xcodeproj \
 	-scheme ArcBox \
