@@ -27,25 +27,27 @@ nonisolated struct LayeredRootFS {
     /// Whether composing is worth it at all: one layer merges to itself.
     var isComposed: Bool { layers.count > 1 }
 
-    /// The merged contents of one directory, plus how much of the stack the
-    /// merge could not actually read.
+    /// The merged contents of one directory, plus which layers the merge
+    /// could not actually read.
     struct Listing {
         let entries: [LocalFileEntry]
-        /// Layers that hold the path but failed to list it. Their files,
-        /// precedence and whiteouts are missing from `entries`, so a caller
-        /// showing this listing must be able to say it is incomplete.
-        let unreadableLayers: Int
+        /// Indices into `layers` that hold the path but failed to list it.
+        /// Their files, precedence and whiteouts are missing from `entries`,
+        /// so a caller showing this listing must be able to say it is
+        /// incomplete — and identifying *which* layers lets callers union
+        /// failures across directories instead of undercounting them.
+        let unreadableLayers: Set<Int>
     }
 
     /// Lists the merged contents of a directory given relative to the stack
     /// root. A layer that cannot be read is skipped rather than failing the
     /// whole listing, so a partially available export still browses — but the
-    /// skip is counted rather than hidden.
+    /// skip is reported rather than hidden.
     func listDirectory(relativePath: String, showHiddenFiles: Bool) -> Listing {
         var listings: [[LocalRootFSService.LayerItem]] = []
-        var unreadable = 0
+        var unreadable: Set<Int> = []
 
-        for layer in layers {
+        for (index, layer) in layers.enumerated() {
             let directory = Self.resolve(relativePath, in: layer)
             do {
                 listings.append(
@@ -56,7 +58,7 @@ nonisolated struct LayeredRootFS {
                 // contributes nothing; a path that exists but will not open is
                 // a real gap in the merge.
                 if FileManager.default.fileExists(atPath: directory.path) {
-                    unreadable += 1
+                    unreadable.insert(index)
                 }
             }
         }

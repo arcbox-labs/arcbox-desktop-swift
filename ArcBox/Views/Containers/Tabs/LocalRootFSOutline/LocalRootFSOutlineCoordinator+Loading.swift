@@ -14,7 +14,7 @@ extension LocalRootFSOutlineCoordinator {
 
         DispatchQueue.global(qos: .userInitiated).async {
             let entries: [LocalFileEntry]
-            var unreadableLayers = 0
+            var unreadableLayers: Set<Int> = []
             if let layers {
                 let listing = layers.listDirectory(relativePath: "", showHiddenFiles: showHidden)
                 entries = listing.entries
@@ -49,7 +49,7 @@ extension LocalRootFSOutlineCoordinator {
 
         DispatchQueue.global(qos: .userInitiated).async {
             let children: [LocalFileEntry]
-            var unreadableLayers = 0
+            var unreadableLayers: Set<Int> = []
             // The node carries the URL of whichever layer won it, so re-derive
             // its path relative to the stack: the merged children can come
             // from layers this node's own directory does not exist in.
