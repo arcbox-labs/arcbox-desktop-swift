@@ -10,7 +10,9 @@ import SwiftUI
 struct ActivityView: View {
     @Environment(ActivityViewModel.self) private var vm
     @Environment(ContainersViewModel.self) private var containersVM
+    @Environment(DaemonManager.self) private var daemonManager
     @Environment(\.arcboxClient) private var arcboxClient
+    @Environment(\.dockerClient) private var docker
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var searchText = ""
@@ -34,6 +36,27 @@ struct ActivityView: View {
             .task(id: arcboxClient.map(ObjectIdentifier.init)) {
                 guard let client = arcboxClient else { return }
                 await vm.run(client: client)
+            }
+            // Activity owns its own Docker load. `ContainersListView` is not in
+            // the hierarchy while this screen is up — the content column
+            // collapses — so its load and its event handler cannot keep the
+            // join fresh, and the menu bar's copy only runs once the menu is
+            // opened. Without this, containers started while Activity is
+            // showing never gain a project, and a launch straight into Activity
+            // has no Docker metadata at all.
+            //
+            // Gated on `isDockerReady` rather than `dockerSocketLinked`, and
+            // keyed on both readiness and client presence, because the client
+            // can arrive after the daemon is already up.
+            .task(id: daemonManager.setupPhase.isDockerReady && docker != nil) {
+                guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
+                await containersVM.loadContainersFromDocker(docker: docker, iconClient: arcboxClient)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .dockerContainerChanged)) { _ in
+                Task {
+                    await containersVM.loadContainersFromDocker(
+                        docker: docker, iconClient: arcboxClient)
+                }
             }
     }
 
