@@ -2,6 +2,19 @@
 
 ## [1.31.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.30.1...v1.31.0) (2026-07-31)
 
+### Highlights
+
+**File access on mounted folders is much faster.** Metadata-heavy work on
+`-v` bind mounts — stat storms over source trees, node_modules scans, file
+watchers — speeds up by roughly 20–60% (stat-class operations +64%,
+lookups +44%, create/delete +22%). The guest kernel now briefly polls for
+fast filesystem replies instead of paying a cross-CPU wakeup per
+operation; bulk read/write throughput is unchanged.
+
+**Container Files shows one merged filesystem.** The Files tab now unions
+image and container layers into a single browsable tree, with truthful
+handling of whiteouts and unbrowsable layers.
+
 
 ### Features
 
