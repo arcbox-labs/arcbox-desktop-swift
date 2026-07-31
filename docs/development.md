@@ -21,7 +21,7 @@ simply stay off.
 | `make format` / `make lint` | swift-format and SwiftLint |
 | `make generate-xcodeproj` | run after adding or removing a file |
 | `make lint-xtask` / `make test-xtask` | the Rust packaging crate, gated separately |
-| `make dmg` | runnable bundle, daemon and agent included |
+| `make dmg` / `make dmg-signed` | package the app — see below, the two are not interchangeable |
 
 > **Do not run `xcodebuild` or `xcodegen` directly.** This repo uses devenv, whose Rust toolchain exports
 > a nix `CC`/`SDKROOT`/`DEVELOPER_DIR`; a bare `xcodebuild` then fails with `no such module 'SwiftShims'`.
@@ -30,15 +30,28 @@ simply stay off.
 
 ## Running against a real daemon
 
-Swift-only keeps the loop fast, but the app needs a daemon to talk to, so reach for `make dmg` when you
-want to actually run it: it builds `arcbox-daemon`, `abctl`, and `arcbox-agent` from `../arcbox` (override
-with `ARCBOX_DIR`), signs the daemon with Developer ID, prefetches the guest boot assets, and embeds the
-lot.
+Swift-only keeps the loop fast, but the app needs a daemon to talk to, and packaging is what supplies one.
+Both DMG targets first run `make prefetch`, which builds `arcbox-daemon`, `abctl`, and `arcbox-helper` from
+`../arcbox` (override with `ARCBOX_DIR`) and downloads the guest boot assets. They differ in how the
+daemon ends up signed, and that difference decides whether the app can do anything:
 
-The Developer ID signature is not optional. The daemon's restricted entitlements
-(`com.apple.security.virtualization`, `com.apple.security.hypervisor`, `com.apple.vm.networking`) are only
-honored under Developer ID — signed with an Apple Development certificate, launchd kills it in a silent
-`OS_REASON_EXEC` loop. If a local daemon refuses to start, re-sign it with `make -C ../arcbox sign-daemon`.
+| Target | Daemon signature | Good for |
+|---|---|---|
+| `make dmg` | ad-hoc, no entitlements | packaging changes — the app launches, the daemon does not |
+| `make dmg-signed` | Developer ID + entitlements | actually running the app |
+
+The daemon's restricted entitlements (`com.apple.security.virtualization`,
+`com.apple.security.hypervisor`, `com.apple.vm.networking`) are only honored under Developer ID; without
+them launchd kills it in a silent `OS_REASON_EXEC` loop. `make dmg` passes no identity to the packager,
+which then deep-signs the daemon bundle ad-hoc and drops the entitlements — including the Developer ID
+signature `prefetch` had just applied to the bare binary. `make dmg-signed` re-signs with your keychain
+identity and verifies the entitlements survived; it refuses to run when no identity is found. If a daemon
+that should be signed still won't start, re-sign it with `make -C ../arcbox sign-daemon`.
+
+The guest agents are best-effort. `build-rust` ignores a failing `build-agent`, and packaging only prints
+a warning when `arcbox-agent` or `vm-agent` is missing from
+`../arcbox/target/aarch64-unknown-linux-musl/release/`. A DMG can therefore build cleanly and still be
+unable to boot a guest — scan the packaging output for those warnings.
 
 ## Bumping the embedded daemon
 

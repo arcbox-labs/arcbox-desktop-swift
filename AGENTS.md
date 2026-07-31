@@ -6,7 +6,7 @@
 - Format / lint: `make format`, `make lint`
 - xtask (Rust): `make lint-xtask`, `make test-xtask` — `make lint`/`make test` cover Swift only
 - Regenerate the Xcode project after adding or removing a file: `make generate-xcodeproj`
-- Rust binaries: the Xcode build phase runs `cargo xtask macos embed`, which calls `make build-rust` in `../arcbox`. `make build`/`make test` set `SKIP_RUST_BUILD=1`; use `make dmg` for a runnable bundle.
+- Rust binaries: the Xcode build phase runs `cargo xtask macos embed`, which calls `make build-rust` in `../arcbox`. `make build`/`make test` set `SKIP_RUST_BUILD=1`. Use `make dmg-signed` for a bundle that actually runs — `make dmg` ad-hoc signs the daemon bundle without entitlements, so its daemon is killed on launch.
 
 **Do not call `xcodebuild` or `xcodegen` directly.** This repo uses devenv, whose Rust toolchain exports `CC`/`CXX`/`LD`/`SDKROOT`/`DEVELOPER_DIR` (pointed at a nix SDK) and ~30 `NIX_*` variables. A bare `xcodebuild` then fails with `no such module 'SwiftShims'`, `unknown argument: -index-store-path`, or `ld: unknown options: -Xlinker`, and devenv's `xcodegen` is older than `project.yml`'s `minimumXcodeGenVersion`. The Makefile targets run xcodebuild in an allowlisted environment and pick a new enough xcodegen, so they work identically inside `devenv shell` and on a clean CI runner — which is what CI itself runs.
 
