@@ -8,7 +8,11 @@ import SwiftUI
 /// layer: a pane per tile would stack glass on glass, and the tiles are one
 /// bar, not four floating controls.
 struct ActivityMetricStrip: View {
-    let stats: MachineResourceStats
+    /// `nil` until the first usable frame. The tiles then render
+    /// representatively-shaped stand-ins for the caller to redact, so the strip
+    /// reaches its real size immediately and nothing moves when the numbers
+    /// arrive.
+    let stats: MachineResourceStats?
     let cpuHistory: [ActivityViewModel.MetricPoint]
     let memoryHistory: [ActivityViewModel.MetricPoint]
     let networkHistory: [ActivityViewModel.MetricPoint]
@@ -24,8 +28,9 @@ struct ActivityMetricStrip: View {
                 points: cpuHistory,
                 tint: MetricTint.cpu,
                 domain: 0...100,
-                liveValue: StatsFormat.percent(stats.cpuPercent),
-                liveCaption: "\(stats.onlineCPUs) cores · load \(StatsFormat.load(stats.loadaverage1))",
+                liveValue: stats.map { StatsFormat.percent($0.cpuPercent) } ?? "00%",
+                liveCaption: stats.map { "\($0.onlineCPUs) cores · load \(StatsFormat.load($0.loadaverage1))" }
+                    ?? "0 cores · load 0.00",
                 format: StatsFormat.percent
             )
 
@@ -34,9 +39,10 @@ struct ActivityMetricStrip: View {
                 points: memoryHistory,
                 tint: MetricTint.memory,
                 domain: 0...100,
-                liveValue: StatsFormat.percent(stats.memoryUsedPercent),
-                liveCaption:
-                    "\(StatsFormat.bytes(stats.memoryUsedBytes)) of \(StatsFormat.bytes(stats.memoryTotalBytes))",
+                liveValue: stats.map { StatsFormat.percent($0.memoryUsedPercent) } ?? "00%",
+                liveCaption: stats.map {
+                    "\(StatsFormat.bytes($0.memoryUsedBytes)) of \(StatsFormat.bytes($0.memoryTotalBytes))"
+                } ?? "0 GB of 0 GB",
                 format: StatsFormat.percent
             )
 
@@ -45,10 +51,12 @@ struct ActivityMetricStrip: View {
                 points: networkHistory,
                 tint: MetricTint.network,
                 domain: nil,
-                liveValue: StatsFormat.rate(
-                    stats.networkReceiveBytesPerSecond + stats.networkTransmitBytesPerSecond),
-                liveCaption:
-                    "↓ \(StatsFormat.rate(stats.networkReceiveBytesPerSecond))  ↑ \(StatsFormat.rate(stats.networkTransmitBytesPerSecond))",
+                liveValue: stats.map {
+                    StatsFormat.rate($0.networkReceiveBytesPerSecond + $0.networkTransmitBytesPerSecond)
+                } ?? "0 MB/s",
+                liveCaption: stats.map {
+                    "↓ \(StatsFormat.rate($0.networkReceiveBytesPerSecond))  ↑ \(StatsFormat.rate($0.networkTransmitBytesPerSecond))"
+                } ?? "↓ 0 MB/s  ↑ 0 MB/s",
                 format: StatsFormat.rate
             )
 
@@ -141,6 +149,9 @@ private struct MetricTile<Figure: View>: View {
             Text(title)
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
+                // The label is known before the sample is; redacting it would
+                // claim the screen knows less than it does.
+                .unredacted()
             Text(value)
                 .font(.system(.title2, design: .rounded, weight: .semibold))
                 .monospacedDigit()
@@ -247,13 +258,13 @@ private struct Sparkline: View {
 /// PSI memory pressure. Green under light pressure, amber past 10%, red past
 /// 40% — the daemon's own thresholds.
 private struct PressureTile: View {
-    let stats: MachineResourceStats
+    let stats: MachineResourceStats?
 
     var body: some View {
         MetricTile(
             title: "Memory Pressure",
-            value: stats.hasMemoryPressure ? StatsFormat.percent(stats.memoryPressurePercent) : "n/a",
-            caption: stats.hasMemoryPressure ? "PSI full avg10" : "PSI unavailable (no CONFIG_PSI)",
+            value: value,
+            caption: caption,
             valueColor: tint
         ) {
             Gauge(value: level, in: 0...100) {
@@ -261,17 +272,28 @@ private struct PressureTile: View {
             }
             .gaugeStyle(.linearCapacity)
             .tint(tint)
-            .opacity(stats.hasMemoryPressure ? 1 : 0.35)
+            .opacity(stats?.hasMemoryPressure == false ? 0.35 : 1)
             .liveValueAnimation(level)
         }
     }
 
+    private var value: String {
+        guard let stats else { return "00%" }
+        return stats.hasMemoryPressure ? StatsFormat.percent(stats.memoryPressurePercent) : "n/a"
+    }
+
+    private var caption: String {
+        guard let stats else { return "PSI full avg10" }
+        return stats.hasMemoryPressure ? "PSI full avg10" : "PSI unavailable (no CONFIG_PSI)"
+    }
+
     private var level: Double {
-        stats.hasMemoryPressure ? min(stats.memoryPressurePercent, 100) : 0
+        guard let stats, stats.hasMemoryPressure else { return 0 }
+        return min(stats.memoryPressurePercent, 100)
     }
 
     private var tint: Color {
-        guard stats.hasMemoryPressure else { return AppColors.textMuted }
+        guard let stats, stats.hasMemoryPressure else { return AppColors.textMuted }
         switch stats.memoryPressurePercent {
         case ..<10: return AppColors.running
         case ..<40: return AppColors.warning
