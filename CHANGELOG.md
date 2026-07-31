@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.31.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.31.0...v1.31.1) (2026-07-31)
+
+
+### Bug Fixes
+
+* **files:** post-merge review fixes for the layered Files view ([#335](https://github.com/arcboxlabs/arcbox-desktop/issues/335)) ([cca641a](https://github.com/arcboxlabs/arcbox-desktop/commit/cca641ac9761b16408e95afc1cfb90f662288894))
+
 ## [1.31.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.30.1...v1.31.0) (2026-07-31)
 
 ### Highlights
