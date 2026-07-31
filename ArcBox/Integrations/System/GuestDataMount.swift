@@ -10,7 +10,7 @@ import Foundation
 /// browsed on the host via a prefix rewrite:
 /// `/var/lib/docker/<rest>` → `~/ArcBox/<rest>` and
 /// `/var/lib/containerd/<rest>` → `~/ArcBox/containerd/<rest>`.
-enum GuestDataMount {
+nonisolated enum GuestDataMount {
     /// Guest docker data root the export corresponds to.
     /// Mirrors `DOCKER_DATA_MOUNT_POINT` in the runtime.
     static let guestDataRoot = "/var/lib/docker"

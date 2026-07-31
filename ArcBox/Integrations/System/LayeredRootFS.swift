@@ -61,16 +61,55 @@ nonisolated struct LayeredRootFS {
                     try LocalRootFSService.listLayerItems(
                         at: directory, showHiddenFiles: showHiddenFiles))
             } catch {
-                // A layer that simply lacks the path holds no opinion about
-                // it — a whiteout would have to live inside that very
-                // directory — so it is normal and the merge continues.
-                guard FileManager.default.fileExists(atPath: directory.path) else { continue }
+                // A layer that is present but simply lacks this path holds no
+                // opinion about it — a whiteout would have to live inside that
+                // very directory — so it is normal and the merge continues.
+                // A layer that is missing outright is unavailable, and its
+                // whiteouts are as unknowable as an unreadable one's.
+                let layerPresent = FileManager.default.fileExists(atPath: layer.path)
+                let pathPresent = FileManager.default.fileExists(atPath: directory.path)
+                if layerPresent && !pathPresent {
+                    continue
+                }
                 excluded.formUnion(index..<layers.count)
                 break
             }
         }
 
         return Listing(entries: Self.merge(listings), excludedLayers: excluded)
+    }
+
+    /// Layer paths mapped onto the export, and how many were left behind.
+    struct Resolution {
+        /// Host URLs for the layers that can be browsed, highest first.
+        let hostURLs: [URL]
+        /// Layers dropped from the tail, either unmappable or absent on the
+        /// host. Never represented in the merge, so a caller must count them
+        /// against the view's completeness.
+        let excludedCount: Int
+    }
+
+    /// Maps daemon-reported guest layer paths onto the `~/ArcBox` export,
+    /// stopping at the first layer the host cannot browse.
+    ///
+    /// Truncating rather than dropping matters for the same reason it does
+    /// inside [`listDirectory`]: a layer that cannot be browsed still decides
+    /// what the layers beneath it may show, so merging past it would surface
+    /// entries it may replace or delete.
+    static func resolveHostLayers(guestPaths: [String]) -> Resolution {
+        var hostURLs: [URL] = []
+        for guestPath in guestPaths {
+            guard let hostURL = GuestDataMount.hostURL(forGuestPath: guestPath),
+                (try? LocalRootFSService.resolveRootURL(path: hostURL.path)) != nil
+            else {
+                break
+            }
+            hostURLs.append(hostURL)
+        }
+        return Resolution(
+            hostURLs: hostURLs,
+            excludedCount: guestPaths.count - hostURLs.count
+        )
     }
 
     /// Maps a host URL that came out of [`listDirectory`] back to its path
