@@ -17,7 +17,7 @@ nonisolated struct LocalFileEntry: Identifiable, Hashable {
 
     var sizeDisplay: String {
         guard let sizeBytes else { return "" }
-        return ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)
+        return formattedBytes(sizeBytes)
     }
 
     @MainActor var dateDisplay: String {
