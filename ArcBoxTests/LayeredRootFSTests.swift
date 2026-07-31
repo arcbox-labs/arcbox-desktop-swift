@@ -308,4 +308,56 @@ final class LayeredRootFSTests: XCTestCase {
         XCTAssertEqual(listing.entries.map(\.name), ["hosts"])
         XCTAssertEqual(listing.excludedLayers, [1, 2])
     }
+
+    // MARK: host-layer resolution
+
+    func testResolveHostLayersTruncatesAtAnUnmappableLayer() {
+        // An unmappable upper layer still decides what the layers beneath it
+        // may show, so dropping it and keeping the lower ones would surface
+        // files it may have replaced or deleted.
+        let resolution = LayeredRootFS.resolveHostLayers(guestPaths: [
+            "/somewhere/else/upper",
+            "/var/lib/docker/volumes",
+        ])
+
+        XCTAssertEqual(resolution.hostURLs, [])
+        XCTAssertEqual(resolution.excludedCount, 2)
+    }
+
+    func testResolveHostLayersTruncatesAtAMissingLayer() {
+        // Same rule when the path maps fine but is not on the host: the
+        // layer is unavailable, and what it deletes is unknowable.
+        let resolution = LayeredRootFS.resolveHostLayers(guestPaths: [
+            "/var/lib/docker/definitely-not-present-\(UUID().uuidString)",
+            "/var/lib/docker/volumes",
+        ])
+
+        XCTAssertEqual(resolution.hostURLs, [])
+        XCTAssertEqual(resolution.excludedCount, 2)
+    }
+
+    func testMissingLayerDirectoryTruncatesTheMerge() throws {
+        // A layer whose directory is gone entirely is unavailable — distinct
+        // from a present layer that merely lacks the path, which is normal
+        // and must keep merging.
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let present = root.appendingPathComponent("present/etc", isDirectory: true)
+        let lower = root.appendingPathComponent("lower/etc", isDirectory: true)
+        try FileManager.default.createDirectory(at: present, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: lower, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try "x".write(to: lower.appendingPathComponent("passwd"), atomically: true, encoding: .utf8)
+
+        let stack = try XCTUnwrap(
+            LayeredRootFS(layers: [
+                root.appendingPathComponent("present", isDirectory: true),
+                root.appendingPathComponent("gone", isDirectory: true),
+                root.appendingPathComponent("lower", isDirectory: true),
+            ]))
+        let listing = stack.listDirectory(relativePath: "etc", showHiddenFiles: false)
+
+        XCTAssertEqual(listing.entries.map(\.name), [])
+        XCTAssertEqual(listing.excludedLayers, [1, 2])
+    }
 }

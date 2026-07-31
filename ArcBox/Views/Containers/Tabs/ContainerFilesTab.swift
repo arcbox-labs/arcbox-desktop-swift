@@ -193,12 +193,13 @@ struct ContainerFilesTab: View {
         }
 
         // The resolved paths are guest paths; browse them through ~/ArcBox.
-        // A layer whose path falls outside the exported roots cannot be
-        // browsed at all, so it counts against the view's completeness rather
-        // than quietly shrinking the stack.
-        let hostURLs = guestPaths.compactMap(GuestDataMount.hostURL(forGuestPath:))
+        // The stack stops at the first layer the host cannot browse: it still
+        // decides what lies beneath it, so merging past it would surface
+        // entries it may replace or delete.
+        let resolution = LayeredRootFS.resolveHostLayers(guestPaths: guestPaths)
+        let hostURLs = resolution.hostURLs
         totalLayerCount = guestPaths.count
-        let unmappableCount = guestPaths.count - hostURLs.count
+        unmappableLayerCount = resolution.excludedCount
         guard let rootHostURL = hostURLs.first else {
             rootURL = nil
             errorMessage =
@@ -212,16 +213,8 @@ struct ContainerFilesTab: View {
         do {
             rootURL = try LocalRootFSService.resolveRootURL(path: rootHostURL.path)
             layers = hostURLs.count > 1 ? LayeredRootFS(layers: hostURLs) : nil
-            // A layer the export cannot currently serve merges as empty, so
-            // the view would be quietly incomplete; count them and say so
-            // rather than passing a partial filesystem off as the whole one.
-            // Listings report further failures as they happen (a layer can
-            // die after this check), and the badge keeps the worst seen.
-            unmappableLayerCount = unmappableCount
-            excludedLayerIndices = Set(
-                hostURLs.enumerated()
-                    .filter { (try? LocalRootFSService.resolveRootURL(path: $0.element.path)) == nil }
-                    .map(\.offset))
+            // Listings report further exclusions as they happen — a layer can
+            // die after this point — and the badge unions them.
         } catch {
             rootURL = nil
             errorMessage = GuestDataMount.unavailableMessage(subject: "This container's filesystem")

@@ -207,12 +207,13 @@ struct ImageFilesTab: View {
             // The layer directories are guest paths; browse them via ~/ArcBox.
             let mountPoints = try await resolveImageLayerPaths()
             resolvedRootFSMountPath = mountPoints.first
-            // A layer whose path falls outside the exported roots cannot be
-            // browsed at all, so it counts against the view's completeness
-            // rather than quietly shrinking the stack.
-            let hostURLs = mountPoints.compactMap(GuestDataMount.hostURL(forGuestPath:))
+            // The stack stops at the first layer the host cannot browse: it
+            // still decides what lies beneath it, so merging past it would
+            // surface entries it may replace or delete.
+            let resolution = LayeredRootFS.resolveHostLayers(guestPaths: mountPoints)
+            let hostURLs = resolution.hostURLs
             totalLayerCount = mountPoints.count
-            let unmappableCount = mountPoints.count - hostURLs.count
+            unmappableLayerCount = resolution.excludedCount
             guard let rootHostURL = hostURLs.first else {
                 errorMessage = "Image layer path is outside the guest data root."
                 isLoadingRoot = false
@@ -220,14 +221,8 @@ struct ImageFilesTab: View {
             }
             rootURL = try LocalRootFSService.resolveRootURL(path: rootHostURL.path)
             layers = hostURLs.count > 1 ? LayeredRootFS(layers: hostURLs) : nil
-            // A layer the export cannot currently serve merges as empty, so
-            // the view would be quietly incomplete; count them and say so
-            // rather than passing a partial filesystem off as the whole one.
-            unmappableLayerCount = unmappableCount
-            excludedLayerIndices = Set(
-                hostURLs.enumerated()
-                    .filter { (try? LocalRootFSService.resolveRootURL(path: $0.element.path)) == nil }
-                    .map(\.offset))
+            // Listings report further exclusions as they happen — a layer can
+            // die after this point — and the badge unions them.
         } catch let error as ImageFilesTabError {
             resolvedRootFSMountPath = nil
             errorMessage = error.localizedDescription
