@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.30.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.30.0...v1.30.1) (2026-07-31)
+
+### Highlights
+
+**Fixes a severe idle CPU bug.** An idle VM could enter a perpetual
+memory-reclaim cycle every ~8.5 minutes, burning up to 14 CPU cores for about
+100 seconds per cycle — fans and battery drain while doing nothing. Root cause:
+the idle memory balloon asked the guest for memory that macOS never actually
+reclaims (on either virtualization backend), so all of that work was pure cost.
+The balloon no longer inflates on macOS; idle CPU returns to baseline. No
+action needed — the fix applies on the next VM start.
+
+
+### Miscellaneous
+
+* bump arcbox version to v0.5.4 ([#332](https://github.com/arcboxlabs/arcbox-desktop/issues/332)) ([5675392](https://github.com/arcboxlabs/arcbox-desktop/commit/56753922948c3bbd52a7a62a90c278a090438421))
+
 ## [1.30.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.29.1...v1.30.0) (2026-07-25)
 
 ### Highlights
