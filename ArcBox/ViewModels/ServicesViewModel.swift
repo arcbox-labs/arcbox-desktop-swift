@@ -1,6 +1,4 @@
-import ArcBoxClient
 import K8sClient
-import OSLog
 import SwiftUI
 
 /// Detail tab for services
@@ -21,8 +19,6 @@ class ServicesViewModel {
     var isLoading: Bool = false
     var searchText: String = ""
     var isSearching: Bool = false
-
-    private var k8sClient: K8sClient?
 
     var serviceCount: Int { services.count }
     var filteredServices: [ServiceViewModel] {
@@ -46,42 +42,19 @@ class ServicesViewModel {
         selectedID = id
     }
 
-    /// Fetch kubeconfig via gRPC, create K8sClient, then load services.
-    /// Returns `true` if the request succeeded (even if the list is empty).
-    @discardableResult
-    func loadServices(client: ArcBoxClient?) async -> Bool {
-        guard let client else {
-            Log.services.debug("No gRPC client available")
-            return false
-        }
+    /// Replace the list with a fetch result. Called by ``KubernetesState``, which owns the client
+    /// and the refresh loop.
+    func apply(_ list: ServiceList) {
+        services = list.items.compactMap { Self.mapService($0) }
+    }
 
-        isLoading = true
-        defer { isLoading = false }
-
-        do {
-            if k8sClient == nil {
-                let kubeconfigResponse: Arcbox_V1_KubernetesKubeconfigResponse = try await client.kubernetes
-                    .getKubeconfig(.init(), options: ArcBoxClient.defaultCallOptions)
-                let config = try KubeConfig(yaml: kubeconfigResponse.kubeconfig)
-                self.k8sClient = try K8sClient(config: config)
-            }
-
-            guard let k8s = k8sClient else { return false }
-            let serviceList = try await k8s.listAllServices()
-            self.services = serviceList.items.compactMap { Self.mapService($0) }
-            return true
-        } catch {
-            Log.services.error("Error loading services: \(error.localizedDescription, privacy: .private)")
-            ErrorReporting.capture(error, domain: .service, operation: "list")
-            self.services = []
-            self.k8sClient = nil
-            return false
-        }
+    /// Drop loaded services but keep the selection, so it restores if the cluster comes back.
+    func dropItems() {
+        services = []
     }
 
     /// Clear all service data when K8s is stopped.
     func clear() {
-        k8sClient = nil
         services = []
         selectedID = nil
     }

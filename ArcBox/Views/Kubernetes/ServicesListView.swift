@@ -11,12 +11,7 @@ struct ServicesListView: View {
         VStack(spacing: 0) {
             if !k8s.enabled {
                 KubernetesDisabledView(isStarting: k8s.isStarting, startError: k8s.startError) {
-                    Task {
-                        if !k8s.enabled {
-                            await k8s.start(client: arcboxClient)
-                        }
-                        await loadServicesUntilReady()
-                    }
+                    Task { await k8s.start(client: arcboxClient) }
                 }
             } else if vm.services.isEmpty {
                 VStack {
@@ -51,35 +46,9 @@ struct ServicesListView: View {
         .onChange(of: vm.isSearching) { _, newValue in
             if !newValue { vm.searchText = "" }
         }
+        // Refreshing is owned by KubernetesState, which starts and stops it with `enabled`.
         .task {
             await k8s.checkStatus(client: arcboxClient)
-            if k8s.enabled {
-                await loadServicesUntilReady()
-            }
-        }
-        .task(id: k8s.enabled) {
-            guard k8s.enabled else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(10))
-                if Task.isCancelled { break }
-                await vm.loadServices(client: arcboxClient)
-            }
-        }
-        .onChange(of: k8s.enabled) { _, enabled in
-            if !enabled { vm.clear() }
-        }
-    }
-
-    /// Retry loading services until the request succeeds or timeout (~30s).
-    private func loadServicesUntilReady() async {
-        for attempt in 0..<15 {
-            if Task.isCancelled { return }
-            if attempt > 0 {
-                try? await Task.sleep(for: .seconds(2))
-                if Task.isCancelled { return }
-            }
-            let success = await vm.loadServices(client: arcboxClient)
-            if success { return }
         }
     }
 }

@@ -1,6 +1,4 @@
-import ArcBoxClient
 import K8sClient
-import OSLog
 import SwiftUI
 
 /// Detail tab for pods
@@ -24,8 +22,6 @@ class PodsViewModel {
     var searchText: String = ""
     var isSearching: Bool = false
 
-    private var k8sClient: K8sClient?
-
     var podCount: Int { pods.count }
     var runningCount: Int { pods.filter(\.isRunning).count }
     var filteredPods: [PodViewModel] {
@@ -47,44 +43,19 @@ class PodsViewModel {
         selectedID = id
     }
 
-    /// Fetch kubeconfig via gRPC, create K8sClient, then load pods.
-    /// Returns `true` if the request succeeded (even if the list is empty).
-    @discardableResult
-    func loadPods(client: ArcBoxClient?) async -> Bool {
-        guard let client else {
-            Log.pods.debug("No gRPC client available")
-            return false
-        }
+    /// Replace the list with a fetch result. Called by ``KubernetesState``, which owns the client
+    /// and the refresh loop.
+    func apply(_ list: PodList) {
+        pods = list.items.compactMap { Self.mapPod($0) }
+    }
 
-        isLoading = true
-        defer { isLoading = false }
-
-        do {
-            if k8sClient == nil {
-                let kubeconfigResponse: Arcbox_V1_KubernetesKubeconfigResponse = try await client.kubernetes
-                    .getKubeconfig(.init(), options: ArcBoxClient.defaultCallOptions)
-                let config = try KubeConfig(yaml: kubeconfigResponse.kubeconfig)
-                self.k8sClient = try K8sClient(config: config)
-            }
-
-            guard let k8s = k8sClient else { return false }
-            let podList = try await Perf.measure("pod.list") {
-                try await k8s.listAllPods()
-            }
-            self.pods = podList.items.compactMap { Self.mapPod($0) }
-            return true
-        } catch {
-            Log.pods.error("Error loading pods: \(error.localizedDescription, privacy: .private)")
-            ErrorReporting.capture(error, domain: .pod, operation: "list")
-            self.pods = []
-            self.k8sClient = nil
-            return false
-        }
+    /// Drop loaded pods but keep the selection, so it restores if the cluster comes back.
+    func dropItems() {
+        pods = []
     }
 
     /// Clear all pod data when K8s is stopped.
     func clear() {
-        k8sClient = nil
         pods = []
         selectedID = nil
     }
