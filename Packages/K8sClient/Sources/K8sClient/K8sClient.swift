@@ -25,6 +25,13 @@ public final class K8sClient: Sendable {
         }
     }
 
+    /// `makeURLSession()` always builds a delegate-backed session, and URLSession keeps a
+    /// strong reference to its delegate until the session is explicitly invalidated —
+    /// releasing the client is not enough to reclaim the connection pool or the delegate.
+    deinit {
+        session.invalidateAndCancel()
+    }
+
     // MARK: - Pods
 
     public func listPods(namespace: String = "default") async throws -> PodList {
