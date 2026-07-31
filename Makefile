@@ -29,11 +29,15 @@ PROVISIONING_PROFILE ?=
 
 ABCTL := $(ARCBOX_DIR)/target/release/abctl
 
-.PHONY: generate-xcodeproj bump-arcbox verify-arcbox-protobuf build-rust prefetch dmg dmg-signed dmg-release clean help
+.PHONY: build test format lint generate-xcodeproj bump-arcbox verify-arcbox-protobuf build-rust prefetch dmg dmg-signed dmg-release clean help
 
 help:
 	@echo "ArcBox build targets:"
 	@echo ""
+	@echo "  make build          Build the Swift app (Debug, no Rust binaries)"
+	@echo "  make test           Build and run the test suite"
+	@echo "  make format         Apply swift-format in place"
+	@echo "  make lint           Run swift-format --strict and swiftlint (as CI does)"
 	@echo "  make generate-xcodeproj  Regenerate ArcBox.xcodeproj from project.yml"
 	@echo "  make bump-arcbox VERSION=vX.Y.Z"
 	@echo "                         Update arcbox.version and regenerate protobuf client"
@@ -52,10 +56,81 @@ help:
 	@echo "  SKIP_RESOURCES=$(SKIP_RESOURCES)"
 	@echo "  SKIP_XCODE_EMBED=$(SKIP_XCODE_EMBED)"
 
+## ── Swift app ─────────────────────────────────────────
+
+# devenv's Rust toolchain exports CC/CXX/LD/SDKROOT/MACOSX_DEPLOYMENT_TARGET
+# and ~30 NIX_* variables that xcodebuild and SwiftPM cannot use: the nix clang
+# rejects -index-store-path, the bare `ld` breaks SPM C-shim links, and the nix
+# SDK is older than the Xcode compiler ("no such module 'SwiftShims'"). Each
+# nix bump adds more of them, so unsetting the known offenders is a losing
+# game — start from an empty environment and allow in only what a build needs.
+# On a clean CI runner this changes nothing, which is the point: one recipe
+# that behaves the same inside `devenv shell` and on a runner.
+#
+# devenv also points DEVELOPER_DIR at the nix SDK, which `xcode-select -p`
+# echoes back — so dropping it is what restores the real Xcode. To pin a
+# specific Xcode, pass XCODE_DEVELOPER_DIR=... (a separate name, so the
+# poisoned DEVELOPER_DIR cannot leak in through it).
+XCODE_DEVELOPER_DIR ?=
+XCODE_ENV = /usr/bin/env -i \
+	HOME="$$HOME" \
+	PATH="/usr/bin:/bin:/usr/sbin:/sbin" \
+	$(if $(TMPDIR),TMPDIR="$(TMPDIR)") \
+	$(if $(USER),USER="$(USER)") \
+	$(if $(LANG),LANG="$(LANG)") \
+	$(if $(XCODE_DEVELOPER_DIR),DEVELOPER_DIR="$(XCODE_DEVELOPER_DIR)")
+
+CONFIGURATION ?= Debug
+DESTINATION ?= platform=macOS
+
+# `-skipPackagePluginValidation`/`-skipMacroValidation`: Xcode requires each
+# SwiftPM plugin to be trusted interactively before it will run it. That
+# consent lives in Xcode's user defaults, so a machine that has never opened
+# the project — every CI runner — fails with `Plugin "OpenAPIGenerator" … must
+# be enabled before it can be used`. Skipping validation everywhere keeps
+# local and CI on the same command.
+#
+# SKIP_RUST_BUILD=1: the embed phase pulls prebuilt binaries from ../arcbox.
+# These targets compile and test Swift; use `make dmg` for a runnable bundle.
+XCODEBUILD_FLAGS = \
+	-project ArcBox.xcodeproj \
+	-scheme ArcBox \
+	-configuration $(CONFIGURATION) \
+	-destination '$(DESTINATION)' \
+	-derivedDataPath .build/DerivedData \
+	-clonedSourcePackagesDirPath .build/SourcePackages \
+	-skipPackagePluginValidation \
+	-skipMacroValidation \
+	$(XCODEBUILD_EXTRA) \
+	CODE_SIGN_IDENTITY=- \
+	SKIP_RUST_BUILD=1 \
+	$(if $(ARCHS),ARCHS=$(ARCHS))
+
+build:
+	$(XCODE_ENV) xcodebuild build $(XCODEBUILD_FLAGS)
+
+test:
+	$(XCODE_ENV) xcodebuild test $(XCODEBUILD_FLAGS)
+
+# Feed swift-format the tracked sources rather than walking directories: a
+# local `Packages/*/.build/checkouts` holds vendored third-party code that is
+# absent on a fresh CI checkout, so `-r Packages/` lints different files (and
+# crashes on some of them) depending on where it runs. swiftlint has its own
+# excludes in .swiftlint.yml.
+SWIFT_SOURCES = git ls-files -z '*.swift'
+TOOL = scripts/tool.sh
+
+format:
+	$(SWIFT_SOURCES) | xargs -0 $(TOOL) swift-format format -i
+
+lint:
+	$(SWIFT_SOURCES) | xargs -0 $(TOOL) swift-format lint --strict
+	$(TOOL) swiftlint lint --strict --config .swiftlint.yml
+
 ## ── Xcode Project ─────────────────────────────────────
 
 generate-xcodeproj:
-	xcodegen generate
+	$(TOOL) xcodegen generate
 
 ## ── ArcBox Protocol ───────────────────────────────────
 
