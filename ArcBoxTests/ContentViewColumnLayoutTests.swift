@@ -12,6 +12,11 @@ import XCTest
 /// section with the split divider, so the list's sort/add buttons end up
 /// floating over the detail column. Adding a third `.primaryAction` item to a
 /// list column is what would break this.
+///
+/// Measured against the real window — the unit-test host is the app itself —
+/// because the geometry only reproduces in a SwiftUI `Scene`: the same view
+/// hierarchy in an `NSHostingController` clips overflowing toolbar items
+/// instead of letting them overhang, and so cannot show the defect.
 @MainActor
 final class ContentViewColumnLayoutTests: XCTestCase {
 
@@ -84,19 +89,26 @@ final class ContentViewColumnLayoutTests: XCTestCase {
 
     private func mainWindow() throws -> NSWindow {
         let deadline = Date().addingTimeInterval(10)
-        while Date() < deadline {
-            if let window = NSApp.windows.first(where: {
+        var found: NSWindow?
+        while found == nil, Date() < deadline {
+            found = NSApp.windows.first {
                 $0.toolbar != nil && findSplitView(in: $0.contentView) != nil
-            }) {
-                // Toolbar item views are only realized for an on-screen window.
-                window.makeKeyAndOrderFront(nil)
-                pumpRunLoop()
-                return window
             }
-            pumpRunLoop()
+            if found == nil { pumpRunLoop() }
         }
-        throw XCTSkip(
-            "main window with a toolbar never appeared — this environment cannot host it")
+
+        let window = try XCTUnwrap(
+            found,
+            """
+            the app's main window never appeared, so nothing was measured. This is a \
+            failure, not a reason to skip: GitHub's macos runners do host the window \
+            (verified — the assertions run there in under a second), so an environment \
+            that cannot needs this test reworked rather than silenced.
+            """)
+        // Toolbar item views are only realized for an on-screen window.
+        window.makeKeyAndOrderFront(nil)
+        pumpRunLoop()
+        return window
     }
 
     private func findSplitView(in view: NSView?) -> NSSplitView? {
