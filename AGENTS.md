@@ -1,10 +1,13 @@
 # ArcBox Desktop — Agent Guidelines
 
 ## Build & Test
-- Build: `xcodebuild build -project ArcBox.xcodeproj -scheme ArcBox -configuration Debug`
-- Test all: `xcodebuild test -project ArcBox.xcodeproj -scheme ArcBox -configuration Debug -destination 'platform=macOS'`
-- Swift-only (skip Rust): add `SKIP_RUST_BUILD=1 CODE_SIGN_IDENTITY=-` to xcodebuild
-- Rust binaries: the Xcode build phase runs `cargo xtask macos embed`, which calls `make build-rust` in `../arcbox`
+- Build: `make build` — Swift only, no embedded Rust binaries
+- Test all: `make test`
+- Format / lint: `make format`, `make lint`
+- Regenerate the Xcode project after adding or removing a file: `make generate-xcodeproj`
+- Rust binaries: the Xcode build phase runs `cargo xtask macos embed`, which calls `make build-rust` in `../arcbox`. `make build`/`make test` set `SKIP_RUST_BUILD=1`; use `make dmg` for a runnable bundle.
+
+**Do not call `xcodebuild` or `xcodegen` directly.** This repo uses devenv, whose Rust toolchain exports `CC`/`CXX`/`LD`/`SDKROOT`/`DEVELOPER_DIR` (pointed at a nix SDK) and ~30 `NIX_*` variables. A bare `xcodebuild` then fails with `no such module 'SwiftShims'`, `unknown argument: -index-store-path`, or `ld: unknown options: -Xlinker`, and devenv's `xcodegen` is older than `project.yml`'s `minimumXcodeGenVersion`. The Makefile targets run xcodebuild in an allowlisted environment and pick a new enough xcodegen, so they work identically inside `devenv shell` and on a clean CI runner — which is what CI itself runs.
 
 ## Architecture
 - **ArcBox/** — SwiftUI macOS app (MVVM): Views/, ViewModels/, Models/, Services/, Components/, Theme/, Integrations/, Support/
