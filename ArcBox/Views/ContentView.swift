@@ -63,6 +63,7 @@ struct ContentView: View {
             // is what actually guarantees toolbar alignment. See `ColumnWidth`.
             contentColumn
                 .background(AppColors.background)
+                .toolbarSeparator()
                 .navigationSplitViewColumnWidth(
                     min: isContentColumnCollapsed ? 0 : ColumnWidth.contentMin,
                     ideal: isContentColumnCollapsed ? 0 : ColumnWidth.contentIdeal,
@@ -71,6 +72,7 @@ struct ContentView: View {
         } detail: {
             detailPanel
                 .background(AppColors.sidebar)
+                .toolbarSeparator()
         }
         .onChange(of: appVM.currentNav) { _, newNav in
             guard let newNav else { return }
