@@ -10,10 +10,11 @@
 **Do not call `xcodebuild` or `xcodegen` directly.** This repo uses devenv, whose Rust toolchain exports `CC`/`CXX`/`LD`/`SDKROOT`/`DEVELOPER_DIR` (pointed at a nix SDK) and ~30 `NIX_*` variables. A bare `xcodebuild` then fails with `no such module 'SwiftShims'`, `unknown argument: -index-store-path`, or `ld: unknown options: -Xlinker`, and devenv's `xcodegen` is older than `project.yml`'s `minimumXcodeGenVersion`. The Makefile targets run xcodebuild in an allowlisted environment and pick a new enough xcodegen, so they work identically inside `devenv shell` and on a clean CI runner — which is what CI itself runs.
 
 ## Architecture
-- **ArcBox/** — SwiftUI macOS app (MVVM): Views/, ViewModels/, Models/, Services/, Components/, Theme/, Integrations/, Support/
+- **ArcBox/** — SwiftUI macOS app (MVVM): App/, Views/, ViewModels/, Models/, Services/, Components/, Theme/, Integrations/, Support/
 - **Packages/ArcBoxClient** — gRPC client (protobuf), DaemonManager (SMAppService), StartupOrchestrator
 - **Packages/DockerClient** — Docker Engine API client over Unix socket (`~/.arcbox/run/docker.sock`)
 - **Packages/K8sClient** — Kubernetes API client with kubeconfig + exec-based auth
+- **Packages/ArcBoxAuth** — OIDC/PKCE sign-in for ArcBox Platform, tokens in the keychain
 - Daemon (`arcbox-daemon`) is a separate Rust binary from the `../arcbox` repo; communicates via gRPC over `~/.arcbox/run/arcbox.sock`
 - Entitlements for the daemon live in `../arcbox/bundle/arcbox.entitlements` (single source of truth)
 - When bumping the embedded daemon version, use `make bump-arcbox VERSION=vX.Y.Z` so `arcbox.version` and generated protobuf client code are updated atomically
@@ -50,5 +51,5 @@ The default tab's view renders during startup. Other tabs render lazily when the
 - ViewModels use `@Observable`; environment injection via custom `EnvironmentKey`
 - Logging: use the `Log` enum (OSLog-based) in the app, `ClientLog` in Packages
 - Prefer `async/await` over Combine; use `Task.detached` only for Sendable-isolated gRPC calls
-- No Combine, no third-party UI libraries; only external deps: Sparkle, SwiftTerm, Sentry
+- No Combine, no third-party UI libraries; only external deps: Sparkle, SwiftTerm, Sentry, PostHog
 - Imports: Foundation/SwiftUI first, then local packages, then third-party; one blank line before body
