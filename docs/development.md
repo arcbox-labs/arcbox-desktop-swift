@@ -20,6 +20,7 @@ simply stay off.
 | `make test` | full test suite |
 | `make format` / `make lint` | swift-format and SwiftLint |
 | `make generate-xcodeproj` | run after adding or removing a file |
+| `make lint-xtask` / `make test-xtask` | the Rust packaging crate, gated separately |
 | `make dmg` | runnable bundle, daemon and agent included |
 
 > **Do not run `xcodebuild` or `xcodegen` directly.** This repo uses devenv, whose Rust toolchain exports

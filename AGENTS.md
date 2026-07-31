@@ -4,6 +4,7 @@
 - Build: `make build` — Swift only, no embedded Rust binaries
 - Test all: `make test`
 - Format / lint: `make format`, `make lint`
+- xtask (Rust): `make lint-xtask`, `make test-xtask` — `make lint`/`make test` cover Swift only
 - Regenerate the Xcode project after adding or removing a file: `make generate-xcodeproj`
 - Rust binaries: the Xcode build phase runs `cargo xtask macos embed`, which calls `make build-rust` in `../arcbox`. `make build`/`make test` set `SKIP_RUST_BUILD=1`; use `make dmg` for a runnable bundle.
 
