@@ -19,31 +19,38 @@ struct ActivityMetricStrip: View {
             alignment: .leading,
             spacing: 14
         ) {
-            MetricTile(
+            SparklineTile(
                 title: "CPU",
-                value: StatsFormat.percent(stats.cpuPercent),
-                caption: "\(stats.onlineCPUs) cores · load \(StatsFormat.load(stats.loadaverage1))"
-            ) {
-                Sparkline(points: cpuHistory, tint: MetricTint.cpu, domain: 0...100)
-            }
+                points: cpuHistory,
+                tint: MetricTint.cpu,
+                domain: 0...100,
+                liveValue: StatsFormat.percent(stats.cpuPercent),
+                liveCaption: "\(stats.onlineCPUs) cores · load \(StatsFormat.load(stats.loadaverage1))",
+                format: StatsFormat.percent
+            )
 
-            MetricTile(
+            SparklineTile(
                 title: "Memory",
-                value: StatsFormat.percent(stats.memoryUsedPercent),
-                caption: "\(StatsFormat.bytes(stats.memoryUsedBytes)) of \(StatsFormat.bytes(stats.memoryTotalBytes))"
-            ) {
-                Sparkline(points: memoryHistory, tint: MetricTint.memory, domain: 0...100)
-            }
+                points: memoryHistory,
+                tint: MetricTint.memory,
+                domain: 0...100,
+                liveValue: StatsFormat.percent(stats.memoryUsedPercent),
+                liveCaption:
+                    "\(StatsFormat.bytes(stats.memoryUsedBytes)) of \(StatsFormat.bytes(stats.memoryTotalBytes))",
+                format: StatsFormat.percent
+            )
 
-            MetricTile(
+            SparklineTile(
                 title: "Network",
-                value: StatsFormat.rate(
+                points: networkHistory,
+                tint: MetricTint.network,
+                domain: nil,
+                liveValue: StatsFormat.rate(
                     stats.networkReceiveBytesPerSecond + stats.networkTransmitBytesPerSecond),
-                caption:
-                    "↓ \(StatsFormat.rate(stats.networkReceiveBytesPerSecond))  ↑ \(StatsFormat.rate(stats.networkTransmitBytesPerSecond))"
-            ) {
-                Sparkline(points: networkHistory, tint: MetricTint.network, domain: nil)
-            }
+                liveCaption:
+                    "↓ \(StatsFormat.rate(stats.networkReceiveBytesPerSecond))  ↑ \(StatsFormat.rate(stats.networkTransmitBytesPerSecond))",
+                format: StatsFormat.rate
+            )
 
             PressureTile(stats: stats)
         }
@@ -66,7 +73,53 @@ private enum MetricTint {
     static let network = Color.purple
 }
 
-// MARK: - Tile
+// MARK: - Tiles
+
+/// A metric with history. Selecting a point on the sparkline rewinds the
+/// headline to that sample and says how long ago it was, which is the whole
+/// reason to keep a minute of history on screen rather than just the latest
+/// number. `chartXSelection` decides what counts as selecting — the platform's
+/// convention, not ours.
+private struct SparklineTile: View {
+    let title: LocalizedStringKey
+    let points: [ActivityViewModel.MetricPoint]
+    let tint: Color
+    /// Fixed y range, or `nil` to autoscale (used for byte rates).
+    let domain: ClosedRange<Double>?
+    let liveValue: String
+    let liveCaption: String
+    let format: (Double) -> String
+
+    @State private var scrubbedIndex: Int?
+
+    var body: some View {
+        MetricTile(
+            title: title,
+            value: scrubbed.map { format($0.value) } ?? liveValue,
+            caption: scrubbed.map(elapsedCaption) ?? liveCaption,
+            // Tinting only while scrubbing marks the headline as a reading from
+            // the past rather than the live value.
+            valueColor: scrubbed == nil ? AppColors.text : tint
+        ) {
+            Sparkline(points: points, tint: tint, domain: domain, scrubbedIndex: $scrubbedIndex)
+        }
+    }
+
+    private var scrubbed: ActivityViewModel.MetricPoint? {
+        scrubbedIndex.flatMap { index in points.first { $0.index == index } }
+    }
+
+    /// Guest-clock distance from the newest sample. Reported from the timestamps
+    /// rather than the sample count, so a stalled or throttled stream doesn't
+    /// quietly misreport the age.
+    private func elapsedCaption(_ point: ActivityViewModel.MetricPoint) -> String {
+        guard let latest = points.last, latest.monotonicMs > point.monotonicMs else {
+            return "latest sample"
+        }
+        let seconds = Int((latest.monotonicMs - point.monotonicMs) / 1000)
+        return seconds < 1 ? "latest sample" : "\(seconds)s ago"
+    }
+}
 
 /// Label, headline number, a figure (sparkline or gauge) and a caption, at the
 /// one shape every tile in the strip shares.
@@ -132,13 +185,15 @@ private struct LiveValueAnimation<V: Equatable>: ViewModifier {
 
 // MARK: - Figures
 
-/// A filled line over the rolling history. Purely a trend cue — the tile's
-/// number carries the value, so it stays out of the accessibility tree.
+/// A filled line over the rolling history, scrubbable with the pointer. The
+/// tile's headline carries the value in text, so the chart itself stays out of
+/// the accessibility tree rather than announcing sixty unlabelled samples.
 private struct Sparkline: View {
     let points: [ActivityViewModel.MetricPoint]
     let tint: Color
     /// Fixed y range, or `nil` to autoscale (used for byte rates).
     let domain: ClosedRange<Double>?
+    @Binding var scrubbedIndex: Int?
 
     var body: some View {
         Chart {
@@ -157,18 +212,29 @@ private struct Sparkline: View {
                     .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                     .interpolationMethod(.monotone)
             }
-            if let latest = points.last {
-                PointMark(x: .value("Sample", latest.index), y: .value("Value", latest.value))
+            // The marker follows the pointer while scrubbing and returns to the
+            // newest sample when it leaves, so there is always exactly one.
+            if let marked = marked {
+                RuleMark(x: .value("Sample", marked.index))
+                    .foregroundStyle(tint.opacity(scrubbedIndex == nil ? 0 : 0.35))
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+                PointMark(x: .value("Sample", marked.index), y: .value("Value", marked.value))
                     .foregroundStyle(tint)
-                    .symbolSize(16)
+                    .symbolSize(scrubbedIndex == nil ? 16 : 40)
             }
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
         .chartYScale(domain: domain ?? autoDomain)
         .chartLegend(.hidden)
+        .chartXSelection(value: $scrubbedIndex)
         .liveValueAnimation(points.last?.index)
         .accessibilityHidden(true)
+    }
+
+    private var marked: ActivityViewModel.MetricPoint? {
+        guard let scrubbedIndex else { return points.last }
+        return points.first { $0.index == scrubbedIndex } ?? points.last
     }
 
     /// Headroom above the observed peak so a flat-zero series still renders.
