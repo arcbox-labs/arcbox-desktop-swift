@@ -12,9 +12,11 @@ final class LayerStackTests: XCTestCase {
         XCTAssertEqual(stack.missingLayers, 0)
     }
 
-    func testSingleLayerSubjectDescribesNoStack() async {
+    func testSingleLayerSubjectDescribesNoStack() async throws {
         // Nothing to be incomplete about, so nothing to tell the user.
-        let stack = await LayerStack.resolve(guestPaths: ["/var/lib/docker/volumes"])
+        let export = try makeGuestExport(containing: ["volumes"])
+        let stack = await LayerStack.resolve(
+            guestPaths: ["/var/lib/docker/volumes"], exportRoot: export)
 
         XCTAssertNotNil(stack.rootURL)
         XCTAssertNil(stack.layers)
@@ -22,15 +24,17 @@ final class LayerStackTests: XCTestCase {
         XCTAssertEqual(stack.missingLayers, 0)
     }
 
-    func testTruncationToASingleLayerStillDescribesTheStack() async {
+    func testTruncationToASingleLayerStillDescribesTheStack() async throws {
         // The case the badge used to go silent on: one browsable layer left,
         // so there is no merged stack to hang a warning off — but most of the
         // filesystem is missing and the user has to be told.
-        let stack = await LayerStack.resolve(guestPaths: [
-            "/var/lib/docker/volumes",
-            "/somewhere/else/layer1",
-            "/somewhere/else/layer2",
-        ])
+        let export = try makeGuestExport(containing: ["volumes"])
+        let stack = await LayerStack.resolve(
+            guestPaths: [
+                "/var/lib/docker/volumes",
+                "/somewhere/else/layer1",
+                "/somewhere/else/layer2",
+            ], exportRoot: export)
 
         XCTAssertNotNil(stack.rootURL)
         XCTAssertTrue(stack.describesAStack)

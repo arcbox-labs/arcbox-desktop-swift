@@ -189,6 +189,7 @@
 		D32166A92BDA2FB6B6037D94 /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C649765AA76CFCBFC3302DA /* DeepLinkRouter.swift */; };
 		D49278FBAD2A7E36CD278147 /* MachineRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949DB8BB8139F8D3C37503E9 /* MachineRowView.swift */; };
 		D4B90FF1E30A90C8B962A30B /* AboutWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE313F40E79E409C942B1EE /* AboutWindow.swift */; };
+		D4FFF718B8B6D79B469D2C3C /* GuestExportFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 738233A82C7BAA825F73EE2F /* GuestExportFixture.swift */; };
 		D69B9880564FF221556379CF /* SleepWakeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7058C8975F3F2684714E24E2 /* SleepWakeManager.swift */; };
 		D6D1C18BADA9AB8CAE608A7F /* SidebarAccountButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7607A876F6C88A440DA53BE1 /* SidebarAccountButton.swift */; };
 		D745D0D7EF5FF65174C47F28 /* NewVolumeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 903FA72CEF39142ADA5CA378 /* NewVolumeSheet.swift */; };
@@ -332,6 +333,7 @@
 		7058C8975F3F2684714E24E2 /* SleepWakeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeManager.swift; sourceTree = "<group>"; };
 		70D9A8B5B6000070B4D69A07 /* SandboxDisabledView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxDisabledView.swift; sourceTree = "<group>"; };
 		727A1DD3E8D3B0BB875475A8 /* MachineEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineEmptyState.swift; sourceTree = "<group>"; };
+		738233A82C7BAA825F73EE2F /* GuestExportFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestExportFixture.swift; sourceTree = "<group>"; };
 		7607A876F6C88A440DA53BE1 /* SidebarAccountButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarAccountButton.swift; sourceTree = "<group>"; };
 		77BE672A52785F040AC6CEB2 /* ExternalTerminalDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalTerminalDiscovery.swift; sourceTree = "<group>"; };
 		789DE20DB0F3E106BFAC6E10 /* MenuBarHoverButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarHoverButton.swift; sourceTree = "<group>"; };
@@ -1040,6 +1042,7 @@
 				F5B3B3C54B6D49C6198E9E26 /* DeepLinkTests.swift */,
 				06DFFB59D72F27F14A233B81 /* DockerEventMonitorTests.swift */,
 				27130DDA57D2645C7E81D75D /* GuestDataMountTests.swift */,
+				738233A82C7BAA825F73EE2F /* GuestExportFixture.swift */,
 				C964312D5336EE55A8E4680B /* ImageLayerChainTests.swift */,
 				A2B6587D59B9EFA18E51A3F3 /* ImagesViewModelTests.swift */,
 				7B6FDB677AE01E62877A17AC /* K8sModelsTests.swift */,
@@ -1412,6 +1415,7 @@
 				EE2D38BC76500BF768EEE20F /* DeepLinkTests.swift in Sources */,
 				8466B000B68A87CEECA6756F /* DockerEventMonitorTests.swift in Sources */,
 				D2AB4B6BF0723EE12A0DBC83 /* GuestDataMountTests.swift in Sources */,
+				D4FFF718B8B6D79B469D2C3C /* GuestExportFixture.swift in Sources */,
 				8BBBA54130403D89D35986F7 /* ImageLayerChainTests.swift in Sources */,
 				0BCE503CC2BF6C2BEC9DC4EA /* ImagesViewModelTests.swift in Sources */,
 				F40C3E6023452858EEEA893F /* K8sModelsTests.swift in Sources */,

@@ -136,13 +136,15 @@ nonisolated struct LayeredRootFS {
     /// inside [`listDirectory`]: a layer that cannot be browsed still decides
     /// what the layers beneath it may show, so merging past it would surface
     /// entries it may replace or delete.
-    static func resolveHostLayers(guestPaths: [String]) -> Resolution {
+    static func resolveHostLayers(
+        guestPaths: [String], exportRoot: URL = GuestDataMount.rootURL
+    ) -> Resolution {
         var hostURLs: [URL] = []
         for guestPath in guestPaths {
             // Hand back what the check produced: callers would otherwise
             // repeat the same existence check to standardize the URL, and on
             // a wedged export that check blocks.
-            guard let hostURL = GuestDataMount.hostURL(forGuestPath: guestPath),
+            guard let hostURL = GuestDataMount.hostURL(forGuestPath: guestPath, exportRoot: exportRoot),
                 let resolved = try? LocalRootFSService.resolveRootURL(path: hostURL.path)
             else {
                 break

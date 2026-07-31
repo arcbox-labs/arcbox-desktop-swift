@@ -322,26 +322,31 @@ final class LayeredRootFSTests: XCTestCase {
 
     // MARK: host-layer resolution
 
-    func testResolveHostLayersTruncatesAtAnUnmappableLayer() {
+    func testResolveHostLayersTruncatesAtAnUnmappableLayer() throws {
         // An unmappable upper layer still decides what the layers beneath it
         // may show, so dropping it and keeping the lower ones would surface
-        // files it may have replaced or deleted.
-        let resolution = LayeredRootFS.resolveHostLayers(guestPaths: [
-            "/somewhere/else/upper",
-            "/var/lib/docker/volumes",
-        ])
+        // files it may have replaced or deleted. The lower layer is present in
+        // the export, so only truncation can keep it out of the result.
+        let export = try makeGuestExport(containing: ["volumes"])
+        let resolution = LayeredRootFS.resolveHostLayers(
+            guestPaths: [
+                "/somewhere/else/upper",
+                "/var/lib/docker/volumes",
+            ], exportRoot: export)
 
         XCTAssertEqual(resolution.hostURLs, [])
         XCTAssertEqual(resolution.excludedCount, 2)
     }
 
-    func testResolveHostLayersTruncatesAtAMissingLayer() {
+    func testResolveHostLayersTruncatesAtAMissingLayer() throws {
         // Same rule when the path maps fine but is not on the host: the
         // layer is unavailable, and what it deletes is unknowable.
-        let resolution = LayeredRootFS.resolveHostLayers(guestPaths: [
-            "/var/lib/docker/definitely-not-present-\(UUID().uuidString)",
-            "/var/lib/docker/volumes",
-        ])
+        let export = try makeGuestExport(containing: ["volumes"])
+        let resolution = LayeredRootFS.resolveHostLayers(
+            guestPaths: [
+                "/var/lib/docker/definitely-not-present-\(UUID().uuidString)",
+                "/var/lib/docker/volumes",
+            ], exportRoot: export)
 
         XCTAssertEqual(resolution.hostURLs, [])
         XCTAssertEqual(resolution.excludedCount, 2)
@@ -372,15 +377,17 @@ final class LayeredRootFSTests: XCTestCase {
         XCTAssertEqual(listing.excludedLayers, [1, 2])
     }
 
-    func testResolveHostLayersCanTruncateToASingleSurvivor() {
+    func testResolveHostLayersCanTruncateToASingleSurvivor() throws {
         // The case the badge used to go silent on: the stack collapses to one
         // browsable layer, so there is no composed stack left to hang a
         // warning off — but four fifths of the filesystem is missing.
-        let resolution = LayeredRootFS.resolveHostLayers(guestPaths: [
-            "/var/lib/docker/volumes",
-            "/somewhere/else/layer1",
-            "/somewhere/else/layer2",
-        ])
+        let export = try makeGuestExport(containing: ["volumes"])
+        let resolution = LayeredRootFS.resolveHostLayers(
+            guestPaths: [
+                "/var/lib/docker/volumes",
+                "/somewhere/else/layer1",
+                "/somewhere/else/layer2",
+            ], exportRoot: export)
 
         XCTAssertEqual(resolution.hostURLs.count, 1)
         XCTAssertEqual(resolution.excludedCount, 2)
