@@ -3,6 +3,7 @@
 ## Build & Test
 - Build: `make build` — Swift only, no embedded Rust binaries
 - Test all: `make test`
+- **A local package's tests only run because `ArcBoxTests` compiles their sources.** xcodegen refuses a SwiftPM test target in the scheme's test action ("invalid test target"), so a package's `Tests/` directory is listed under `ArcBoxTests.sources` in `project.yml`. Add a new local package's test path there or nothing will ever run it — `swift test` in the package directory is not part of any gate. The bundle links them through its test host; adding the package as a direct dependency instead duplicates the link and fails.
 - Format / lint: `make format`, `make lint`
 - xtask (Rust): `make lint-xtask`, `make test-xtask` — `make lint`/`make test` cover Swift only
 - Regenerate the Xcode project after adding or removing a file: `make generate-xcodeproj`
