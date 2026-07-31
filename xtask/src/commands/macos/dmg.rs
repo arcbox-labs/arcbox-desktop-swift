@@ -1014,23 +1014,6 @@ fn sign_app_bundle(
         println!("  Re-signed {name} as {identifier}");
     }
 
-    // Re-sign ArcBoxHelper.
-    let helper = app_bundle
-        .join("Contents")
-        .join("Library")
-        .join("HelperTools")
-        .join("ArcBoxHelper");
-    if helper.is_file() {
-        let entitlements = desktop_repo
-            .join("ArcBoxHelper")
-            .join("ArcBoxHelper.entitlements");
-        let mut options = CodesignOptions::runtime(sign_identity, &helper);
-        options.identifier = Some(HELPER_CODE_SIGN_IDENTIFIER);
-        options.entitlements = Some(&entitlements);
-        apple::codesign(&options)?;
-        println!("  Signed ArcBoxHelper with hardened runtime");
-    }
-
     // Re-sign the outer app (nested code changed, seal must be refreshed).
     let app_entitlements = desktop_repo.join("ArcBox").join("ArcBox.entitlements");
     let mut options = CodesignOptions::runtime(sign_identity, app_bundle);
