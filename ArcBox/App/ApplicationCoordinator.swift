@@ -158,10 +158,6 @@ final class ApplicationCoordinator: NSObject {
     }
 
     private func installWindows() {
-        let mainHost = NSHostingController(rootView: makeMainRoot())
-        mainHost.sceneBridgingOptions = .all
-        let settingsHost = NSHostingController(rootView: makeSettingsRoot())
-        let menuBarHost = NSHostingController(rootView: makeMenuBarRoot())
         let sidebarViewController = SidebarViewController(
             selection: appVM.currentNav,
             onSelect: { [weak self] item in
@@ -171,18 +167,17 @@ final class ApplicationCoordinator: NSObject {
                 self?.accountButtonPressed()
             }
         )
-        let mainSplitViewController = MainSplitViewController(
-            sidebarViewController: sidebarViewController,
-            contentViewController: mainHost
-        )
+        self.sidebarViewController = sidebarViewController
+
+        let mainHost = NSHostingController(rootView: makeMainRoot())
+        mainHost.sceneBridgingOptions = .all
+        let settingsHost = NSHostingController(rootView: makeSettingsRoot())
+        let menuBarHost = NSHostingController(rootView: makeMenuBarRoot())
 
         self.mainHost = mainHost
-        self.sidebarViewController = sidebarViewController
         self.settingsHost = settingsHost
         self.menuBarHost = menuBarHost
-        mainWindowController = MainWindowController(
-            contentViewController: mainSplitViewController
-        )
+        mainWindowController = MainWindowController(contentViewController: mainHost)
         settingsWindowController = SettingsWindowController(contentViewController: settingsHost)
         statusItemController = StatusItemController(contentViewController: menuBarHost)
         statusItemController?.setVisible(lastShowInMenuBar)
@@ -330,8 +325,11 @@ final class ApplicationCoordinator: NSObject {
     }
 
     private func makeMainRoot() -> AnyView {
-        AnyView(
-            ContentView()
+        guard let sidebarViewController else {
+            preconditionFailure("The main sidebar must exist before its SwiftUI host")
+        }
+        return AnyView(
+            ContentView(sidebarViewController: sidebarViewController)
                 .environment(appVM)
                 .environment(daemonManager)
                 .environment(containersVM)
@@ -414,6 +412,7 @@ final class ApplicationCoordinator: NSObject {
 
         sidebarViewController?.updateAccount(
             title: title,
+            avatarURL: authSession.identity?.avatarURL,
             isBusy: isBusy,
             isEnabled: isEnabled,
             help: help

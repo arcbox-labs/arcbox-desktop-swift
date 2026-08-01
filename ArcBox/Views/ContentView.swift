@@ -15,16 +15,18 @@ import SwiftUI
 /// `contentMin` clears the two-item case the widest list columns ship today.
 ///
 /// Adding a third `.primaryAction` item to any list column would exceed
-/// `contentMin` — raise it alongside. The native outer split owns the sidebar
-/// while this view preserves each feature's existing toolbar and sheet
-/// behavior.
+/// `contentMin` — raise it alongside. This single split owns the native
+/// AppKit sidebar and each feature's existing toolbar and sheet behavior.
 enum ColumnWidth {
+    static let sidebar: CGFloat = 180
     static let contentMin: CGFloat = 280
     static let contentIdeal: CGFloat = 320
     static let contentMax: CGFloat = 600
 }
 
 struct ContentView: View {
+    let sidebarViewController: SidebarViewController
+
     @Environment(AppViewModel.self) private var appVM
 
     // Shared ViewModels (owned by ApplicationCoordinator, shared with the menu bar)
@@ -42,6 +44,12 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
+            SidebarViewControllerHost(
+                controller: sidebarViewController,
+                selection: appVM.currentNav
+            )
+            .navigationSplitViewColumnWidth(ColumnWidth.sidebar)
+        } content: {
             // Always render `contentColumn` and vary only the numeric width
             // through the SAME flexible overload. Mixing the fixed
             // `navigationSplitViewColumnWidth(0)` overload with the flexible
@@ -64,6 +72,22 @@ struct ContentView: View {
             detailPanel
                 .background(AppColors.sidebar)
                 .toolbarSeparator()
+        }
+    }
+
+    private struct SidebarViewControllerHost: NSViewControllerRepresentable {
+        let controller: SidebarViewController
+        let selection: NavItem?
+
+        func makeNSViewController(context: Context) -> SidebarViewController {
+            controller
+        }
+
+        func updateNSViewController(
+            _ nsViewController: SidebarViewController,
+            context: Context
+        ) {
+            nsViewController.select(selection)
         }
     }
 

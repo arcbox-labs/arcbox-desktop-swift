@@ -2,26 +2,37 @@ import AppKit
 
 @MainActor
 final class MainWindowController: NSWindowController {
-    private static let frameAutosaveName = "ArcBox.MainWindow"
+    static let frameAutosaveName = "main"
+    static let defaultFrameSize = NSSize(width: 1_200, height: 800)
 
-    init(contentViewController: NSViewController) {
+    init(
+        contentViewController: NSViewController,
+        frameAutosaveName: String = MainWindowController.frameAutosaveName
+    ) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1_200, height: 800),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            contentRect: .zero,
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "ArcBox"
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.toolbarStyle = .unified
         window.contentMinSize = NSSize(width: 900, height: 600)
         window.contentViewController = contentViewController
         window.isReleasedWhenClosed = false
+        window.setFrame(
+            NSRect(origin: .zero, size: Self.defaultFrameSize),
+            display: false
+        )
 
         super.init(window: window)
 
-        if !window.setFrameUsingName(Self.frameAutosaveName) {
+        if !window.setFrameUsingName(frameAutosaveName) {
             window.center()
         }
-        window.setFrameAutosaveName(Self.frameAutosaveName)
+        window.setFrameAutosaveName(frameAutosaveName)
     }
 
     @available(*, unavailable)

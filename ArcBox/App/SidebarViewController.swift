@@ -1,4 +1,6 @@
 import AppKit
+import Foundation
+import OSLog
 
 @MainActor
 final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate {
@@ -7,13 +9,13 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     private let sections = NavItem.Section.allCases
     private let outlineView = NSOutlineView()
-    private let accountButton = NSButton()
-    private let accountProgressIndicator = NSProgressIndicator()
+    private let accountButton = SidebarAccountButton()
     private let onSelect: @MainActor (NavItem) -> Void
     private let onAccount: @MainActor () -> Void
 
     private var selection: NavItem?
     private var accountTitle = "Sign In"
+    private var accountAvatarURL: URL?
     private var accountIsBusy = false
     private var accountIsEnabled = true
     private var accountHelp = "Sign in to ArcBox"
@@ -35,40 +37,29 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     }
 
     override func loadView() {
-        let background = NSVisualEffectView()
-        background.blendingMode = .behindWindow
-        background.material = .sidebar
-        background.state = .followsWindowActiveState
+        let background = NSView()
 
         let scrollView = makeOutlineScrollView()
-        let separator = NSBox()
-        separator.boxType = .separator
-        separator.translatesAutoresizingMaskIntoConstraints = false
-
         let footer = NSView()
         footer.translatesAutoresizingMaskIntoConstraints = false
         setUpAccountButton(in: footer)
 
         background.addSubview(scrollView)
-        background.addSubview(separator)
         background.addSubview(footer)
 
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: background.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: background.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: background.topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: separator.topAnchor),
-            separator.leadingAnchor.constraint(equalTo: background.leadingAnchor),
-            separator.trailingAnchor.constraint(equalTo: background.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: background.safeAreaLayoutGuide.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: footer.topAnchor),
             footer.leadingAnchor.constraint(equalTo: background.leadingAnchor),
             footer.trailingAnchor.constraint(equalTo: background.trailingAnchor),
-            footer.topAnchor.constraint(equalTo: separator.bottomAnchor),
             footer.bottomAnchor.constraint(equalTo: background.bottomAnchor),
             accountButton.leadingAnchor.constraint(equalTo: footer.leadingAnchor, constant: 12),
             accountButton.trailingAnchor.constraint(equalTo: footer.trailingAnchor, constant: -12),
             accountButton.topAnchor.constraint(equalTo: footer.topAnchor, constant: 8),
             accountButton.bottomAnchor.constraint(equalTo: footer.bottomAnchor, constant: -8),
-            accountButton.heightAnchor.constraint(equalToConstant: 32),
+            accountButton.heightAnchor.constraint(equalToConstant: 36),
         ])
 
         view = background
@@ -80,7 +71,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         applyAccountState()
     }
 
-    func select(_ item: NavItem) {
+    func select(_ item: NavItem?) {
         selection = item
         guard isViewLoaded else { return }
         applySelection()
@@ -88,11 +79,13 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     func updateAccount(
         title: String,
+        avatarURL: URL?,
         isBusy: Bool,
         isEnabled: Bool,
         help: String
     ) {
         accountTitle = title
+        accountAvatarURL = avatarURL
         accountIsBusy = isBusy
         accountIsEnabled = isEnabled
         accountHelp = help
@@ -165,7 +158,6 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         outlineView.outlineTableColumn = column
         outlineView.headerView = nil
         outlineView.style = .sourceList
-        outlineView.rowHeight = 28
         outlineView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         outlineView.allowsMultipleSelection = false
         outlineView.allowsEmptySelection = false
@@ -184,31 +176,12 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     }
 
     private func setUpAccountButton(in footer: NSView) {
-        accountButton.alignment = .left
-        accountButton.bezelStyle = .recessed
-        accountButton.font = .systemFont(ofSize: 13)
-        accountButton.imageHugsTitle = true
-        accountButton.imagePosition = .imageLeading
-        accountButton.imageScaling = .scaleProportionallyDown
-        accountButton.showsBorderOnlyWhileMouseInside = true
+        accountButton.identifier = NSUserInterfaceItemIdentifier("SidebarAccountButton")
         accountButton.target = self
         accountButton.action = #selector(accountButtonPressed)
         accountButton.translatesAutoresizingMaskIntoConstraints = false
 
-        accountProgressIndicator.controlSize = .small
-        accountProgressIndicator.style = .spinning
-        accountProgressIndicator.isIndeterminate = true
-        accountProgressIndicator.translatesAutoresizingMaskIntoConstraints = false
-        accountButton.addSubview(accountProgressIndicator)
-
         footer.addSubview(accountButton)
-        NSLayoutConstraint.activate([
-            accountProgressIndicator.leadingAnchor.constraint(
-                equalTo: accountButton.leadingAnchor, constant: 6),
-            accountProgressIndicator.centerYAnchor.constraint(equalTo: accountButton.centerYAnchor),
-            accountProgressIndicator.widthAnchor.constraint(equalToConstant: 16),
-            accountProgressIndicator.heightAnchor.constraint(equalToConstant: 16),
-        ])
     }
 
     private func applySelection() {
@@ -226,33 +199,20 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
     }
 
     private func applyAccountState() {
-        accountButton.title = accountTitle
-        accountButton.isEnabled = accountIsEnabled && !accountIsBusy
-        accountButton.toolTip = accountHelp
-        accountButton.setAccessibilityLabel(accountTitle)
-        accountButton.setAccessibilityHelp(accountHelp)
-
-        if accountIsBusy {
-            accountButton.image = NSImage(size: NSSize(width: 16, height: 16))
-            accountProgressIndicator.setAccessibilityLabel(accountTitle)
-            accountProgressIndicator.isHidden = false
-            accountProgressIndicator.startAnimation(nil)
-        } else {
-            accountProgressIndicator.stopAnimation(nil)
-            accountProgressIndicator.isHidden = true
-            let configuration = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
-            accountButton.image = NSImage(
-                systemSymbolName: "person.crop.circle",
-                accessibilityDescription: nil
-            )?.withSymbolConfiguration(configuration)
-        }
+        accountButton.update(
+            title: accountTitle,
+            avatarURL: accountAvatarURL,
+            isBusy: accountIsBusy,
+            isEnabled: accountIsEnabled && !accountIsBusy,
+            help: accountHelp
+        )
     }
 
     private func sectionCell(for section: NavItem.Section) -> NSTableCellView {
         let cell =
             outlineView.makeView(withIdentifier: Self.sectionCellIdentifier, owner: nil)
             as? NSTableCellView ?? makeSectionCell()
-        cell.textField?.stringValue = section.rawValue
+        cell.textField?.stringValue = section.rawValue.capitalized
         return cell
     }
 
@@ -322,5 +282,195 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     @objc private func accountButtonPressed() {
         onAccount()
+    }
+}
+
+@MainActor
+private final class SidebarAccountButton: NSButton {
+    private let contentContainer = NSView()
+    private let avatarContainer = NSView()
+    private let avatarView = NSImageView()
+    private let progressIndicator = NSProgressIndicator()
+    private let titleLabel = NSTextField(labelWithString: "")
+
+    private var avatarTask: Task<Void, Never>?
+    private var representedAvatarURL: URL?
+    private var hoverTrackingArea: NSTrackingArea?
+    private var isHovered = false
+    private var isPressed = false
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+
+        title = ""
+        isBordered = false
+        focusRingType = .none
+        wantsLayer = true
+        layer?.cornerRadius = 6
+
+        contentContainer.translatesAutoresizingMaskIntoConstraints = false
+
+        avatarContainer.identifier = NSUserInterfaceItemIdentifier("SidebarAccountAvatar")
+        avatarContainer.wantsLayer = true
+        avatarContainer.layer?.cornerRadius = 12
+        avatarContainer.layer?.masksToBounds = true
+        avatarContainer.translatesAutoresizingMaskIntoConstraints = false
+
+        avatarView.frame = avatarContainer.bounds
+        avatarView.autoresizingMask = [.width, .height]
+        avatarView.imageScaling = .scaleProportionallyUpOrDown
+        avatarView.setAccessibilityLabel("User avatar")
+        avatarContainer.addSubview(avatarView)
+
+        progressIndicator.controlSize = .small
+        progressIndicator.style = .spinning
+        progressIndicator.isIndeterminate = true
+        progressIndicator.setAccessibilityElement(false)
+        progressIndicator.translatesAutoresizingMaskIntoConstraints = false
+
+        titleLabel.font = .systemFont(ofSize: 13)
+        titleLabel.lineBreakMode = .byTruncatingMiddle
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(contentContainer)
+        contentContainer.addSubview(avatarContainer)
+        contentContainer.addSubview(progressIndicator)
+        contentContainer.addSubview(titleLabel)
+
+        NSLayoutConstraint.activate([
+            contentContainer.leadingAnchor.constraint(equalTo: leadingAnchor),
+            contentContainer.trailingAnchor.constraint(equalTo: trailingAnchor),
+            contentContainer.topAnchor.constraint(equalTo: topAnchor),
+            contentContainer.bottomAnchor.constraint(equalTo: bottomAnchor),
+            avatarContainer.leadingAnchor.constraint(
+                equalTo: contentContainer.leadingAnchor, constant: 8),
+            avatarContainer.centerYAnchor.constraint(equalTo: contentContainer.centerYAnchor),
+            avatarContainer.widthAnchor.constraint(equalToConstant: 24),
+            avatarContainer.heightAnchor.constraint(equalToConstant: 24),
+            progressIndicator.centerXAnchor.constraint(equalTo: avatarContainer.centerXAnchor),
+            progressIndicator.centerYAnchor.constraint(equalTo: avatarContainer.centerYAnchor),
+            progressIndicator.widthAnchor.constraint(equalToConstant: 16),
+            progressIndicator.heightAnchor.constraint(equalToConstant: 16),
+            titleLabel.leadingAnchor.constraint(equalTo: avatarContainer.trailingAnchor, constant: 8),
+            titleLabel.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor, constant: -8),
+            titleLabel.centerYAnchor.constraint(equalTo: contentContainer.centerYAnchor),
+        ])
+
+        showFallbackAvatar()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        avatarTask?.cancel()
+    }
+
+    override func updateTrackingAreas() {
+        if let hoverTrackingArea {
+            removeTrackingArea(hoverTrackingArea)
+        }
+        let trackingArea = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(trackingArea)
+        hoverTrackingArea = trackingArea
+        super.updateTrackingAreas()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateBackground()
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+        updateBackground()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        updateBackground()
+    }
+
+    override func highlight(_ flag: Bool) {
+        isPressed = flag
+        updateBackground()
+        super.highlight(flag)
+    }
+
+    func update(
+        title: String,
+        avatarURL: URL?,
+        isBusy: Bool,
+        isEnabled: Bool,
+        help: String
+    ) {
+        titleLabel.stringValue = title
+        self.isEnabled = isEnabled
+        alphaValue = isEnabled ? 1 : 0.5
+        toolTip = help
+        setAccessibilityLabel(title)
+        setAccessibilityHelp(help)
+
+        avatarContainer.isHidden = isBusy
+        progressIndicator.isHidden = !isBusy
+        if isBusy {
+            progressIndicator.startAnimation(nil)
+        } else {
+            progressIndicator.stopAnimation(nil)
+            loadAvatar(from: avatarURL)
+        }
+    }
+
+    private func loadAvatar(from url: URL?) {
+        guard representedAvatarURL != url else { return }
+        avatarTask?.cancel()
+        avatarTask = nil
+        representedAvatarURL = url
+        showFallbackAvatar()
+
+        guard let url else { return }
+        avatarTask = Task { [weak self] in
+            do {
+                let (data, response) = try await URLSession.shared.data(from: url)
+                try Task.checkCancellation()
+                guard
+                    let response = response as? HTTPURLResponse,
+                    (200..<300).contains(response.statusCode),
+                    let image = NSImage(data: data),
+                    let self,
+                    representedAvatarURL == url
+                else {
+                    return
+                }
+                avatarView.image = image
+            } catch is CancellationError {
+                return
+            } catch {
+                Log.startup.debug("Sidebar avatar load failed")
+            }
+        }
+    }
+
+    private func showFallbackAvatar() {
+        let palette = NSImage.SymbolConfiguration(paletteColors: [.white, .systemGray])
+        avatarView.image = NSImage(
+            systemSymbolName: "person.crop.circle.fill",
+            accessibilityDescription: nil
+        )?.withSymbolConfiguration(palette)
+    }
+
+    private func updateBackground() {
+        let color: NSColor =
+            isHovered || isPressed
+            ? .quaternarySystemFill
+            : .clear
+        layer?.backgroundColor = color.cgColor
     }
 }
