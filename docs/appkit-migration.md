@@ -2,16 +2,16 @@
 
 > 快照日期：2026-08-01
 > 状态：迁移进行中；AppKit 生命周期壳、原生窗口／菜单／主侧栏、认证桥接、About、Coming Soon、
-> 共享 `LoadPhase`、terminal／command empty state、Volumes／Networks／Images／Machines
-> 原生列表、Networks 原生详情与 Templates dead UI 清场已落地
+> 共享 `LoadPhase`、terminal／command empty state、Containers／Volumes／Networks／Images／
+> Machines 原生列表、Networks 原生详情与 Templates dead UI 清场已落地
 > 目标：第一方运行时代码最终不再依赖 SwiftUI、Swift Charts、`NSHostingView` 或
 > `NSViewRepresentable` 或 `NSViewControllerRepresentable`
 
-当前过渡边界：主窗口外层为 AppKit 固定侧栏与内容容器；Volumes／Networks／Images／Machines
-的列表行、分组、选择及 loading／empty／error 已由 AppKit 接管，Networks 的 Info／Connected
-Containers 详情亦已原生化。其 toolbar、创建 sheet 与其他详情仍在过渡 host。其他内容／详情、
-设置与菜单栏中尚未迁移的 feature 临时使用 `NSHostingController`。这一边界只用于保持每个迁移
-提交可运行，最终静态门槛仍要求全部删除。
+当前过渡边界：主窗口外层为 AppKit 固定侧栏与内容容器；Containers／Volumes／Networks／Images／
+Machines 的列表行、分组、选择及 loading／empty／error 已由 AppKit 接管，其中 Containers 使用
+原生 Compose outline，Networks 的 Info／Connected Containers 详情亦已原生化。其 toolbar、创建
+sheet 与其他详情仍在过渡 host。其他内容／详情、设置与菜单栏中尚未迁移的 feature 临时使用
+`NSHostingController`。这一边界只用于保持每个迁移提交可运行，最终静态门槛仍要求全部删除。
 
 ## 1. 范围、假设与完成定义
 
@@ -417,7 +417,7 @@ enum LoadPhase: Equatable {
 | Surface | 当前 loading | 当前真实空 | 当前错误 | 缓存刷新失败 | 目标 |
 |---|---|---|---|---|---|
 | Startup | step progress | 不适用 | Retry／fatal Quit | 不适用 | 保留；补 degraded message |
-| Containers | 明确 | 明确 | 首次 Retry | list + toast | 作为资源列表基准 |
+| Containers | 明确 | 明确 | 首次 Retry | list + toast | AppKit outline／状态页已完成；toolbar／sheet／detail 待迁移 |
 | Images | 明确 | 明确 | 首次 Retry | list + toast | AppKit 列表已完成；startup／toolbar／detail 待迁移 |
 | Volumes | 明确 | 明确 | 首次 Retry | list + toast | AppKit 列表已完成；startup／toolbar／detail 待迁移 |
 | Networks | 明确 | 明确 | 首次 Retry | list + toast | AppKit 列表与详情已完成；startup／toolbar 待迁移 |
@@ -730,7 +730,7 @@ Task 归属：
 | Sidebar | source-list outline + account footer | auth／selection | NavItem 模型 | footer layout |
 | Shared states | `StatePlaceholderView` | runtime availability、load phase | startup enums | 不得合并 daemon／Docker ready |
 | Activity | full-width controller + outline + metric strip | shared stats source、stream health | Activity VM | chart、scrub |
-| Containers | outline + 4 detail children | 已是 load phase 基准 | terminal、files | Compose hierarchy、logs |
+| Containers | outline + 4 detail children | 原生 outline／load／empty／error 已完成 | terminal、files | toolbar／sheet／detail／logs 待迁移 |
 | Images | table + 3 detail children | 原生 table／load／empty／error 已完成 | terminal、files | toolbar／detail／pull sheet／terminal 常驻 |
 | Volumes | table + 2 detail children | 原生 table／load／empty／error 已完成 | files | toolbar／detail／import sheet 待迁移 |
 | Networks | table + detail | 原生 table／detail／inspect load phase 已完成 | Docker store | toolbar／创建 sheet 待迁移 |
@@ -800,8 +800,10 @@ Task 归属：
   - toolbar item 不越栏；
   - Activity 时 content list 折叠。
 - 为新 `LoadPhase` 派生逻辑、Kubernetes lifecycle、preferences 默认值和 task key 增加最小有意义测试。
-- `VolumesListViewControllerTests`、`NetworksListViewControllerTests` 与
-  `ImagesListViewControllerTests`、`MachinesListViewControllerTests` 验证空态到分组 table、
+- `ContainersListViewControllerTests` 验证状态页、Compose outline、搜索可见批量范围、折叠／
+  过滤后的选择保持、操作重校验与 controller 释放。
+- `VolumesListViewControllerTests`、`NetworksListViewControllerTests`、
+  `ImagesListViewControllerTests` 与 `MachinesListViewControllerTests` 验证空态到分组 table、
   连续 Observation 重注册、搜索、选择同步与 controller 释放。
 - `NetworkDetailViewControllerTests` 验证无选择、inspect error／Retry／真实空态与 controller
   释放。

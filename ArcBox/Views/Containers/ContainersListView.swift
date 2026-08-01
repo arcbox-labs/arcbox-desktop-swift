@@ -10,70 +10,97 @@ struct ContainersListView: View {
     @Environment(\.arcboxClient) private var client
     @Environment(\.dockerClient) private var docker
 
-    /// Compose groups with at least one running container
-    private var activeComposeGroups: [(project: String, containers: [ContainerViewModel])] {
-        vm.composeGroups.filter { $0.containers.contains(where: \.isRunning) }
-    }
-
-    /// Compose groups where all containers are stopped
-    private var stoppedComposeGroups: [(project: String, containers: [ContainerViewModel])] {
-        vm.composeGroups.filter { !$0.containers.contains(where: \.isRunning) }
-    }
-
-    private var runningStandaloneContainers: [ContainerViewModel] {
-        vm.standaloneContainers.filter(\.isRunning)
-    }
-
-    private var stoppedStandaloneContainers: [ContainerViewModel] {
-        vm.standaloneContainers.filter { !$0.isRunning }
-    }
-
-    private var hasRunningContent: Bool {
-        !activeComposeGroups.isEmpty || !runningStandaloneContainers.isEmpty
-    }
-
-    private var hasStoppedContent: Bool {
-        !stoppedComposeGroups.isEmpty || !stoppedStandaloneContainers.isEmpty
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             if let orchestrator, !orchestrator.isReady {
                 StartupProgressView(orchestrator: orchestrator)
             } else if !daemonManager.state.isRunning {
                 DaemonLoadingView(state: daemonManager.state)
-            } else if case .failed(let message) = vm.loadState {
-                ListLoadErrorView(title: "Failed to load containers", message: message) {
-                    Task { await vm.loadContainersFromDocker(docker: docker, iconClient: client) }
-                }
-            } else if vm.loadState != .loaded {
-                ProgressView(daemonManager.setupPhase.isDockerReady ? "Loading containers…" : "Starting Docker engine…")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if vm.containers.isEmpty {
-                ContainerEmptyState()
             } else {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        // Running section
-                        if hasRunningContent {
-                            sectionHeader("In Use")
+                ContainersListControllerView(
+                    viewModel: vm,
+                    loadingTitle: daemonManager.setupPhase.isDockerReady
+                        ? "Loading containers…"
+                        : "Starting Docker engine…",
+                    useDNS: daemonManager.dnsResolverInstalled
+                        && daemonManager.routeInstalled,
+                    onRetry: {
+                        Task {
+                            await vm.loadContainersFromDocker(
+                                docker: docker,
+                                iconClient: client
+                            )
                         }
-
-                        // Active compose groups (has running containers)
-                        composeGroupRows(for: activeComposeGroups)
-
-                        // Running standalone containers
-                        standaloneRows(for: runningStandaloneContainers)
-
-                        // Stopped section
-                        if hasStoppedContent {
-                            sectionHeader("Stopped")
-                            composeGroupRows(for: stoppedComposeGroups)
-                            standaloneRows(for: stoppedStandaloneContainers)
+                    },
+                    onSelect: { id in
+                        Task {
+                            guard vm.containers.contains(where: { $0.id == id }) else {
+                                return
+                            }
+                            await vm.selectContainer(id, client: client, docker: docker)
+                        }
+                    },
+                    onToggle: { id in
+                        Task {
+                            guard
+                                let container = vm.containers.first(where: { $0.id == id }),
+                                !container.isTransitioning
+                            else {
+                                return
+                            }
+                            if container.isRunning {
+                                await vm.stopContainerDocker(id, docker: docker)
+                            } else {
+                                await vm.startContainerDocker(id, docker: docker)
+                            }
+                        }
+                    },
+                    onDelete: { id in
+                        Task {
+                            guard
+                                let container = vm.containers.first(where: { $0.id == id }),
+                                !container.isTransitioning
+                            else {
+                                return
+                            }
+                            await vm.removeContainerDocker(id, docker: docker)
+                        }
+                    },
+                    onToggleGroup: { project, ids in
+                        Task {
+                            let containers = ids.compactMap { id in
+                                vm.containers.first { $0.id == id }
+                            }
+                            guard
+                                containers.count == ids.count,
+                                containers.allSatisfy { $0.composeProject == project },
+                                !containers.contains(where: \.isTransitioning)
+                            else {
+                                return
+                            }
+                            if containers.contains(where: \.isRunning) {
+                                await vm.stopContainersDocker(ids, docker: docker)
+                            } else {
+                                await vm.startContainersDocker(ids, docker: docker)
+                            }
+                        }
+                    },
+                    onDeleteGroup: { project, ids in
+                        Task {
+                            let containers = ids.compactMap { id in
+                                vm.containers.first { $0.id == id }
+                            }
+                            guard
+                                containers.count == ids.count,
+                                containers.allSatisfy { $0.composeProject == project },
+                                !containers.contains(where: \.isTransitioning)
+                            else {
+                                return
+                            }
+                            await vm.removeContainersDocker(ids, docker: docker)
                         }
                     }
-                    .padding(.top, 6)
-                }
+                )
             }
         }
         .navigationTitle("Containers")
@@ -112,89 +139,47 @@ struct ContainersListView: View {
             resourceName: "containers"
         )
     }
+}
 
-    @ViewBuilder
-    private func sectionHeader(_ title: String) -> some View {
-        HStack {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(AppColors.textSecondary)
-            Spacer()
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
+private struct ContainersListControllerView: NSViewControllerRepresentable {
+    let viewModel: ContainersViewModel
+    let loadingTitle: String
+    let useDNS: Bool
+    let onRetry: @MainActor () -> Void
+    let onSelect: @MainActor (String) -> Void
+    let onToggle: @MainActor (String) -> Void
+    let onDelete: @MainActor (String) -> Void
+    let onToggleGroup: @MainActor (String, [String]) -> Void
+    let onDeleteGroup: @MainActor (String, [String]) -> Void
+
+    func makeNSViewController(context _: Context) -> ContainersListViewController {
+        ContainersListViewController(
+            viewModel: viewModel,
+            loadingTitle: loadingTitle,
+            useDNS: useDNS,
+            actions: actions
+        )
     }
 
-    @ViewBuilder
-    private func composeGroupRows(for groups: [(project: String, containers: [ContainerViewModel])]) -> some View {
-        ForEach(groups, id: \.project) { group in
-            ContainerGroupView(
-                project: group.project,
-                containers: group.containers,
-                isExpanded: vm.isGroupExpanded(group.project),
-                selectedID: vm.selectedID,
-                onToggle: { vm.toggleGroup(group.project) },
-                onSelect: { id in
-                    Task {
-                        await vm.selectContainer(id, client: client, docker: docker)
-                    }
-                },
-                onStartStop: { id, running in
-                    Task {
-                        if running {
-                            await vm.stopContainerDocker(id, docker: docker)
-                        } else {
-                            await vm.startContainerDocker(id, docker: docker)
-                        }
-                    }
-                },
-                onDelete: { id in
-                    Task { await vm.removeContainerDocker(id, docker: docker) }
-                },
-                onStartStopAll: { ids, running in
-                    Task {
-                        if running {
-                            await vm.stopContainersDocker(ids, docker: docker)
-                        } else {
-                            await vm.startContainersDocker(ids, docker: docker)
-                        }
-                    }
-                },
-                onDeleteAll: { ids in
-                    Task {
-                        await vm.removeContainersDocker(ids, docker: docker)
-                    }
-                }
-            )
-        }
+    func updateNSViewController(
+        _ controller: ContainersListViewController,
+        context _: Context
+    ) {
+        controller.update(
+            loadingTitle: loadingTitle,
+            useDNS: useDNS,
+            actions: actions
+        )
     }
 
-    @ViewBuilder
-    private func standaloneRows(for containers: [ContainerViewModel]) -> some View {
-        ForEach(containers) { container in
-            ContainerRowView(
-                container: container,
-                isSelected: vm.selectedID == container.id,
-                indented: false,
-                onSelect: {
-                    Task {
-                        await vm.selectContainer(container.id, client: client, docker: docker)
-                    }
-                },
-                onStartStop: {
-                    Task {
-                        if container.isRunning {
-                            await vm.stopContainerDocker(container.id, docker: docker)
-                        } else {
-                            await vm.startContainerDocker(container.id, docker: docker)
-                        }
-                    }
-                },
-                onDelete: {
-                    Task { await vm.removeContainerDocker(container.id, docker: docker) }
-                }
-            )
-        }
+    private var actions: ContainersListViewController.Actions {
+        .init(
+            retry: onRetry,
+            select: onSelect,
+            toggle: onToggle,
+            delete: onDelete,
+            toggleGroup: onToggleGroup,
+            deleteGroup: onDeleteGroup
+        )
     }
 }
