@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.32.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.32.0...v1.32.1) (2026-08-01)
+
+
+### Bug Fixes
+
+* clear the remaining release-readiness audit findings ([#346](https://github.com/arcboxlabs/arcbox-desktop/issues/346)) ([aef9320](https://github.com/arcboxlabs/arcbox-desktop/commit/aef9320c6f640a6f1f697001c7794af7918533de))
+* **k8s:** single-owner session, URLSession leak, and watch streams ([#344](https://github.com/arcboxlabs/arcbox-desktop/issues/344)) ([1ca4afb](https://github.com/arcboxlabs/arcbox-desktop/commit/1ca4afbb2c3808f6b76322acb4899be730c21538))
+
+
+### Refactoring
+
+* **containers:** drop the unused createdAgo formatter ([258a5c9](https://github.com/arcboxlabs/arcbox-desktop/commit/258a5c98d9b37a0ba3e1e8e6d8a94344eb31d5bf))
+* **ui:** derive detail tab widths, name the shared dimensions ([1d8175a](https://github.com/arcboxlabs/arcbox-desktop/commit/1d8175ac2c24100bfcca5d3f7dc99a7d940b58c3))
+
+
+### CI
+
+* fail the build when Package.resolved is out of date ([c598811](https://github.com/arcboxlabs/arcbox-desktop/commit/c5988116ced2d1d41d462e8da099b5cb651f2663))
+
 ## [1.32.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.31.3...v1.32.0) (2026-08-01)
 
 
