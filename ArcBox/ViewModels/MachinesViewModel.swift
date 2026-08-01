@@ -1,6 +1,7 @@
 import ArcBoxClient
-import SwiftUI
-import os
+import Foundation
+import OSLog
+import Observation
 
 /// Detail tab options for machines (matches container pattern)
 enum MachineDetailTab: String, @MainActor DetailTab {
@@ -30,10 +31,21 @@ class MachinesViewModel {
     var lastError: String?
 
     var filteredMachines: [MachineViewModel] {
-        guard !searchText.isEmpty else { return machines }
-        return machines.filter {
-            $0.name.localizedCaseInsensitiveContains(searchText)
-                || $0.distro.displayName.localizedCaseInsensitiveContains(searchText)
+        let filtered =
+            if searchText.isEmpty {
+                machines
+            } else {
+                machines.filter {
+                    $0.name.localizedCaseInsensitiveContains(searchText)
+                        || $0.distro.displayName.localizedCaseInsensitiveContains(searchText)
+                }
+            }
+        return filtered.sorted {
+            let comparison = $0.name.localizedCaseInsensitiveCompare($1.name)
+            if comparison == .orderedSame {
+                return $0.id < $1.id
+            }
+            return comparison == .orderedAscending
         }
     }
 
