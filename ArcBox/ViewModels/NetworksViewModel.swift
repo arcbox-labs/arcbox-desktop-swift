@@ -18,7 +18,6 @@ class NetworksViewModel {
     var refreshError: String?
     private let listLoadGate = SingleFlightLoadGate()
     var selectedID: String?
-    var listWidth: CGFloat = 320
     var showNewNetworkSheet: Bool = false
     var searchText: String = ""
     var isSearching: Bool = false

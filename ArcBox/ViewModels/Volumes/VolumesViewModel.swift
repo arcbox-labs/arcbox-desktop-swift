@@ -11,7 +11,6 @@ class VolumesViewModel {
     let listLoadGate = SingleFlightLoadGate()
     var selectedID: String?
     var activeTab: VolumeDetailTab = .info
-    var listWidth: CGFloat = 320
     var showNewVolumeSheet: Bool = false
     var searchText: String = ""
     var isSearching: Bool = false

@@ -748,14 +748,11 @@ Task 归属：
 「全部迁移」不包括翻译不可达或无调用代码：
 
 - `ArcBox/Views/Templates/*`、`TemplatesViewModel`、`TemplateViewModel` 与 `SampleData`（已删除）
-- `NetworkSettingsView`
-- `ListResizeHandle`
-- `CardModifier`
-- `BadgeModifier`
-- `SectionHeaderStyle`
+- `NetworkSettingsView`、`ListResizeHandle`、`CardModifier`、`BadgeModifier`、`SectionHeaderStyle`（已删除）
+- `RemoteIconView`、`ListLoadErrorView`（已删除）
 - `TerminalLine`
 - `DetailPlaceholderView`
-- 9 个当前 SwiftUI `#Preview`
+- SwiftUI `#Preview`（迁移基线 9 个，已全部删除）
 - `EnvironmentValues+Clients.swift`
 - `SwiftTermView` 的 representable 壳
 - `LocalRootFSOutlineView` 的 representable 壳
