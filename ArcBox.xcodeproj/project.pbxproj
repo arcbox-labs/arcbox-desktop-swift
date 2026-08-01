@@ -129,6 +129,7 @@
 		7DABE0FBDD17F88D47333964 /* CommandHint.swift in Sources */ = {isa = PBXBuildFile; fileRef = B65698313C3204F5F23E099B /* CommandHint.swift */; };
 		7DFC19087BE929DDF207A677 /* UpdaterSettingsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93968609F8E058EAC838DD18 /* UpdaterSettingsModel.swift */; };
 		7F091F3F3F75F500937DC7BC /* ImageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD8BD8A4B6EEE9722D54739D /* ImageModel.swift */; };
+		7F8FB0C66C04AEF7895A85AD /* NetworkDetailViewControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FA3C6B6F10198DFC435A33E /* NetworkDetailViewControllerTests.swift */; };
 		801AAF363A7901B7D17F5C55 /* AccountSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA5247E3096D7A9D54A270A /* AccountSettingsView.swift */; };
 		807479D85C38FEE5E53218DD /* LocalRootFSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85321B230A582D1C0AF76B5C /* LocalRootFSService.swift */; };
 		8127661373B4B0D6B1423F67 /* LayeredRootFSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3029D85CCC770F8C1801A392 /* LayeredRootFSTests.swift */; };
@@ -152,7 +153,6 @@
 		8FB67BF11BF2A3194A28BD32 /* SandboxTerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0841C2969EC1A1BC07489C8 /* SandboxTerminalSession.swift */; };
 		9010BB836D577FF81084FAAA /* ToolbarSeparator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 823F87591055C314EC29BF67 /* ToolbarSeparator.swift */; };
 		931763946B40148917024A02 /* K8sClient in Frameworks */ = {isa = PBXBuildFile; productRef = E3B0A98EBADEEAA76280EF06 /* K8sClient */; };
-		931E9B5CD525A25F36B6A636 /* NetworkContainersTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CF5769685436501744C4A83 /* NetworkContainersTab.swift */; };
 		932BD3DB61039B6A7B298661 /* ApplicationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78827F9105251AF033577933 /* ApplicationCoordinator.swift */; };
 		93E1F4FEF7A65834986A85E7 /* AppDelegate+Telemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95F313C9C7AA84A964728D44 /* AppDelegate+Telemetry.swift */; };
 		9444132595906417360A9D44 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA88097CAC1929269BE210C5 /* ContentView.swift */; };
@@ -186,6 +186,7 @@
 		ADE462B8234F0D1F9D8165B3 /* VolumesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699A57392F1D9366CFA78BAF /* VolumesViewModel.swift */; };
 		B29A0911581DF9A70350B726 /* NewSandboxSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF34CA0688377F7956F2FD3D /* NewSandboxSheet.swift */; };
 		B3DF6F1A9B47905BF6337A81 /* StorageSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F915D676AC7EDF66A67B77A9 /* StorageSettingsView.swift */; };
+		B5181BB7367CF1DCA823F7D3 /* NetworkDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D24EB7C6D2CE78ED32D7AC8 /* NetworkDetailViewController.swift */; };
 		B5E8D265254E1C224247214A /* MachineImageCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71D28721E41F8303DBF7232 /* MachineImageCatalog.swift */; };
 		B6AB384B22968963098E96F3 /* OIDCClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DE3993B3F888A667AA988F /* OIDCClientTests.swift */; };
 		B8F04FD5D42B1934B13D9D3A /* PodDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B38661BA5859384BCCE61B0C /* PodDetailView.swift */; };
@@ -295,6 +296,7 @@
 		0CE7897EE0D976BB19ADC2C5 /* SandboxEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxEmptyState.swift; sourceTree = "<group>"; };
 		0EDE93A683D2613C431BEBF2 /* DockerCLIResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerCLIResolver.swift; sourceTree = "<group>"; };
 		0F065A1CBDA891A5647FE6F6 /* K8sWatchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = K8sWatchTests.swift; sourceTree = "<group>"; };
+		0FA3C6B6F10198DFC435A33E /* NetworkDetailViewControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDetailViewControllerTests.swift; sourceTree = "<group>"; };
 		11EB6AEBF371E6B88EF8D08E /* SandboxPortsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxPortsTab.swift; sourceTree = "<group>"; };
 		13203BD67479A8191C1A3BD6 /* ServiceModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceModel.swift; sourceTree = "<group>"; };
 		17331246035D7AEF58CA2258 /* ImageRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageRowView.swift; sourceTree = "<group>"; };
@@ -364,6 +366,7 @@
 		5A87C9445565D341EA85D2F4 /* ExternalTerminalLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalTerminalLauncher.swift; sourceTree = "<group>"; };
 		5B20797EBE3F932D8DDAD42C /* ArcBoxClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArcBoxClientTests.swift; sourceTree = "<group>"; };
 		5B3D2AE66CD9DD4A18CADB71 /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
+		5D24EB7C6D2CE78ED32D7AC8 /* NetworkDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDetailViewController.swift; sourceTree = "<group>"; };
 		5D70EF1BF223C47C7B8E71A5 /* ExternalTerminalApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalTerminalApp.swift; sourceTree = "<group>"; };
 		5E103DF5889B7B5147A173A4 /* MainSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitViewController.swift; sourceTree = "<group>"; };
 		5F2D773B0312F0D5695D0ADA /* SandboxesViewModel+Snapshots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SandboxesViewModel+Snapshots.swift"; sourceTree = "<group>"; };
@@ -428,7 +431,6 @@
 		9A04AFE137230F2CE0DD9DBB /* DiagnosticBundleExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticBundleExporter.swift; sourceTree = "<group>"; };
 		9AA5247E3096D7A9D54A270A /* AccountSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSettingsView.swift; sourceTree = "<group>"; };
 		9BDFF0AA6C2EA05E000003F1 /* NetworkSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkSettingsView.swift; sourceTree = "<group>"; };
-		9CF5769685436501744C4A83 /* NetworkContainersTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkContainersTab.swift; sourceTree = "<group>"; };
 		9E73318FC9D8EBCB39E5C0AE /* IconButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IconButton.swift; sourceTree = "<group>"; };
 		9F60CF8B8E81089BA2E8DC20 /* GeneralSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettingsView.swift; sourceTree = "<group>"; };
 		A10ED4BA65D6B9CC56B6B329 /* ChangelogParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangelogParserTests.swift; sourceTree = "<group>"; };
@@ -580,14 +582,6 @@
 			path = MenuBar;
 			sourceTree = "<group>";
 		};
-		05AD7BA9C7991346497575BC /* Tabs */ = {
-			isa = PBXGroup;
-			children = (
-				9CF5769685436501744C4A83 /* NetworkContainersTab.swift */,
-			);
-			path = Tabs;
-			sourceTree = "<group>";
-		};
 		1017F0D51C38B694100D248C /* LocalRootFSOutline */ = {
 			isa = PBXGroup;
 			children = (
@@ -699,10 +693,10 @@
 			isa = PBXGroup;
 			children = (
 				68B7685DAD23E5427C0F9911 /* NetworkDetailView.swift */,
+				5D24EB7C6D2CE78ED32D7AC8 /* NetworkDetailViewController.swift */,
 				297FCAB334AF289575D13F72 /* NetworksListView.swift */,
 				089AAF447EC30EF108B76EF7 /* NetworksListViewController.swift */,
 				AF7C1F10630FCFA65B832FA9 /* NewNetworkSheet.swift */,
-				05AD7BA9C7991346497575BC /* Tabs */,
 			);
 			path = Networks;
 			sourceTree = "<group>";
@@ -1169,6 +1163,7 @@
 				C9F4E99670A28483DBAA6CC8 /* LayerStackTests.swift */,
 				F0647CCB67160C2509345B5E /* MachineModelTests.swift */,
 				7FB453A62CA37DFFD1BC59C2 /* MainSplitViewControllerTests.swift */,
+				0FA3C6B6F10198DFC435A33E /* NetworkDetailViewControllerTests.swift */,
 				FA27F4AC273B14038EDB6593 /* NetworksListViewControllerTests.swift */,
 				AAE70CCA865B17B49FA03420 /* SidebarViewControllerTests.swift */,
 				B4BAE047B96D10B4716BA1A2 /* VolumesListViewControllerTests.swift */,
@@ -1457,8 +1452,8 @@
 				84DDB437165AE31AD63C30F9 /* MenuBarView+Metrics.swift in Sources */,
 				944F0DD63C1EA1D9A96D01AB /* MenuBarView.swift in Sources */,
 				6319B6C6A8717F3AA19AD65B /* NavItem.swift in Sources */,
-				931E9B5CD525A25F36B6A636 /* NetworkContainersTab.swift in Sources */,
 				67924F4E35FF28F7412EEBBA /* NetworkDetailView.swift in Sources */,
+				B5181BB7367CF1DCA823F7D3 /* NetworkDetailViewController.swift in Sources */,
 				8E8040CCBBE6F7F3F28B00A0 /* NetworkModel.swift in Sources */,
 				4D88534FCCE07F2A92609FD1 /* NetworkSettingsView.swift in Sources */,
 				31A9DB06B08CC74D635ECB8A /* NetworksListView.swift in Sources */,
@@ -1572,6 +1567,7 @@
 				8127661373B4B0D6B1423F67 /* LayeredRootFSTests.swift in Sources */,
 				CCD9ABC3F69FE5DA233E85EC /* MachineModelTests.swift in Sources */,
 				C2C03B2637BB95424B1444A0 /* MainSplitViewControllerTests.swift in Sources */,
+				7F8FB0C66C04AEF7895A85AD /* NetworkDetailViewControllerTests.swift in Sources */,
 				2C12FA161C343D99BD2E8AFD /* NetworksListViewControllerTests.swift in Sources */,
 				F6386D2A578AD21E751CFC57 /* OIDCAuthorizationURLBuilderTests.swift in Sources */,
 				D6C6DEA33D73FF969786C018 /* OIDCClientConfigurationTests.swift in Sources */,
