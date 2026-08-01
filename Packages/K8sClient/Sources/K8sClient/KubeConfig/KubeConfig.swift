@@ -102,10 +102,14 @@ public struct KubeConfig: Sendable {
     }
 
     /// Create a URLSession configured with appropriate auth from this kubeconfig.
-    public func makeURLSession() throws -> URLSession {
+    ///
+    /// - Parameter streaming: relaxes the timeouts for long-lived watch connections. The
+    ///   resource timeout would otherwise tear a healthy watch down after 60s. The idle
+    ///   timeout still applies, so a silent connection reconnects instead of hanging.
+    public func makeURLSession(streaming: Bool = false) throws -> URLSession {
         let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 15
-        config.timeoutIntervalForResource = 60
+        config.timeoutIntervalForRequest = streaming ? 300 : 15
+        config.timeoutIntervalForResource = streaming ? 86400 : 60
 
         switch authMode {
         case .certificate:

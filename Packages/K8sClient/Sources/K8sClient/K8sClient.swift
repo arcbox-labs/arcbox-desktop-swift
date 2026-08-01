@@ -11,18 +11,30 @@ import Foundation
 @available(macOS 15.0, *)
 public final class K8sClient: Sendable {
     private let session: URLSession
-    private let baseURL: String
-    private let bearerToken: String?
+    /// Separate session for watches: a long-lived stream needs timeouts the request session
+    /// deliberately keeps short, and `timeoutIntervalForResource` cannot be set per request.
+    let streamingSession: URLSession
+    let baseURL: String
+    let bearerToken: String?
 
     /// Creates a new client from a parsed kubeconfig.
     public init(config: KubeConfig) throws {
         self.session = try config.makeURLSession()
+        self.streamingSession = try config.makeURLSession(streaming: true)
         self.baseURL = config.server
         if case .bearerToken(let token) = config.authMode {
             self.bearerToken = token
         } else {
             self.bearerToken = nil
         }
+    }
+
+    /// `makeURLSession()` always builds a delegate-backed session, and URLSession keeps a
+    /// strong reference to its delegate until the session is explicitly invalidated —
+    /// releasing the client is not enough to reclaim the connection pool or the delegate.
+    deinit {
+        session.invalidateAndCancel()
+        streamingSession.invalidateAndCancel()
     }
 
     // MARK: - Pods
@@ -45,22 +57,17 @@ public final class K8sClient: Sendable {
         try await get("/api/v1/services")
     }
 
-    // MARK: - Watch (TODO: implement streaming watch with reconnection)
-    //
-    // Design documented (ABXD-43). Current 10s polling is sufficient for the desktop UI;
-    // Watch API is a future optimization when real-time updates justify the complexity.
-    //
-    // Future: implement watch using chunked HTTP response with:
-    // - resourceVersion tracking from list metadata
-    // - Automatic reconnection with exponential backoff
-    // - ADDED/MODIFIED/DELETED event types
-    // - 410 Gone handling: re-list to obtain a fresh resourceVersion
-    // See: https://kubernetes.io/docs/reference/using-api/api-concepts/#efficient-detection-of-changes
+    // MARK: - Internal
 
-    // MARK: - Private
-
-    private func get<T: Decodable & Sendable>(_ path: String) async throws -> T {
-        guard let url = URL(string: baseURL + path) else {
+    /// Build an authenticated GET for `path`, optionally with query items.
+    func makeRequest(path: String, query: [URLQueryItem] = []) throws -> URLRequest {
+        guard var components = URLComponents(string: baseURL + path) else {
+            throw K8sError.invalidURL(baseURL + path)
+        }
+        if !query.isEmpty {
+            components.queryItems = query
+        }
+        guard let url = components.url else {
             throw K8sError.invalidURL(baseURL + path)
         }
         var request = URLRequest(url: url)
@@ -69,18 +76,22 @@ public final class K8sClient: Sendable {
         if let bearerToken {
             request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
         }
-        let (data, response) = try await session.data(for: request)
-        try validateResponse(response)
-        return try JSONDecoder.kubernetes.decode(T.self, from: data)
+        return request
     }
 
-    private func validateResponse(_ response: URLResponse) throws {
+    func validateResponse(_ response: URLResponse) throws {
         guard let http = response as? HTTPURLResponse else {
             throw K8sError.invalidResponse
         }
         guard (200..<300).contains(http.statusCode) else {
             throw K8sError.httpError(http.statusCode)
         }
+    }
+
+    func get<T: Decodable & Sendable>(_ path: String) async throws -> T {
+        let (data, response) = try await session.data(for: try makeRequest(path: path))
+        try validateResponse(response)
+        return try JSONDecoder.kubernetes.decode(T.self, from: data)
     }
 }
 
@@ -90,6 +101,11 @@ public enum K8sError: Error, Sendable {
     case invalidURL(String)
     case invalidResponse
     case httpError(Int)
+    /// The server no longer holds history for the requested `resourceVersion` (410 Gone).
+    /// Recovered from by re-listing; callers of the resource streams never see this.
+    case watchExpired
+    /// The watch stream carried an `ERROR` event.
+    case watchFailed(reason: String)
 }
 
 // MARK: - JSON Decoder

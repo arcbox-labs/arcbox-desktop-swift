@@ -11,10 +11,7 @@ struct PodsListView: View {
         VStack(spacing: 0) {
             if !k8s.enabled {
                 KubernetesDisabledView(isStarting: k8s.isStarting, startError: k8s.startError) {
-                    Task {
-                        await k8s.start(client: arcboxClient)
-                        await loadPodsUntilReady()
-                    }
+                    Task { await k8s.start(client: arcboxClient) }
                 }
             } else if vm.pods.isEmpty {
                 VStack {
@@ -89,35 +86,9 @@ struct PodsListView: View {
                 }
             }
         }
+        // Refreshing is owned by KubernetesState, which starts and stops it with `enabled`.
         .task {
             await k8s.checkStatus(client: arcboxClient)
-            if k8s.enabled {
-                await loadPodsUntilReady()
-            }
-        }
-        .task(id: k8s.enabled) {
-            guard k8s.enabled else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(10))
-                if Task.isCancelled { break }
-                await vm.loadPods(client: arcboxClient)
-            }
-        }
-        .onChange(of: k8s.enabled) { _, enabled in
-            if !enabled { vm.clear() }
-        }
-    }
-
-    /// Retry loading pods until the request succeeds or timeout (~30s).
-    private func loadPodsUntilReady() async {
-        for attempt in 0..<15 {
-            if Task.isCancelled { return }
-            if attempt > 0 {
-                try? await Task.sleep(for: .seconds(2))
-                if Task.isCancelled { return }
-            }
-            let success = await vm.loadPods(client: arcboxClient)
-            if success { return }
         }
     }
 
@@ -125,7 +96,6 @@ struct PodsListView: View {
         Task {
             if shouldEnable {
                 await k8s.start(client: arcboxClient)
-                await loadPodsUntilReady()
             } else {
                 await k8s.stop(client: arcboxClient)
             }

@@ -36,9 +36,8 @@ struct ContentView: View {
 
     // Feature ViewModels -- local to main window
     @State private var activityVM = ActivityViewModel()
+    // Owns the Kubernetes client, refresh loop, and the pod/service models it feeds.
     @State private var k8sState = KubernetesState()
-    @State private var podsVM = PodsViewModel()
-    @State private var servicesVM = ServicesViewModel()
     @State private var machinesVM = MachinesViewModel()
     @State private var sandboxesVM = SandboxesViewModel()
     @State private var templatesVM = TemplatesViewModel()
@@ -159,11 +158,11 @@ struct ContentView: View {
         case .pods:
             PodsListView()
                 .environment(k8sState)
-                .environment(podsVM)
+                .environment(k8sState.podsModel)
         case .services:
             ServicesListView()
                 .environment(k8sState)
-                .environment(servicesVM)
+                .environment(k8sState.servicesModel)
         case .machines:
             MachinesView()
                 .environment(machinesVM)
@@ -204,11 +203,11 @@ struct ContentView: View {
         case .pods:
             PodDetailView()
                 .environment(k8sState)
-                .environment(podsVM)
+                .environment(k8sState.podsModel)
         case .services:
             ServiceDetailView()
                 .environment(k8sState)
-                .environment(servicesVM)
+                .environment(k8sState.servicesModel)
         case .machines:
             MachineDetailView()
                 .environment(machinesVM)
