@@ -171,6 +171,14 @@ final class NetworksListViewController: NSViewController,
         }
     }
 
+    func tableView(_: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        guard let item = snapshot?.rows[row] else { return nil }
+        if case .network = item {
+            return ResourceListRowView(horizontalInset: 12)
+        }
+        return nil
+    }
+
     func tableView(_: NSTableView, isGroupRow row: Int) -> Bool {
         guard let item = snapshot?.rows[row] else { return false }
         if case .section = item {
@@ -294,7 +302,7 @@ final class NetworksListViewController: NSViewController,
         tableView.floatsGroupRows = false
         tableView.allowsMultipleSelection = false
         tableView.allowsEmptySelection = true
-        tableView.selectionHighlightStyle = .regular
+        tableView.selectionHighlightStyle = .none
         tableView.dataSource = self
         tableView.delegate = self
         tableView.setAccessibilityLabel("Networks")
@@ -434,12 +442,14 @@ final class NetworksListViewController: NSViewController,
 }
 
 @MainActor
-private final class NetworkTableCellView: NSTableCellView {
+private final class NetworkTableCellView: NSTableCellView, ResourceListActionDisplaying {
     private let iconBox = NSBox()
     private let networkImageView = NSImageView()
     private let nameLabel = NSTextField(labelWithString: "")
     private let driverLabel = NSTextField(labelWithString: "")
-    private let deleteButton = NSButton()
+    private let deleteButton = ResourceActionButton()
+    private var canDelete = false
+    private var showsActions = false
     private var onDelete: (@MainActor () -> Void)?
 
     override init(frame frameRect: NSRect) {
@@ -448,7 +458,7 @@ private final class NetworkTableCellView: NSTableCellView {
         iconBox.boxType = .custom
         iconBox.borderWidth = 0
         iconBox.cornerRadius = 6
-        iconBox.fillColor = .quaternarySystemFill
+        iconBox.fillColor = AppColors.iconBackgroundNSColor
         iconBox.translatesAutoresizingMaskIntoConstraints = false
 
         networkImageView.contentTintColor = .secondaryLabelColor
@@ -469,38 +479,36 @@ private final class NetworkTableCellView: NSTableCellView {
         labels.orientation = .vertical
         labels.alignment = .leading
         labels.spacing = 2
-        labels.translatesAutoresizingMaskIntoConstraints = false
 
         deleteButton.identifier = NSUserInterfaceItemIdentifier("NetworkDeleteButton")
-        deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
-        deleteButton.isBordered = false
+        deleteButton.image = NSImage(systemSymbolName: "trash.fill", accessibilityDescription: nil)
         deleteButton.contentTintColor = .secondaryLabelColor
+        deleteButton.isHidden = true
         deleteButton.target = self
         deleteButton.action = #selector(deletePressed)
-        deleteButton.translatesAutoresizingMaskIntoConstraints = false
 
-        addSubview(iconBox)
-        addSubview(labels)
-        addSubview(deleteButton)
+        let content = NSStackView(views: [iconBox, labels, deleteButton])
+        content.orientation = .horizontal
+        content.alignment = .centerY
+        content.distribution = .fill
+        content.spacing = 12
+        content.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(content)
         imageView = networkImageView
         textField = nameLabel
 
         NSLayoutConstraint.activate([
-            iconBox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            iconBox.centerYAnchor.constraint(equalTo: centerYAnchor),
+            content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
+            content.centerYAnchor.constraint(equalTo: centerYAnchor),
             iconBox.widthAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
             iconBox.heightAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
             networkImageView.centerXAnchor.constraint(equalTo: iconBox.centerXAnchor),
             networkImageView.centerYAnchor.constraint(equalTo: iconBox.centerYAnchor),
             networkImageView.widthAnchor.constraint(equalToConstant: 16),
             networkImageView.heightAnchor.constraint(equalToConstant: 16),
-            labels.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 10),
-            labels.centerYAnchor.constraint(equalTo: centerYAnchor),
-            labels.trailingAnchor.constraint(lessThanOrEqualTo: deleteButton.leadingAnchor, constant: -8),
-            deleteButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            deleteButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            deleteButton.widthAnchor.constraint(equalToConstant: 24),
-            deleteButton.heightAnchor.constraint(equalToConstant: 24),
+            deleteButton.widthAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+            deleteButton.heightAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
         ])
     }
 
@@ -517,8 +525,6 @@ private final class NetworkTableCellView: NSTableCellView {
                 isSelected
                 ? .alternateSelectedControlTextColor.withAlphaComponent(0.67)
                 : .secondaryLabelColor
-            networkImageView.contentTintColor =
-                isSelected ? .alternateSelectedControlTextColor : .secondaryLabelColor
             deleteButton.contentTintColor =
                 isSelected ? .alternateSelectedControlTextColor : .secondaryLabelColor
         }
@@ -534,15 +540,25 @@ private final class NetworkTableCellView: NSTableCellView {
         )
         nameLabel.stringValue = network.name
         driverLabel.stringValue = network.driverDisplay
-        deleteButton.isHidden = network.isSystem
+        canDelete = !network.isSystem
         deleteButton.isEnabled = !network.isSystem
         deleteButton.toolTip = network.isSystem ? nil : "Delete network"
         deleteButton.setAccessibilityLabel("Delete \(network.name)")
         self.onDelete = network.isSystem ? nil : onDelete
+        updateActionVisibility()
         setAccessibilityElement(true)
         setAccessibilityLabel(
             "\(network.name), \(network.driverDisplay), \(network.containerCount > 0 ? "In Use" : "Unused")"
         )
+    }
+
+    func setShowsActions(_ showsActions: Bool) {
+        self.showsActions = showsActions
+        updateActionVisibility()
+    }
+
+    private func updateActionVisibility() {
+        deleteButton.isHidden = !canDelete || !showsActions
     }
 
     @objc private func deletePressed() {

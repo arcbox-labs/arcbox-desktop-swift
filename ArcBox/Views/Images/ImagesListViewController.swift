@@ -176,6 +176,14 @@ final class ImagesListViewController: NSViewController,
         }
     }
 
+    func tableView(_: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        guard let item = snapshot?.rows[row] else { return nil }
+        if case .image = item {
+            return ResourceListRowView(horizontalInset: 12)
+        }
+        return nil
+    }
+
     func tableView(_: NSTableView, isGroupRow row: Int) -> Bool {
         guard let item = snapshot?.rows[row] else { return false }
         if case .section = item {
@@ -293,7 +301,7 @@ final class ImagesListViewController: NSViewController,
         tableView.floatsGroupRows = false
         tableView.allowsMultipleSelection = false
         tableView.allowsEmptySelection = true
-        tableView.selectionHighlightStyle = .regular
+        tableView.selectionHighlightStyle = .none
         tableView.dataSource = self
         tableView.delegate = self
         tableView.setAccessibilityLabel("Images")
@@ -454,7 +462,7 @@ final class ImagesListViewController: NSViewController,
 }
 
 @MainActor
-private final class ImageTableCellView: NSTableCellView {
+private final class ImageTableCellView: NSTableCellView, ResourceListActionDisplaying {
     private static let palette: [NSColor] = [
         .systemRed, .systemOrange, .systemYellow, .systemGreen, .systemCyan,
         .systemBlue, .systemPurple, .systemPink, .systemIndigo, .systemTeal,
@@ -466,7 +474,7 @@ private final class ImageTableCellView: NSTableCellView {
     private let architectureBox = NSBox()
     private let architectureLabel = NSTextField(labelWithString: "amd64")
     private let detailLabel = NSTextField(labelWithString: "")
-    private let deleteButton = NSButton()
+    private let deleteButton = ResourceActionButton()
 
     private var iconTask: Task<Void, Never>?
     private var representedIconURL: URL?
@@ -480,7 +488,7 @@ private final class ImageTableCellView: NSTableCellView {
         iconBox.boxType = .custom
         iconBox.borderWidth = 0
         iconBox.cornerRadius = 6
-        iconBox.fillColor = .quaternarySystemFill
+        iconBox.fillColor = AppColors.iconBackgroundNSColor
         iconBox.translatesAutoresizingMaskIntoConstraints = false
 
         imageIconView.imageScaling = .scaleProportionallyDown
@@ -497,6 +505,8 @@ private final class ImageTableCellView: NSTableCellView {
         architectureBox.borderWidth = 0
         architectureBox.cornerRadius = 4
         architectureBox.fillColor = .quaternarySystemFill
+        architectureBox.titlePosition = .noTitle
+        architectureBox.contentViewMargins = .zero
         architectureBox.translatesAutoresizingMaskIntoConstraints = false
 
         architectureLabel.alignment = .center
@@ -518,43 +528,50 @@ private final class ImageTableCellView: NSTableCellView {
         labels.orientation = .vertical
         labels.alignment = .leading
         labels.spacing = 2
-        labels.translatesAutoresizingMaskIntoConstraints = false
 
         deleteButton.identifier = NSUserInterfaceItemIdentifier("ImageDeleteButton")
-        deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
-        deleteButton.isBordered = false
+        deleteButton.image = NSImage(systemSymbolName: "trash.fill", accessibilityDescription: nil)
         deleteButton.contentTintColor = .secondaryLabelColor
+        deleteButton.isHidden = true
         deleteButton.target = self
         deleteButton.action = #selector(deletePressed)
-        deleteButton.translatesAutoresizingMaskIntoConstraints = false
 
-        addSubview(iconBox)
-        addSubview(labels)
-        addSubview(deleteButton)
+        let content = NSStackView(views: [iconBox, labels, deleteButton])
+        content.orientation = .horizontal
+        content.alignment = .centerY
+        content.distribution = .fill
+        content.spacing = 12
+        content.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(content)
         imageView = imageIconView
         textField = nameLabel
 
         NSLayoutConstraint.activate([
-            iconBox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            iconBox.centerYAnchor.constraint(equalTo: centerYAnchor),
+            content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
+            content.centerYAnchor.constraint(equalTo: centerYAnchor),
             iconBox.widthAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
             iconBox.heightAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
             imageIconView.centerXAnchor.constraint(equalTo: iconBox.centerXAnchor),
             imageIconView.centerYAnchor.constraint(equalTo: iconBox.centerYAnchor),
-            imageIconView.widthAnchor.constraint(equalToConstant: 24),
-            imageIconView.heightAnchor.constraint(equalToConstant: 24),
-            architectureBox.widthAnchor.constraint(equalToConstant: 44),
-            architectureBox.heightAnchor.constraint(equalToConstant: 16),
-            architectureLabel.leadingAnchor.constraint(equalTo: architectureBox.leadingAnchor, constant: 4),
-            architectureLabel.trailingAnchor.constraint(equalTo: architectureBox.trailingAnchor, constant: -4),
-            architectureLabel.centerYAnchor.constraint(equalTo: architectureBox.centerYAnchor),
-            labels.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 10),
-            labels.centerYAnchor.constraint(equalTo: centerYAnchor),
-            labels.trailingAnchor.constraint(lessThanOrEqualTo: deleteButton.leadingAnchor, constant: -8),
-            deleteButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            deleteButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            deleteButton.widthAnchor.constraint(equalToConstant: 24),
-            deleteButton.heightAnchor.constraint(equalToConstant: 24),
+            imageIconView.widthAnchor.constraint(equalToConstant: 28),
+            imageIconView.heightAnchor.constraint(equalToConstant: 28),
+            // NSBox consumes 2 points per horizontal edge, leaving 6 points visible.
+            architectureLabel.leadingAnchor.constraint(
+                equalTo: architectureBox.leadingAnchor,
+                constant: 8
+            ),
+            architectureLabel.trailingAnchor.constraint(
+                equalTo: architectureBox.trailingAnchor,
+                constant: -8
+            ),
+            architectureLabel.topAnchor.constraint(equalTo: architectureBox.topAnchor, constant: 2),
+            architectureLabel.bottomAnchor.constraint(
+                equalTo: architectureBox.bottomAnchor,
+                constant: -2
+            ),
+            deleteButton.widthAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+            deleteButton.heightAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
         ])
     }
 
@@ -641,11 +658,15 @@ private final class ImageTableCellView: NSTableCellView {
         onDelete = nil
     }
 
+    func setShowsActions(_ showsActions: Bool) {
+        deleteButton.isHidden = !showsActions
+    }
+
     private static func color(for repository: String) -> NSColor {
         let hash = repository.utf8.reduce(0) { value, byte in
             value &* 31 &+ Int(byte)
         }
-        let index = Int(UInt(bitPattern: hash) % UInt(palette.count))
+        let index = Int(hash.magnitude % UInt(palette.count))
         return palette[index]
     }
 

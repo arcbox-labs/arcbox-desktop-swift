@@ -34,6 +34,7 @@
 		172FA4919687A4616E0BC135 /* DaemonLoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E8FB9C9E3349126EF773522 /* DaemonLoadingView.swift */; };
 		17ED6FFFD9A61998178E38B9 /* VolumesListViewControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BAE047B96D10B4716BA1A2 /* VolumesListViewControllerTests.swift */; };
 		1941A5EBBFB259911F7E9ADE /* SandboxesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A764F03F9EA5C3149B777338 /* SandboxesViewModel.swift */; };
+		1BC0DF2E6DAA6E0A94058B5F /* ContainerListModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9467D1D1EA60DDF80414B20B /* ContainerListModels.swift */; };
 		1CA50DB029E0C7A18CAF87A2 /* LocalRootFSOutlineCoordinator+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45A5AAA9B74A59E7543D8D0 /* LocalRootFSOutlineCoordinator+Actions.swift */; };
 		1CB8AE8C16D0C333B7C0B32F /* ResourceStatsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B52400B734764C05E50D6FFC /* ResourceStatsTests.swift */; };
 		1FB4D8B5B61B82155960542D /* NetworksListViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 089AAF447EC30EF108B76EF7 /* NetworksListViewController.swift */; };
@@ -169,8 +170,10 @@
 		9E79E2BBA05690D9ECAED2CD /* SortMenuButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97E7E52D3A54846906EB064D /* SortMenuButton.swift */; };
 		9EAE5E0BF3CB9432D7A228C2 /* ContainersListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA69DFAC30647687529C962A /* ContainersListView.swift */; };
 		A03ACBF5074B007C8CD7B101 /* StartupProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32115BE04C97CECA9C05A273 /* StartupProgressView.swift */; };
+		A0AA341C4E3000ED0828F01B /* ResourceListRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9750454C23940C3F74E7690E /* ResourceListRowView.swift */; };
 		A537498E1D8181BB0230E199 /* ContentViewColumnLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE7E377F9D8C89E24989DE3D /* ContentViewColumnLayoutTests.swift */; };
 		A75C60F77B89D7AEE365BC2E /* VolumeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDF2337ED21F8382F7ABB29A /* VolumeModel.swift */; };
+		A7E66915A83CDD9FF95EF09F /* MachineEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81FCCED6F39D73E946107243 /* MachineEmptyStateView.swift */; };
 		A8374C7CC46723B1764B2F43 /* KeychainTokenStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18DFEA7126F89956523019B4 /* KeychainTokenStoreTests.swift */; };
 		A9E1DA5DBCAC015D9C41FF18 /* SandboxesViewModel+Snapshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F2D773B0312F0D5695D0ADA /* SandboxesViewModel+Snapshots.swift */; };
 		AA8A34E11EF00EBFB5AC1090 /* MachinesViewModel+GRPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB1B1CD1D5E0E961CD17118 /* MachinesViewModel+GRPC.swift */; };
@@ -388,6 +391,7 @@
 		7DDFA2EDA7A3AC8448696F91 /* VolumeFilesTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeFilesTab.swift; sourceTree = "<group>"; };
 		80010452354615CAC08FAF1D /* ContainersListViewControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainersListViewControllerTests.swift; sourceTree = "<group>"; };
 		8071725DD08666599A15CE65 /* OIDCAuthorizationURLBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OIDCAuthorizationURLBuilderTests.swift; sourceTree = "<group>"; };
+		81FCCED6F39D73E946107243 /* MachineEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineEmptyStateView.swift; sourceTree = "<group>"; };
 		823F87591055C314EC29BF67 /* ToolbarSeparator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarSeparator.swift; sourceTree = "<group>"; };
 		829D8DC499E6339D13A2ADE7 /* SandboxesViewModel+GRPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SandboxesViewModel+GRPC.swift"; sourceTree = "<group>"; };
 		8357344FFAC2AB6F56EE95EC /* MachinesListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesListViewController.swift; sourceTree = "<group>"; };
@@ -407,8 +411,10 @@
 		920C9CA81449FA23CEC17EF6 /* SandboxFilesTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxFilesTab.swift; sourceTree = "<group>"; };
 		9234FC5BCCDDCBF441A94880 /* UpdaterDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterDelegate.swift; sourceTree = "<group>"; };
 		93968609F8E058EAC838DD18 /* UpdaterSettingsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterSettingsModel.swift; sourceTree = "<group>"; };
+		9467D1D1EA60DDF80414B20B /* ContainerListModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerListModels.swift; sourceTree = "<group>"; };
 		95F313C9C7AA84A964728D44 /* AppDelegate+Telemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppDelegate+Telemetry.swift"; sourceTree = "<group>"; };
 		95F593FF4C1C56EBF378883E /* MachineLogsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineLogsTab.swift; sourceTree = "<group>"; };
+		9750454C23940C3F74E7690E /* ResourceListRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceListRowView.swift; sourceTree = "<group>"; };
 		97E7E52D3A54846906EB064D /* SortMenuButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SortMenuButton.swift; sourceTree = "<group>"; };
 		98C5CFE4B4D21711F8580690 /* SandboxTerminalTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxTerminalTab.swift; sourceTree = "<group>"; };
 		9A04AFE137230F2CE0DD9DBB /* DiagnosticBundleExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticBundleExporter.swift; sourceTree = "<group>"; };
@@ -638,6 +644,7 @@
 				9E73318FC9D8EBCB39E5C0AE /* IconButton.swift */,
 				F5F318A121B0C8EA1A05BFE5 /* InfoRow.swift */,
 				3ED1683EF0A3490B8B7B5CF6 /* InfoTableView.swift */,
+				9750454C23940C3F74E7690E /* ResourceListRowView.swift */,
 				85EB02E7DC54A70CDFD0C694 /* SheetErrorMessage.swift */,
 				97E7E52D3A54846906EB064D /* SortMenuButton.swift */,
 				24D2CE72E40718D37B0293D1 /* StatePlaceholderView.swift */,
@@ -927,6 +934,7 @@
 			children = (
 				E1C6B2F85E39321931CEC3ED /* ContainerDetailView.swift */,
 				52CF09CC08AE563196CE3BED /* ContainerListCells.swift */,
+				9467D1D1EA60DDF80414B20B /* ContainerListModels.swift */,
 				BA69DFAC30647687529C962A /* ContainersListView.swift */,
 				C3AAFC5E642995054B983811 /* ContainersListViewController.swift */,
 				B011CA693D5A9EFCCF61AA2D /* NewContainerSheet.swift */,
@@ -940,6 +948,7 @@
 			children = (
 				5144C9321F8A17DA72A862DA /* MachineCreateSheet.swift */,
 				B9C7ADBBD83C5F92EEBAAD88 /* MachineDetailView.swift */,
+				81FCCED6F39D73E946107243 /* MachineEmptyStateView.swift */,
 				8357344FFAC2AB6F56EE95EC /* MachinesListViewController.swift */,
 				8ECCF18CC36CC3579EE2B5B9 /* MachinesView.swift */,
 				B422F342095BFADBE2F147B8 /* Tabs */,
@@ -1320,6 +1329,7 @@
 				967B79B7F3A20ACDDC610AD4 /* ContainerFilesTab.swift in Sources */,
 				766ECB0DA60ABA79FE21CE2C /* ContainerInfoTab.swift in Sources */,
 				E7E796A682B8956706429D45 /* ContainerListCells.swift in Sources */,
+				1BC0DF2E6DAA6E0A94058B5F /* ContainerListModels.swift in Sources */,
 				2754C5F694613CA3A06DBC7E /* ContainerLogsModels.swift in Sources */,
 				361A7AD4626352A09571245C /* ContainerLogsTab+Actions.swift in Sources */,
 				5D4AD52D29953C3DB6552B97 /* ContainerLogsTab+Formatting.swift in Sources */,
@@ -1384,6 +1394,7 @@
 				14F016496706C25F9CF50D75 /* Logging.swift in Sources */,
 				C12DED2A6B5168308D89BE15 /* MachineCreateSheet.swift in Sources */,
 				2C918E08295E3751C9FD1EC1 /* MachineDetailView.swift in Sources */,
+				A7E66915A83CDD9FF95EF09F /* MachineEmptyStateView.swift in Sources */,
 				D0A2395C0C2BC0A77B175840 /* MachineEventMonitor.swift in Sources */,
 				C415E585DA749E8A19984650 /* MachineFilesTab.swift in Sources */,
 				B5E8D265254E1C224247214A /* MachineImageCatalog.swift in Sources */,
@@ -1421,6 +1432,7 @@
 				14D3EFEEF183BBA78A496DCF /* PodsListViewController.swift in Sources */,
 				DDF9F74BA0638A51322686DE /* PodsViewModel.swift in Sources */,
 				0C6B829AD5010FDB0E749471 /* PullImageSheet.swift in Sources */,
+				A0AA341C4E3000ED0828F01B /* ResourceListRowView.swift in Sources */,
 				74488A22CBA34633776AC5D2 /* SandboxDetailView.swift in Sources */,
 				8C3C03A50C1B7D97829F9DA5 /* SandboxEmptyState.swift in Sources */,
 				442FF72709337D1BCAA0643D /* SandboxEventMonitor.swift in Sources */,

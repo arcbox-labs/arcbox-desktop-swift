@@ -19,7 +19,7 @@ final class MainWindowControllerTests: XCTestCase {
         XCTAssertEqual(window.contentMinSize, NSSize(width: 900, height: 600))
         XCTAssertTrue(window.styleMask.contains(.fullSizeContentView))
         XCTAssertTrue(window.titlebarAppearsTransparent)
-        XCTAssertEqual(window.titleVisibility, .hidden)
+        XCTAssertEqual(window.titleVisibility, .visible)
         XCTAssertEqual(window.toolbarStyle, .unified)
         XCTAssertEqual(window.frameAutosaveName, autosaveName)
     }

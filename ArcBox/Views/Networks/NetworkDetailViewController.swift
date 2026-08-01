@@ -37,10 +37,9 @@ final class NetworkDetailViewController: NSViewController,
     private let viewModel: NetworksViewModel
     private let detailView = NSView()
     private let selectionPlaceholder = StatePlaceholderView(
-        state: .empty(
+        state: .noSelection(
             systemImage: "point.3.filled.connected.trianglepath.dotted",
-            title: "No Selection",
-            message: nil
+            title: "No Selection"
         )
     )
     private let containersView = NSView()
@@ -327,13 +326,7 @@ final class NetworkDetailViewController: NSViewController,
                 }
             )
         case .loaded where entries.isEmpty:
-            showContainersPlaceholder(
-                .empty(
-                    systemImage: "shippingbox",
-                    title: "No containers connected",
-                    message: nil
-                )
-            )
+            showContainersPlaceholder(.plain(title: "No containers connected"))
         case .loaded:
             containersPlaceholder.isHidden = true
             scrollView.isHidden = false

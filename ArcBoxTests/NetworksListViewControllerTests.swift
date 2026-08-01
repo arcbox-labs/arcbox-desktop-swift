@@ -70,18 +70,47 @@ final class NetworksListViewControllerTests: XCTestCase {
         let systemRow = try XCTUnwrap(row(named: "host", in: tableView))
         let systemCell = try XCTUnwrap(
             tableView.view(atColumn: 0, row: systemRow, makeIfNecessary: true)
+                as? NSTableCellView
         )
         let systemDeleteButton = try XCTUnwrap(deleteButton(in: systemCell))
+        XCTAssertTrue(systemDeleteButton is ResourceActionButton)
+        systemCell.frame = NSRect(x: 0, y: 0, width: 360, height: AppMetrics.rowHeight)
+        systemCell.layoutSubtreeIfNeeded()
+        let systemContent = try XCTUnwrap(systemDeleteButton.superview as? NSStackView)
+        let systemLabels = systemContent.arrangedSubviews[1]
         XCTAssertTrue(systemDeleteButton.isHidden)
         XCTAssertFalse(systemDeleteButton.isEnabled)
+        XCTAssertEqual(systemLabels.frame.maxX, systemContent.bounds.maxX, accuracy: 0.5)
 
         let customRow = try XCTUnwrap(row(named: "frontend", in: tableView))
         let customCell = try XCTUnwrap(
             tableView.view(atColumn: 0, row: customRow, makeIfNecessary: true)
+                as? NSTableCellView
         )
         let customDeleteButton = try XCTUnwrap(deleteButton(in: customCell))
-        XCTAssertFalse(customDeleteButton.isHidden)
+        XCTAssertTrue(customDeleteButton is ResourceActionButton)
+        customCell.frame = NSRect(x: 0, y: 0, width: 360, height: AppMetrics.rowHeight)
+        customCell.layoutSubtreeIfNeeded()
+        let customContent = try XCTUnwrap(customDeleteButton.superview as? NSStackView)
+        let customLabels = customContent.arrangedSubviews[1]
+        XCTAssertTrue(customDeleteButton.isHidden)
         XCTAssertTrue(customDeleteButton.isEnabled)
+        XCTAssertEqual(customContent.spacing, 12)
+        XCTAssertEqual(customContent.frame.minX, 24, accuracy: 0.5)
+        XCTAssertEqual(customCell.bounds.maxX - customContent.frame.maxX, 24, accuracy: 0.5)
+        XCTAssertEqual(customLabels.frame.maxX, customContent.bounds.maxX, accuracy: 0.5)
+        tableView.selectRowIndexes(IndexSet(integer: customRow), byExtendingSelection: false)
+        customCell.layoutSubtreeIfNeeded()
+        XCTAssertFalse(customDeleteButton.isHidden)
+        XCTAssertEqual(
+            customDeleteButton.frame.minX - customLabels.frame.maxX,
+            12,
+            accuracy: 0.5
+        )
+        XCTAssertEqual(customCell.imageView?.contentTintColor, .secondaryLabelColor)
+        tableView.deselectAll(nil)
+        customCell.layoutSubtreeIfNeeded()
+        XCTAssertEqual(customLabels.frame.maxX, customContent.bounds.maxX, accuracy: 0.5)
 
         viewModel.searchText = "missing"
         try await waitUntil {
@@ -92,6 +121,8 @@ final class NetworksListViewControllerTests: XCTestCase {
         try await waitUntil { tableView.numberOfRows == 5 }
         tableView.selectRowIndexes(IndexSet(integer: systemRow), byExtendingSelection: false)
         XCTAssertEqual(viewModel.selectedID, "system")
+        XCTAssertTrue(systemDeleteButton.isHidden)
+        XCTAssertEqual(systemCell.imageView?.contentTintColor, .secondaryLabelColor)
 
         viewModel.selectedID = "custom"
         try await waitUntil {

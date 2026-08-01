@@ -2,20 +2,33 @@ import AppKit
 import Foundation
 
 @MainActor
-final class ContainerGroupTableCellView: NSTableCellView {
+final class ContainerGroupTableCellView: NSTableCellView, ResourceListActionDisplaying {
+    private let disclosureImageView = NSImageView()
     private let iconBox = NSBox()
     private let groupImageView = NSImageView()
     private let projectLabel = NSTextField(labelWithString: "")
     private let countLabel = NSTextField(labelWithString: "")
     private let busyIndicator = NSProgressIndicator()
-    private let toggleButton = NSButton()
-    private let deleteButton = NSButton()
+    private let toggleButton = ResourceActionButton()
+    private let deleteButton = ResourceActionButton()
+    private let actions = NSStackView()
 
+    private var labelsToActionsConstraint: NSLayoutConstraint?
+    private var isBusy = false
+    private var showsActions = false
     private var onToggle: (@MainActor () -> Void)?
     private var onDelete: (@MainActor () -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+
+        disclosureImageView.identifier = NSUserInterfaceItemIdentifier(
+            "ContainerGroupDisclosureImage"
+        )
+        disclosureImageView.contentTintColor = .secondaryLabelColor
+        disclosureImageView.symbolConfiguration = .init(pointSize: 10, weight: .regular)
+        disclosureImageView.setAccessibilityElement(false)
+        disclosureImageView.translatesAutoresizingMaskIntoConstraints = false
 
         iconBox.boxType = .custom
         iconBox.borderWidth = 0
@@ -41,9 +54,9 @@ final class ContainerGroupTableCellView: NSTableCellView {
         countLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let labels = NSStackView(views: [projectLabel, countLabel])
-        labels.orientation = .vertical
-        labels.alignment = .leading
-        labels.spacing = 0
+        labels.orientation = .horizontal
+        labels.alignment = .centerY
+        labels.spacing = 8
         labels.translatesAutoresizingMaskIntoConstraints = false
 
         busyIndicator.identifier = NSUserInterfaceItemIdentifier("ContainerGroupBusyIndicator")
@@ -62,16 +75,28 @@ final class ContainerGroupTableCellView: NSTableCellView {
             identifier: "ContainerGroupDeleteButton",
             action: #selector(deletePressed)
         )
-        deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
+        deleteButton.image = NSImage(systemSymbolName: "trash.fill", accessibilityDescription: nil)
 
-        let actions = NSStackView(
-            views: [busyIndicator, toggleButton, deleteButton]
-        )
+        actions.setViews([busyIndicator, toggleButton, deleteButton], in: .center)
         actions.orientation = .horizontal
         actions.alignment = .centerY
         actions.spacing = 4
         actions.translatesAutoresizingMaskIntoConstraints = false
 
+        busyIndicator.isHidden = true
+        toggleButton.isHidden = true
+        deleteButton.isHidden = true
+
+        setUpLayout(labels: labels)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setUpLayout(labels: NSStackView) {
+        addSubview(disclosureImageView)
         addSubview(iconBox)
         addSubview(labels)
         addSubview(actions)
@@ -80,14 +105,27 @@ final class ContainerGroupTableCellView: NSTableCellView {
 
         let softWidthConstraints = [
             iconBox.widthAnchor.constraint(equalToConstant: 28),
-            toggleButton.widthAnchor.constraint(equalToConstant: 24),
-            deleteButton.widthAnchor.constraint(equalToConstant: 24),
+            toggleButton.widthAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+            deleteButton.widthAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
         ]
         softWidthConstraints.forEach { $0.priority = .defaultHigh }
 
+        let labelsToActionsConstraint = labels.trailingAnchor.constraint(
+            lessThanOrEqualTo: actions.leadingAnchor,
+            constant: -8
+        )
+        self.labelsToActionsConstraint = labelsToActionsConstraint
+
         NSLayoutConstraint.activate(
             [
-                iconBox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+                disclosureImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 9),
+                disclosureImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
+                disclosureImageView.widthAnchor.constraint(equalToConstant: 14),
+                disclosureImageView.heightAnchor.constraint(equalToConstant: 14),
+                iconBox.leadingAnchor.constraint(
+                    equalTo: disclosureImageView.trailingAnchor,
+                    constant: 8
+                ),
                 iconBox.centerYAnchor.constraint(equalTo: centerYAnchor),
                 iconBox.heightAnchor.constraint(equalToConstant: 28),
                 groupImageView.centerXAnchor.constraint(equalTo: iconBox.centerXAnchor),
@@ -96,19 +134,15 @@ final class ContainerGroupTableCellView: NSTableCellView {
                 groupImageView.heightAnchor.constraint(equalToConstant: 20),
                 labels.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 8),
                 labels.centerYAnchor.constraint(equalTo: centerYAnchor),
-                labels.trailingAnchor.constraint(lessThanOrEqualTo: actions.leadingAnchor, constant: -8),
-                actions.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+                labels.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -24),
+                actions.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
                 actions.centerYAnchor.constraint(equalTo: centerYAnchor),
-                busyIndicator.widthAnchor.constraint(equalToConstant: 16),
-                busyIndicator.heightAnchor.constraint(equalToConstant: 16),
-                toggleButton.heightAnchor.constraint(equalToConstant: 24),
-                deleteButton.heightAnchor.constraint(equalToConstant: 24),
+                busyIndicator.widthAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+                busyIndicator.heightAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+                toggleButton.heightAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+                deleteButton.heightAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+                labelsToActionsConstraint,
             ] + softWidthConstraints)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
     }
 
     override func prepareForReuse() {
@@ -121,16 +155,19 @@ final class ContainerGroupTableCellView: NSTableCellView {
     func configure(
         project: String,
         containers: [ContainerViewModel],
+        isExpanded: Bool,
         onToggle: @escaping @MainActor () -> Void,
         onDelete: @escaping @MainActor () -> Void
     ) {
         prepareForReuse()
 
         let runningCount = containers.filter(\.isRunning).count
-        let isBusy = containers.contains(where: \.isTransitioning)
+        isBusy = containers.contains(where: \.isTransitioning)
         let hasRunning = runningCount > 0
 
+        setExpanded(isExpanded)
         projectLabel.stringValue = project
+        projectLabel.textColor = hasRunning ? .labelColor : .secondaryLabelColor
         countLabel.stringValue = "\(runningCount)/\(containers.count)"
         groupImageView.contentTintColor = hasRunning ? .controlAccentColor : .tertiaryLabelColor
         toggleButton.image = NSImage(
@@ -146,18 +183,16 @@ final class ContainerGroupTableCellView: NSTableCellView {
             "Delete \(containers.count) containers in \(project)"
         )
 
-        busyIndicator.isHidden = !isBusy
-        toggleButton.isHidden = isBusy
-        deleteButton.isHidden = isBusy
         toggleButton.isEnabled = !isBusy
-        deleteButton.isEnabled = !isBusy
+        deleteButton.isEnabled = true
+        self.onDelete = onDelete
         if isBusy {
             busyIndicator.setAccessibilityLabel("Updating \(project)")
             busyIndicator.startAnimation(nil)
         } else {
             self.onToggle = onToggle
-            self.onDelete = onDelete
         }
+        updateActionVisibility()
 
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
@@ -166,17 +201,35 @@ final class ContainerGroupTableCellView: NSTableCellView {
         )
     }
 
+    func setShowsActions(_ showsActions: Bool) {
+        self.showsActions = showsActions
+        updateActionVisibility()
+    }
+
+    func setExpanded(_ isExpanded: Bool) {
+        disclosureImageView.image = NSImage(
+            systemSymbolName: isExpanded ? "chevron.down" : "chevron.right",
+            accessibilityDescription: nil
+        )
+    }
+
     private func configureButton(
-        _ button: NSButton,
+        _ button: ResourceActionButton,
         identifier: String,
         action: Selector
     ) {
         button.identifier = NSUserInterfaceItemIdentifier(identifier)
-        button.isBordered = false
         button.contentTintColor = .secondaryLabelColor
         button.target = self
         button.action = action
         button.translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    private func updateActionVisibility() {
+        busyIndicator.isHidden = !showsActions || !isBusy
+        toggleButton.isHidden = !showsActions || isBusy
+        deleteButton.isHidden = !showsActions
+        labelsToActionsConstraint?.isActive = showsActions
     }
 
     @objc private func togglePressed() {
@@ -189,7 +242,7 @@ final class ContainerGroupTableCellView: NSTableCellView {
 }
 
 @MainActor
-final class ContainerTableCellView: NSTableCellView {
+final class ContainerTableCellView: NSTableCellView, ResourceListActionDisplaying {
     private static let palette: [NSColor] = [
         .systemRed, .systemOrange, .systemYellow, .systemGreen, .systemCyan,
         .systemBlue, .systemPurple, .systemPink, .systemIndigo, .systemTeal,
@@ -198,21 +251,27 @@ final class ContainerTableCellView: NSTableCellView {
     private let iconBox = NSBox()
     private let containerImageView = NSImageView()
     private let statusDot = NSView()
+    private let statusProgressIndicator = NSProgressIndicator()
     private let nameLabel = NSTextField(labelWithString: "")
     private let imageLabel = NSTextField(labelWithString: "")
-    private let linkButton = NSButton()
+    private let linkButton = ResourceActionButton()
     private let busyIndicator = NSProgressIndicator()
-    private let toggleButton = NSButton()
-    private let deleteButton = NSButton()
+    private let toggleButton = ResourceActionButton()
+    private let deleteButton = ResourceActionButton()
+    private let actions = NSStackView()
 
+    private var labelsToActionsConstraint: NSLayoutConstraint?
     private var iconTask: Task<Void, Never>?
     private var representedID: String?
     private var representedIconURL: URL?
     private var fallbackColor = NSColor.secondaryLabelColor
+    private var statusColor = NSColor.secondaryLabelColor
     private var showsRemoteIcon = false
     private var ports: [PortMapping] = []
     private var hostDomain = ""
     private var useDNS = false
+    private var isBusy = false
+    private var showsActions = false
     private var onOpenPort: (@MainActor (PortMapping) -> Void)?
     private var onToggle: (@MainActor () -> Void)?
     private var onDelete: (@MainActor () -> Void)?
@@ -223,7 +282,7 @@ final class ContainerTableCellView: NSTableCellView {
         iconBox.boxType = .custom
         iconBox.borderWidth = 0
         iconBox.cornerRadius = 6
-        iconBox.fillColor = .quaternarySystemFill
+        iconBox.fillColor = AppColors.iconBackgroundNSColor
         iconBox.translatesAutoresizingMaskIntoConstraints = false
 
         containerImageView.imageScaling = .scaleProportionallyDown
@@ -232,10 +291,21 @@ final class ContainerTableCellView: NSTableCellView {
         containerImageView.translatesAutoresizingMaskIntoConstraints = false
         iconBox.addSubview(containerImageView)
 
+        statusDot.identifier = NSUserInterfaceItemIdentifier("ContainerStatusDot")
         statusDot.wantsLayer = true
         statusDot.layer?.cornerRadius = 6
         statusDot.setAccessibilityElement(false)
         statusDot.translatesAutoresizingMaskIntoConstraints = false
+
+        statusProgressIndicator.identifier = NSUserInterfaceItemIdentifier(
+            "ContainerStatusBusyIndicator"
+        )
+        statusProgressIndicator.style = .spinning
+        statusProgressIndicator.controlSize = .mini
+        statusProgressIndicator.isIndeterminate = true
+        statusProgressIndicator.isHidden = true
+        statusProgressIndicator.setAccessibilityElement(false)
+        statusProgressIndicator.translatesAutoresizingMaskIntoConstraints = false
 
         nameLabel.font = .systemFont(ofSize: 13, weight: .medium)
         nameLabel.lineBreakMode = .byTruncatingTail
@@ -275,18 +345,31 @@ final class ContainerTableCellView: NSTableCellView {
             identifier: "ContainerDeleteButton",
             action: #selector(deletePressed)
         )
-        deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
+        deleteButton.image = NSImage(systemSymbolName: "trash.fill", accessibilityDescription: nil)
 
-        let actions = NSStackView(
-            views: [linkButton, busyIndicator, toggleButton, deleteButton]
-        )
+        actions.setViews([linkButton, busyIndicator, toggleButton, deleteButton], in: .center)
         actions.orientation = .horizontal
         actions.alignment = .centerY
         actions.spacing = 4
         actions.translatesAutoresizingMaskIntoConstraints = false
 
+        linkButton.isHidden = true
+        busyIndicator.isHidden = true
+        toggleButton.isHidden = true
+        deleteButton.isHidden = true
+
+        setUpLayout(labels: labels)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setUpLayout(labels: NSStackView) {
         addSubview(iconBox)
         addSubview(statusDot)
+        addSubview(statusProgressIndicator)
         addSubview(labels)
         addSubview(actions)
         imageView = containerImageView
@@ -294,15 +377,21 @@ final class ContainerTableCellView: NSTableCellView {
 
         let softWidthConstraints = [
             iconBox.widthAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
-            linkButton.widthAnchor.constraint(equalToConstant: 24),
-            toggleButton.widthAnchor.constraint(equalToConstant: 24),
-            deleteButton.widthAnchor.constraint(equalToConstant: 24),
+            linkButton.widthAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+            toggleButton.widthAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+            deleteButton.widthAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
         ]
         softWidthConstraints.forEach { $0.priority = .defaultHigh }
 
+        let labelsToActionsConstraint = labels.trailingAnchor.constraint(
+            lessThanOrEqualTo: actions.leadingAnchor,
+            constant: -8
+        )
+        self.labelsToActionsConstraint = labelsToActionsConstraint
+
         NSLayoutConstraint.activate(
             [
-                iconBox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+                iconBox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 9),
                 iconBox.centerYAnchor.constraint(equalTo: centerYAnchor),
                 iconBox.heightAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
                 containerImageView.centerXAnchor.constraint(equalTo: iconBox.centerXAnchor),
@@ -313,22 +402,28 @@ final class ContainerTableCellView: NSTableCellView {
                 statusDot.heightAnchor.constraint(equalToConstant: 12),
                 statusDot.trailingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 2),
                 statusDot.bottomAnchor.constraint(equalTo: iconBox.bottomAnchor, constant: 2),
-                labels.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 10),
+                statusProgressIndicator.widthAnchor.constraint(equalToConstant: 12),
+                statusProgressIndicator.heightAnchor.constraint(equalToConstant: 12),
+                statusProgressIndicator.trailingAnchor.constraint(
+                    equalTo: iconBox.trailingAnchor,
+                    constant: 2
+                ),
+                statusProgressIndicator.bottomAnchor.constraint(
+                    equalTo: iconBox.bottomAnchor,
+                    constant: 2
+                ),
+                labels.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 8),
                 labels.centerYAnchor.constraint(equalTo: centerYAnchor),
-                labels.trailingAnchor.constraint(lessThanOrEqualTo: actions.leadingAnchor, constant: -8),
-                actions.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+                labels.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -24),
+                actions.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
                 actions.centerYAnchor.constraint(equalTo: centerYAnchor),
-                linkButton.heightAnchor.constraint(equalToConstant: 24),
-                busyIndicator.widthAnchor.constraint(equalToConstant: 16),
-                busyIndicator.heightAnchor.constraint(equalToConstant: 16),
-                toggleButton.heightAnchor.constraint(equalToConstant: 24),
-                deleteButton.heightAnchor.constraint(equalToConstant: 24),
+                linkButton.heightAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+                busyIndicator.widthAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+                busyIndicator.heightAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+                toggleButton.heightAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+                deleteButton.heightAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+                labelsToActionsConstraint,
             ] + softWidthConstraints)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
     }
 
     deinit {
@@ -348,6 +443,11 @@ final class ContainerTableCellView: NSTableCellView {
         }
     }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateColors()
+    }
+
     override func prepareForReuse() {
         super.prepareForReuse()
         iconTask?.cancel()
@@ -357,6 +457,7 @@ final class ContainerTableCellView: NSTableCellView {
         showsRemoteIcon = false
         containerImageView.image = nil
         busyIndicator.stopAnimation(nil)
+        statusProgressIndicator.stopAnimation(nil)
         ports = []
         onOpenPort = nil
         onToggle = nil
@@ -379,7 +480,7 @@ final class ContainerTableCellView: NSTableCellView {
             !container.isRunning && !container.isTransitioning
             ? .tertiaryLabelColor
             : Self.color(for: container.image)
-        statusDot.layer?.backgroundColor = Self.color(for: container.state).cgColor
+        statusColor = Self.color(for: container.state)
 
         self.useDNS = useDNS
         hostDomain = container.hostDomain(useDNS: useDNS)
@@ -387,7 +488,6 @@ final class ContainerTableCellView: NSTableCellView {
             useDNS
             ? container.ports
             : container.ports.filter { $0.hostPort > 0 }
-        linkButton.isHidden = ports.isEmpty
         linkButton.toolTip = ports.count > 1 ? "Open container port menu" : "Open container port"
         linkButton.setAccessibilityLabel(
             ports.count > 1
@@ -407,19 +507,22 @@ final class ContainerTableCellView: NSTableCellView {
         deleteButton.toolTip = "Delete container"
         deleteButton.setAccessibilityLabel("Delete \(container.name)")
 
-        let isBusy = container.isTransitioning
-        busyIndicator.isHidden = !isBusy
-        toggleButton.isHidden = isBusy
-        deleteButton.isHidden = isBusy
+        isBusy = container.isTransitioning
+        statusDot.isHidden = isBusy
+        statusProgressIndicator.isHidden = !isBusy
         toggleButton.isEnabled = !isBusy
-        deleteButton.isEnabled = !isBusy
+        deleteButton.isEnabled = true
+        self.onDelete = onDelete
         if isBusy {
             busyIndicator.setAccessibilityLabel("Updating \(container.name)")
             busyIndicator.startAnimation(nil)
+            statusProgressIndicator.startAnimation(nil)
         } else {
+            busyIndicator.stopAnimation(nil)
+            statusProgressIndicator.stopAnimation(nil)
             self.onToggle = onToggle
-            self.onDelete = onDelete
         }
+        updateActionVisibility()
 
         showFallbackIcon()
         setAccessibilityElement(true)
@@ -431,17 +534,29 @@ final class ContainerTableCellView: NSTableCellView {
         loadIcon(container.iconURL, representedID: container.id)
     }
 
+    func setShowsActions(_ showsActions: Bool) {
+        self.showsActions = showsActions
+        updateActionVisibility()
+    }
+
     private func configureButton(
-        _ button: NSButton,
+        _ button: ResourceActionButton,
         identifier: String,
         action: Selector
     ) {
         button.identifier = NSUserInterfaceItemIdentifier(identifier)
-        button.isBordered = false
         button.contentTintColor = .secondaryLabelColor
         button.target = self
         button.action = action
         button.translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    private func updateActionVisibility() {
+        linkButton.isHidden = !showsActions || ports.isEmpty
+        busyIndicator.isHidden = !showsActions || !isBusy
+        toggleButton.isHidden = !showsActions || isBusy
+        deleteButton.isHidden = !showsActions
+        labelsToActionsConstraint?.isActive = showsActions
     }
 
     private func loadIcon(_ iconURL: String?, representedID: String) {
@@ -479,7 +594,7 @@ final class ContainerTableCellView: NSTableCellView {
         let hash = image.utf8.reduce(0) { value, byte in
             value &* 31 &+ Int(byte)
         }
-        let index = Int(UInt(bitPattern: hash) % UInt(palette.count))
+        let index = Int(hash.magnitude % UInt(palette.count))
         return palette[index]
     }
 
@@ -515,6 +630,7 @@ final class ContainerTableCellView: NSTableCellView {
         deleteButton.contentTintColor =
             isSelected ? .alternateSelectedControlTextColor : .secondaryLabelColor
         containerImageView.contentTintColor = showsRemoteIcon ? nil : fallbackColor
+        statusDot.layer?.backgroundColor = statusColor.cgColor
         statusDot.layer?.borderWidth = 2
         statusDot.layer?.borderColor =
             (isSelected ? NSColor.controlAccentColor : NSColor.textBackgroundColor).cgColor

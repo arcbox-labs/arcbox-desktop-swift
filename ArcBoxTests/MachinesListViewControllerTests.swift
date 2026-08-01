@@ -24,11 +24,13 @@ final class MachinesListViewControllerTests: XCTestCase {
 
         viewModel.loadState = .failed("Daemon unavailable")
         try await waitUntil { self.visibleButton(titled: "Retry", in: rootView) != nil }
+        try assertLoadError(in: rootView)
         visibleButton(titled: "Retry", in: rootView)?.performClick(nil)
         XCTAssertTrue(didRetry)
 
         viewModel.loadState = .loaded
         try await waitUntil { self.hasText("No Linux machines yet", in: rootView) }
+        try assertEmptyState(in: rootView)
 
         viewModel.machines = [
             machine(id: "b", name: "same", state: .stopped),
@@ -39,22 +41,23 @@ final class MachinesListViewControllerTests: XCTestCase {
         var busyMachine = machine(id: "busy", name: "busy", state: .starting)
         busyMachine.isTransitioning = true
         viewModel.machines = [
-            machine(id: "running", name: "alpha", state: .running),
+            machine(
+                id: "running",
+                name: "alpha",
+                state: .running,
+                distro: "zzzzzzzzzzzzzz"
+            ),
             machine(id: "stopped", name: "beta", state: .stopped),
             busyMachine,
         ]
-        try await waitUntil { tableView.numberOfRows == 5 }
+        try await waitUntil { tableView.numberOfRows == 4 }
         XCTAssertFalse(try XCTUnwrap(tableView.enclosingScrollView).isHidden)
-        XCTAssertNotNil(row(named: "Running", in: tableView))
+        XCTAssertNil(row(named: "Running", in: tableView))
         XCTAssertNotNil(row(named: "Stopped", in: tableView))
 
         try assertBusyMachine(named: "busy", in: tableView)
 
-        let runningRow = try XCTUnwrap(row(named: "alpha", in: tableView))
-        let runningCell = try XCTUnwrap(
-            tableView.view(atColumn: 0, row: runningRow, makeIfNecessary: true)
-        )
-        try XCTUnwrap(button("MachineToggleButton", in: runningCell)).performClick(nil)
+        let runningRow = try selectAndToggleRunningMachine(named: "alpha", in: tableView)
         XCTAssertEqual(toggledIDs, ["running"])
 
         var updatedToggleIDs: [String] = []
@@ -67,6 +70,7 @@ final class MachinesListViewControllerTests: XCTestCase {
         let stoppedCell = try XCTUnwrap(
             tableView.view(atColumn: 0, row: stoppedRow, makeIfNecessary: true)
         )
+        tableView.selectRowIndexes(IndexSet(integer: stoppedRow), byExtendingSelection: false)
         try XCTUnwrap(button("MachineToggleButton", in: stoppedCell)).performClick(nil)
         XCTAssertEqual(updatedToggleIDs, ["stopped"])
 
@@ -103,12 +107,12 @@ final class MachinesListViewControllerTests: XCTestCase {
         }
 
         viewModel.searchText = "alpha"
-        try await waitUntil { tableView.numberOfRows == 2 && tableView.selectedRow == -1 }
+        try await waitUntil { tableView.numberOfRows == 1 && tableView.selectedRow == -1 }
         XCTAssertEqual(viewModel.selectedID, "stopped")
 
         viewModel.searchText = ""
         try await waitUntil {
-            tableView.numberOfRows == 5
+            tableView.numberOfRows == 4
                 && tableView.selectedRow == self.row(named: "beta", in: tableView)
         }
 
@@ -171,7 +175,8 @@ final class MachinesListViewControllerTests: XCTestCase {
 
     @MainActor
     private func visibleButton(titled title: String, in view: NSView) -> NSButton? {
-        if let button = view as? NSButton, button.title == title, !button.isHidden {
+        guard !view.isHiddenOrHasHiddenAncestor else { return nil }
+        if let button = view as? NSButton, button.title == title {
             return button
         }
         return view.subviews.lazy.compactMap {
@@ -185,6 +190,16 @@ final class MachinesListViewControllerTests: XCTestCase {
             return true
         }
         return view.subviews.contains { self.hasText(text, in: $0) }
+    }
+
+    @MainActor
+    private func textField(titled title: String, in view: NSView) -> NSTextField? {
+        if let textField = view as? NSTextField, textField.stringValue == title {
+            return textField
+        }
+        return view.subviews.lazy.compactMap {
+            self.textField(titled: title, in: $0)
+        }.first
     }
 
     @MainActor
@@ -206,9 +221,104 @@ final class MachinesListViewControllerTests: XCTestCase {
         let cell = try XCTUnwrap(
             tableView.view(atColumn: 0, row: row, makeIfNecessary: true)
         )
-        XCTAssertTrue(try XCTUnwrap(button("MachineToggleButton", in: cell)).isHidden)
+        cell.frame = NSRect(x: 0, y: 0, width: 360, height: AppMetrics.rowHeight)
+        cell.layoutSubtreeIfNeeded()
+        let toggleButton = try XCTUnwrap(button("MachineToggleButton", in: cell))
+        XCTAssertTrue(toggleButton.isHidden)
         XCTAssertTrue(try XCTUnwrap(button("MachineDeleteButton", in: cell)).isHidden)
-        XCTAssertFalse(try XCTUnwrap(progressIndicator(in: cell)).isHidden)
+        let progressIndicator = try XCTUnwrap(progressIndicator(in: cell))
+        XCTAssertFalse(progressIndicator.isHidden)
+        XCTAssertEqual(
+            cell.bounds.maxX - progressIndicator.frame.maxX,
+            20,
+            accuracy: 0.5
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(toggleButton.superview as? NSStackView).frame.width,
+            0,
+            accuracy: 0.5
+        )
+    }
+
+    @MainActor
+    private func assertEmptyState(in rootView: NSView) throws {
+        rootView.frame = NSRect(x: 0, y: 0, width: 600, height: 500)
+        rootView.layoutSubtreeIfNeeded()
+
+        let iconBox = try XCTUnwrap(
+            view(identifier: "MachineEmptyIcon", in: rootView) as? NSBox
+        )
+        XCTAssertEqual(iconBox.frame.size, NSSize(width: 64, height: 64))
+        XCTAssertEqual(iconBox.cornerRadius, 32)
+        XCTAssertEqual(iconBox.fillColor, .quaternarySystemFill)
+
+        let title = try XCTUnwrap(textField(titled: "No Linux machines yet", in: rootView))
+        XCTAssertEqual(title.font?.pointSize, 13)
+        XCTAssertEqual(title.textColor, .secondaryLabelColor)
+
+        let card = try XCTUnwrap(
+            view(identifier: "MachineEmptyCard", in: rootView) as? NSBox
+        )
+        XCTAssertEqual(card.cornerRadius, 10)
+        XCTAssertEqual(card.fillColor, .quaternarySystemFill)
+        XCTAssertTrue(hasText("• Native ARM64 performance on Apple Silicon", in: card))
+    }
+
+    @MainActor
+    private func assertLoadError(in rootView: NSView) throws {
+        rootView.frame = NSRect(x: 0, y: 0, width: 600, height: 500)
+        rootView.layoutSubtreeIfNeeded()
+
+        let icon = try XCTUnwrap(
+            view(identifier: "MachineLoadErrorIcon", in: rootView)
+        )
+        XCTAssertEqual(
+            icon.alignmentRect(forFrame: icon.frame).size,
+            NSSize(width: 32, height: 32)
+        )
+
+        let message = try XCTUnwrap(textField(titled: "Daemon unavailable", in: rootView))
+        XCTAssertEqual(message.font?.pointSize, 13)
+        XCTAssertEqual(message.textColor, .secondaryLabelColor)
+
+        let retry = try XCTUnwrap(visibleButton(titled: "Retry", in: rootView))
+        XCTAssertEqual(retry.controlSize, .regular)
+        XCTAssertEqual(retry.bezelStyle, .rounded)
+        XCTAssertFalse(hasText("Failed to load machines", in: rootView))
+    }
+
+    @MainActor
+    private func selectAndToggleRunningMachine(
+        named name: String,
+        in tableView: NSTableView
+    ) throws -> Int {
+        let row = try XCTUnwrap(row(named: name, in: tableView))
+        let cell = try XCTUnwrap(
+            tableView.view(atColumn: 0, row: row, makeIfNecessary: true)
+        )
+        cell.frame = NSRect(x: 0, y: 0, width: 360, height: AppMetrics.rowHeight)
+        cell.layoutSubtreeIfNeeded()
+        let toggleButton = try XCTUnwrap(button("MachineToggleButton", in: cell))
+        let actions = try XCTUnwrap(toggleButton.superview as? NSStackView)
+        XCTAssertTrue(toggleButton.isHidden)
+        XCTAssertEqual(actions.frame.width, 0, accuracy: 0.5)
+        XCTAssertEqual(
+            (cell as? NSTableCellView)?.imageView?.contentTintColor,
+            .systemCyan
+        )
+
+        let statusDot = try XCTUnwrap(view(identifier: "MachineStatusDot", in: cell))
+        XCTAssertEqual(statusDot.layer?.borderWidth, 2)
+        XCTAssertEqual(statusDot.layer?.borderColor, NSColor.textBackgroundColor.cgColor)
+
+        tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        (cell as? NSTableCellView)?.backgroundStyle = .emphasized
+        cell.layoutSubtreeIfNeeded()
+        XCTAssertFalse(toggleButton.isHidden)
+        XCTAssertGreaterThan(actions.frame.width, 0)
+        XCTAssertEqual(statusDot.layer?.borderColor, NSColor.controlAccentColor.cgColor)
+        toggleButton.performClick(nil)
+        return row
     }
 
     @MainActor
@@ -236,10 +346,21 @@ final class MachinesListViewControllerTests: XCTestCase {
     }
 
     @MainActor
+    private func view(identifier: String, in view: NSView) -> NSView? {
+        if view.identifier == NSUserInterfaceItemIdentifier(identifier) {
+            return view
+        }
+        return view.subviews.lazy.compactMap {
+            self.view(identifier: identifier, in: $0)
+        }.first
+    }
+
+    @MainActor
     private func machine(
         id: String,
         name: String,
-        state: MachineState
+        state: MachineState,
+        distro: String = "ubuntu"
     ) -> MachineViewModel {
         var summary = Arcbox_V1_MachineSummary()
         summary.id = id
@@ -248,7 +369,7 @@ final class MachinesListViewControllerTests: XCTestCase {
         summary.cpus = 4
         summary.memory = 4 << 30
         summary.diskSize = 50 << 30
-        summary.distro = "ubuntu"
+        summary.distro = distro
         summary.distroVersion = "24.04"
         return MachineViewModel(from: summary)
     }

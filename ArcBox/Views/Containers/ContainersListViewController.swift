@@ -2,65 +2,6 @@ import AppKit
 import Foundation
 import Observation
 
-private struct ContainerListPresentation: Equatable {
-    let container: ContainerViewModel
-
-    static func == (
-        lhs: ContainerListPresentation,
-        rhs: ContainerListPresentation
-    ) -> Bool {
-        lhs.container.id == rhs.container.id
-            && lhs.container.name == rhs.container.name
-            && lhs.container.image == rhs.container.image
-            && lhs.container.state == rhs.container.state
-            && lhs.container.isTransitioning == rhs.container.isTransitioning
-            && lhs.container.ports == rhs.container.ports
-            && lhs.container.composeProject == rhs.container.composeProject
-            && lhs.container.composeService == rhs.container.composeService
-            && lhs.container.iconURL == rhs.container.iconURL
-    }
-}
-
-private enum ContainerListNodePresentation: Equatable {
-    case section(String)
-    case compose(project: String, containers: [ContainerListPresentation])
-    case container(ContainerListPresentation)
-}
-
-private enum ContainerListNodeID: Hashable {
-    case section(String)
-    case compose(String)
-    case container(String)
-}
-
-private final class ContainerListNode: NSObject {
-    let presentation: ContainerListNodePresentation
-    let children: [ContainerListNode]
-
-    var id: ContainerListNodeID {
-        switch presentation {
-        case .section(let title):
-            .section(title)
-        case .compose(let project, _):
-            .compose(project)
-        case .container(let container):
-            .container(container.container.id)
-        }
-    }
-
-    init(_ presentation: ContainerListNodePresentation) {
-        self.presentation = presentation
-        switch presentation {
-        case .compose(_, let containers):
-            children = containers.map {
-                ContainerListNode(.container($0))
-            }
-        case .section, .container:
-            children = []
-        }
-    }
-}
-
 @MainActor
 final class ContainersListViewController: NSViewController,
     NSOutlineViewDataSource,
@@ -148,7 +89,7 @@ final class ContainersListViewController: NSViewController,
 
     private let viewModel: ContainersViewModel
     private let scrollView = NSScrollView()
-    private let outlineView = NSOutlineView()
+    private let outlineView = ContainersOutlineView()
     private let placeholderView = StatePlaceholderView(
         state: .loading(title: "Loading containers…")
     )
@@ -218,7 +159,7 @@ final class ContainersListViewController: NSViewController,
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: container.topAnchor),
+            scrollView.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
             scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             placeholderView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             placeholderView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -344,6 +285,17 @@ final class ContainersListViewController: NSViewController,
     }
 
     func outlineView(
+        _: NSOutlineView,
+        rowViewForItem item: Any
+    ) -> NSTableRowView? {
+        guard let item = item as? ContainerListNode else { return nil }
+        if case .section = item.presentation {
+            return nil
+        }
+        return ResourceListRowView(horizontalInset: 12)
+    }
+
+    func outlineView(
         _ outlineView: NSOutlineView,
         shouldSelectItem item: Any
     ) -> Bool {
@@ -404,7 +356,7 @@ final class ContainersListViewController: NSViewController,
         contextToggleItem?.isEnabled = container?.isTransitioning == false
         contextCopyNameItem?.isEnabled = container != nil
         contextCopyIDItem?.isEnabled = container != nil
-        contextDeleteItem?.isEnabled = container?.isTransitioning == false
+        contextDeleteItem?.isEnabled = container != nil
     }
 
     private func observeAndRender() {
@@ -493,10 +445,10 @@ final class ContainersListViewController: NSViewController,
         outlineView.intercellSpacing = .zero
         outlineView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         outlineView.floatsGroupRows = false
-        outlineView.indentationPerLevel = 20
+        outlineView.indentationPerLevel = 28
         outlineView.allowsMultipleSelection = false
         outlineView.allowsEmptySelection = true
-        outlineView.selectionHighlightStyle = .regular
+        outlineView.selectionHighlightStyle = .none
         outlineView.dataSource = self
         outlineView.delegate = self
         outlineView.setAccessibilityLabel("Containers")
@@ -580,7 +532,7 @@ extension ContainersListViewController {
         cell.textField = label
 
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 16),
+            label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 12),
             label.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -12),
             label.bottomAnchor.constraint(equalTo: cell.bottomAnchor, constant: -4),
         ])
@@ -601,6 +553,7 @@ extension ContainersListViewController {
         cell.configure(
             project: project,
             containers: containers,
+            isExpanded: viewModel.isGroupExpanded(project),
             onToggle: { [weak self] in
                 self?.toggleGroup(project: project, expectedIDs: ids)
             },
@@ -665,9 +618,21 @@ extension ContainersListViewController {
         expanded: Bool
     ) {
         guard
-            !isApplyingExpansion,
             let node = notification.userInfo?["NSObject"] as? ContainerListNode,
-            case .compose(let project, _) = node.presentation,
+            case .compose(let project, _) = node.presentation
+        else {
+            return
+        }
+        let row = outlineView.row(forItem: node)
+        if row >= 0 {
+            (outlineView.view(
+                atColumn: 0,
+                row: row,
+                makeIfNecessary: false
+            ) as? ContainerGroupTableCellView)?.setExpanded(expanded)
+        }
+        guard
+            !isApplyingExpansion,
             viewModel.expandedGroups.contains(project) != expanded
         else {
             return
@@ -745,8 +710,7 @@ extension ContainersListViewController {
             let containers = viewModel.composeGroups.first(where: {
                 $0.project == project
             })?.containers,
-            Set(containers.map(\.id)) == Set(expectedIDs),
-            !containers.contains(where: \.isTransitioning)
+            Set(containers.map(\.id)) == Set(expectedIDs)
         else {
             return nil
         }
@@ -761,7 +725,13 @@ extension ContainersListViewController {
     }
 
     private func toggleGroup(project: String, expectedIDs: [String]) {
-        guard currentVisibleGroup(project: project, expectedIDs: expectedIDs) != nil else {
+        guard
+            let containers = currentVisibleGroup(
+                project: project,
+                expectedIDs: expectedIDs
+            ),
+            !containers.contains(where: \.isTransitioning)
+        else {
             return
         }
         actions.toggleGroup(project, expectedIDs)
@@ -782,7 +752,6 @@ extension ContainersListViewController {
     private func confirmDeleteContainer(_ id: String) {
         guard
             let container = currentContainer(id),
-            !container.isTransitioning,
             deleteAlert == nil,
             let window = view.window
         else {
@@ -802,8 +771,7 @@ extension ContainersListViewController {
             deleteAlert = nil
             guard
                 response == .alertFirstButtonReturn,
-                let container = currentContainer(id),
-                !container.isTransitioning
+                currentContainer(id) != nil
             else {
                 return
             }

@@ -28,7 +28,7 @@ final class MachinesListViewController: NSViewController,
             let running = machines.filter(\.isRunning)
             let stopped = machines.filter { !$0.isRunning }
             rows =
-                (running.isEmpty ? [] : [.section("Running")] + running.map(Row.machine))
+                running.map(Row.machine)
                 + (stopped.isEmpty ? [] : [.section("Stopped")] + stopped.map(Row.machine))
         }
     }
@@ -42,6 +42,8 @@ final class MachinesListViewController: NSViewController,
     private let placeholderView = StatePlaceholderView(
         state: .loading(title: "Loading machines…")
     )
+    private let emptyStateView = MachineEmptyStateView()
+    private let errorStateView = MachineLoadErrorView()
 
     private var snapshot: Snapshot?
     private var onRetry: @MainActor () -> Void
@@ -74,8 +76,12 @@ final class MachinesListViewController: NSViewController,
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         placeholderView.translatesAutoresizingMaskIntoConstraints = false
+        emptyStateView.translatesAutoresizingMaskIntoConstraints = false
+        errorStateView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(scrollView)
         container.addSubview(placeholderView)
+        container.addSubview(emptyStateView)
+        container.addSubview(errorStateView)
 
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -86,6 +92,14 @@ final class MachinesListViewController: NSViewController,
             placeholderView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             placeholderView.topAnchor.constraint(equalTo: container.topAnchor),
             placeholderView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            emptyStateView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            emptyStateView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            emptyStateView.topAnchor.constraint(equalTo: container.topAnchor),
+            emptyStateView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            errorStateView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            errorStateView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            errorStateView.topAnchor.constraint(equalTo: container.topAnchor),
+            errorStateView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
 
         view = container
@@ -106,10 +120,7 @@ final class MachinesListViewController: NSViewController,
         self.onDelete = onDelete
         guard let snapshot, isViewLoaded else { return }
         if case .failed(let message) = snapshot.loadState {
-            placeholderView.update(
-                .error(title: "Failed to load machines", message: message),
-                action: .init(title: "Retry", handler: onRetry)
-            )
+            errorStateView.update(message: message, onRetry: onRetry)
         }
     }
 
@@ -137,6 +148,14 @@ final class MachinesListViewController: NSViewController,
         case .section: return 28
         case .machine: return AppMetrics.rowHeight
         }
+    }
+
+    func tableView(_: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        guard let item = snapshot?.rows[row] else { return nil }
+        if case .machine = item {
+            return ResourceListRowView(horizontalInset: 8)
+        }
+        return nil
     }
 
     func tableView(_: NSTableView, isGroupRow row: Int) -> Bool {
@@ -194,27 +213,9 @@ final class MachinesListViewController: NSViewController,
             case .waiting, .loading:
                 showPlaceholder(.loading(title: "Loading machines…"))
             case .failed(let message):
-                showPlaceholder(
-                    .error(title: "Failed to load machines", message: message),
-                    action: .init(title: "Retry", handler: onRetry)
-                )
+                showError(message)
             case .loaded where !snapshot.hasMachines:
-                showPlaceholder(
-                    .empty(
-                        systemImage: "desktopcomputer",
-                        title: "No Linux machines yet",
-                        message:
-                            """
-                            Create a new machine to run a full Linux environment.
-
-                            Ubuntu, Debian, Fedora, and more
-                            Native ARM64 performance on Apple Silicon
-                            Seamless file sharing with macOS
-
-                            Click “+” in the toolbar to get started.
-                            """
-                    )
-                )
+                showEmptyState()
             case .loaded where snapshot.rows.isEmpty:
                 showPlaceholder(
                     .empty(
@@ -225,6 +226,8 @@ final class MachinesListViewController: NSViewController,
                 )
             case .loaded:
                 placeholderView.isHidden = true
+                emptyStateView.isHidden = true
+                errorStateView.isHidden = true
                 scrollView.isHidden = false
             }
             NSAccessibility.post(element: view, notification: .layoutChanged)
@@ -241,6 +244,23 @@ final class MachinesListViewController: NSViewController,
     ) {
         placeholderView.update(state, action: action)
         placeholderView.isHidden = false
+        emptyStateView.isHidden = true
+        errorStateView.isHidden = true
+        scrollView.isHidden = true
+    }
+
+    private func showEmptyState() {
+        placeholderView.isHidden = true
+        emptyStateView.isHidden = false
+        errorStateView.isHidden = true
+        scrollView.isHidden = true
+    }
+
+    private func showError(_ message: String) {
+        errorStateView.update(message: message, onRetry: onRetry)
+        errorStateView.isHidden = false
+        placeholderView.isHidden = true
+        emptyStateView.isHidden = true
         scrollView.isHidden = true
     }
 
@@ -255,7 +275,7 @@ final class MachinesListViewController: NSViewController,
         tableView.floatsGroupRows = false
         tableView.allowsMultipleSelection = false
         tableView.allowsEmptySelection = true
-        tableView.selectionHighlightStyle = .regular
+        tableView.selectionHighlightStyle = .none
         tableView.dataSource = self
         tableView.delegate = self
         tableView.setAccessibilityLabel("Machines")
@@ -289,7 +309,7 @@ final class MachinesListViewController: NSViewController,
         cell.textField = label
 
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 16),
+            label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 12),
             label.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -12),
             label.bottomAnchor.constraint(equalTo: cell.bottomAnchor, constant: -4),
         ])
@@ -394,7 +414,7 @@ final class MachinesListViewController: NSViewController,
 }
 
 @MainActor
-private final class MachineTableCellView: NSTableCellView {
+private final class MachineTableCellView: NSTableCellView, ResourceListActionDisplaying {
     private static let palette: [NSColor] = [
         .systemRed, .systemOrange, .systemYellow, .systemGreen, .systemCyan,
         .systemBlue, .systemPurple, .systemPink, .systemIndigo, .systemTeal,
@@ -406,10 +426,15 @@ private final class MachineTableCellView: NSTableCellView {
     private let nameLabel = NSTextField(labelWithString: "")
     private let detailLabel = NSTextField(labelWithString: "")
     private let busyIndicator = NSProgressIndicator()
-    private let toggleButton = NSButton()
-    private let deleteButton = NSButton()
+    private let toggleButton = ResourceActionButton()
+    private let deleteButton = ResourceActionButton()
 
+    private var labelsToActionsConstraint: NSLayoutConstraint?
+    private var labelsToBusyConstraint: NSLayoutConstraint?
     private var iconColor = NSColor.secondaryLabelColor
+    private var statusColor = NSColor.secondaryLabelColor
+    private var isBusy = false
+    private var showsActions = false
     private var onToggle: (@MainActor () -> Void)?
     private var onDelete: (@MainActor () -> Void)?
 
@@ -419,7 +444,7 @@ private final class MachineTableCellView: NSTableCellView {
         iconBox.boxType = .custom
         iconBox.borderWidth = 0
         iconBox.cornerRadius = 6
-        iconBox.fillColor = .quaternarySystemFill
+        iconBox.fillColor = AppColors.iconBackgroundNSColor
         iconBox.translatesAutoresizingMaskIntoConstraints = false
 
         machineImageView.image = NSImage(
@@ -431,8 +456,10 @@ private final class MachineTableCellView: NSTableCellView {
         machineImageView.translatesAutoresizingMaskIntoConstraints = false
         iconBox.addSubview(machineImageView)
 
+        statusDot.identifier = NSUserInterfaceItemIdentifier("MachineStatusDot")
         statusDot.wantsLayer = true
         statusDot.layer?.cornerRadius = 6
+        statusDot.layer?.borderWidth = 2
         statusDot.setAccessibilityElement(false)
         statusDot.translatesAutoresizingMaskIntoConstraints = false
 
@@ -467,7 +494,7 @@ private final class MachineTableCellView: NSTableCellView {
             identifier: "MachineDeleteButton",
             action: #selector(deletePressed)
         )
-        deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
+        deleteButton.image = NSImage(systemSymbolName: "trash.fill", accessibilityDescription: nil)
 
         let actions = NSStackView(views: [toggleButton, deleteButton])
         actions.orientation = .horizontal
@@ -483,6 +510,17 @@ private final class MachineTableCellView: NSTableCellView {
         imageView = machineImageView
         textField = nameLabel
 
+        let labelsToActionsConstraint = labels.trailingAnchor.constraint(
+            lessThanOrEqualTo: actions.leadingAnchor,
+            constant: -8
+        )
+        let labelsToBusyConstraint = labels.trailingAnchor.constraint(
+            lessThanOrEqualTo: busyIndicator.leadingAnchor,
+            constant: -8
+        )
+        self.labelsToActionsConstraint = labelsToActionsConstraint
+        self.labelsToBusyConstraint = labelsToBusyConstraint
+
         NSLayoutConstraint.activate([
             iconBox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             iconBox.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -496,23 +534,19 @@ private final class MachineTableCellView: NSTableCellView {
             statusDot.heightAnchor.constraint(equalToConstant: 12),
             statusDot.trailingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 2),
             statusDot.bottomAnchor.constraint(equalTo: iconBox.bottomAnchor, constant: 2),
-            labels.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 10),
+            labels.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 8),
             labels.centerYAnchor.constraint(equalTo: centerYAnchor),
-            labels.trailingAnchor.constraint(lessThanOrEqualTo: actions.leadingAnchor, constant: -8),
-            labels.trailingAnchor.constraint(
-                lessThanOrEqualTo: busyIndicator.leadingAnchor,
-                constant: -8
-            ),
-            actions.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            labels.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16),
+            actions.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             actions.centerYAnchor.constraint(equalTo: centerYAnchor),
-            busyIndicator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            busyIndicator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
             busyIndicator.centerYAnchor.constraint(equalTo: centerYAnchor),
             busyIndicator.widthAnchor.constraint(equalToConstant: 16),
             busyIndicator.heightAnchor.constraint(equalToConstant: 16),
-            toggleButton.widthAnchor.constraint(equalToConstant: 24),
-            toggleButton.heightAnchor.constraint(equalToConstant: 24),
-            deleteButton.widthAnchor.constraint(equalToConstant: 24),
-            deleteButton.heightAnchor.constraint(equalToConstant: 24),
+            toggleButton.widthAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+            toggleButton.heightAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+            deleteButton.widthAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+            deleteButton.heightAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
         ])
     }
 
@@ -525,6 +559,11 @@ private final class MachineTableCellView: NSTableCellView {
         didSet {
             updateColors()
         }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateColors()
     }
 
     override func prepareForReuse() {
@@ -545,7 +584,7 @@ private final class MachineTableCellView: NSTableCellView {
             machine.isRunning
             ? Self.color(for: machine.distro.name)
             : .tertiaryLabelColor
-        statusDot.layer?.backgroundColor = Self.color(for: machine.state).cgColor
+        statusColor = Self.color(for: machine.state)
 
         toggleButton.image = NSImage(
             systemSymbolName: machine.isRunning ? "stop.fill" : "play.fill",
@@ -558,9 +597,8 @@ private final class MachineTableCellView: NSTableCellView {
         deleteButton.toolTip = "Delete machine"
         deleteButton.setAccessibilityLabel("Delete \(machine.name)")
 
+        isBusy = machine.isBusy
         busyIndicator.isHidden = !machine.isBusy
-        toggleButton.isHidden = machine.isBusy
-        deleteButton.isHidden = machine.isBusy
         toggleButton.isEnabled = !machine.isBusy
         deleteButton.isEnabled = !machine.isBusy
         if machine.isBusy {
@@ -573,6 +611,7 @@ private final class MachineTableCellView: NSTableCellView {
             self.onToggle = onToggle
             self.onDelete = onDelete
         }
+        updateActionVisibility()
 
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
@@ -583,14 +622,19 @@ private final class MachineTableCellView: NSTableCellView {
         updateColors()
     }
 
+    func setShowsActions(_ showsActions: Bool) {
+        self.showsActions = showsActions
+        updateActionVisibility()
+    }
+
     private func configureButton(
-        _ button: NSButton,
+        _ button: ResourceActionButton,
         identifier: String,
         action: Selector
     ) {
         button.identifier = NSUserInterfaceItemIdentifier(identifier)
-        button.isBordered = false
         button.contentTintColor = .secondaryLabelColor
+        button.isHidden = true
         button.target = self
         button.action = action
         button.translatesAutoresizingMaskIntoConstraints = false
@@ -600,7 +644,7 @@ private final class MachineTableCellView: NSTableCellView {
         let hash = distro.utf8.reduce(0) { value, byte in
             value &* 31 &+ Int(byte)
         }
-        let index = Int(UInt(bitPattern: hash) % UInt(palette.count))
+        let index = Int(hash.magnitude % UInt(palette.count))
         return palette[index]
     }
 
@@ -624,6 +668,17 @@ private final class MachineTableCellView: NSTableCellView {
         deleteButton.contentTintColor =
             isSelected ? .alternateSelectedControlTextColor : .secondaryLabelColor
         machineImageView.contentTintColor = iconColor
+        statusDot.layer?.backgroundColor = statusColor.cgColor
+        statusDot.layer?.borderColor =
+            (isSelected ? NSColor.controlAccentColor : NSColor.textBackgroundColor).cgColor
+    }
+
+    private func updateActionVisibility() {
+        let showsMachineActions = showsActions && !isBusy
+        toggleButton.isHidden = !showsMachineActions
+        deleteButton.isHidden = !showsMachineActions
+        labelsToActionsConstraint?.isActive = showsMachineActions
+        labelsToBusyConstraint?.isActive = isBusy
     }
 
     @objc private func togglePressed() {

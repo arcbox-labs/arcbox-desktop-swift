@@ -44,6 +44,8 @@ final class ServicesListViewController: NSViewController,
     private let placeholderView = StatePlaceholderView(
         state: .loading(title: "Checking Kubernetes…")
     )
+    private let kubernetesDisabledView = KubernetesDisabledView()
+    private let emptyLabel = NSTextField(labelWithString: "")
 
     private var snapshot: Snapshot?
     private var canControl: Bool
@@ -90,9 +92,17 @@ final class ServicesListViewController: NSViewController,
         contentStack.addArrangedSubview(scrollView)
         contentStack.translatesAutoresizingMaskIntoConstraints = false
         placeholderView.translatesAutoresizingMaskIntoConstraints = false
+        kubernetesDisabledView.translatesAutoresizingMaskIntoConstraints = false
+
+        emptyLabel.alignment = .center
+        emptyLabel.font = .systemFont(ofSize: 13)
+        emptyLabel.textColor = .secondaryLabelColor
+        emptyLabel.translatesAutoresizingMaskIntoConstraints = false
 
         container.addSubview(contentStack)
         container.addSubview(placeholderView)
+        container.addSubview(kubernetesDisabledView)
+        container.addSubview(emptyLabel)
         NSLayoutConstraint.activate([
             contentStack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             contentStack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -104,6 +114,20 @@ final class ServicesListViewController: NSViewController,
             placeholderView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             placeholderView.topAnchor.constraint(equalTo: container.topAnchor),
             placeholderView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            kubernetesDisabledView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            kubernetesDisabledView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            kubernetesDisabledView.topAnchor.constraint(equalTo: container.topAnchor),
+            kubernetesDisabledView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            emptyLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            emptyLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            emptyLabel.leadingAnchor.constraint(
+                greaterThanOrEqualTo: container.leadingAnchor,
+                constant: 16
+            ),
+            emptyLabel.trailingAnchor.constraint(
+                lessThanOrEqualTo: container.trailingAnchor,
+                constant: -16
+            ),
         ])
 
         view = container
@@ -153,6 +177,10 @@ final class ServicesListViewController: NSViewController,
 
     func tableView(_: NSTableView, heightOfRow _: Int) -> CGFloat {
         AppMetrics.rowHeight
+    }
+
+    func tableView(_: NSTableView, rowViewForRow _: Int) -> NSTableRowView? {
+        ResourceListRowView(horizontalInset: 8)
     }
 
     func tableViewSelectionDidChange(_: Notification) {
@@ -205,18 +233,11 @@ final class ServicesListViewController: NSViewController,
             case .checking:
                 showPlaceholder(.loading(title: "Checking Kubernetes…"))
             case .disabled:
-                showPlaceholder(
-                    .empty(
-                        systemImage: "gear",
-                        title: "Kubernetes Disabled",
-                        message: snapshot.canControl ? nil : "ArcBox daemon is unavailable."
-                    ),
-                    action: snapshot.canControl
-                        ? .init(title: "Turn On", handler: onStart)
-                        : nil
+                showKubernetesDisabled(
+                    .disabled(canControl: snapshot.canControl)
                 )
             case .starting:
-                showPlaceholder(.loading(title: "Starting Kubernetes…"))
+                showKubernetesDisabled(.starting)
             case .ready:
                 renderReady(snapshot)
             case .stopping:
@@ -240,15 +261,9 @@ final class ServicesListViewController: NSViewController,
         guard snapshot.hasServices else {
             switch snapshot.streamPhase {
             case .connecting:
-                showPlaceholder(.loading(title: "Loading services…"))
+                showPlaceholder(.loading(title: nil))
             case .live:
-                showPlaceholder(
-                    .empty(
-                        systemImage: "network",
-                        title: "No services",
-                        message: nil
-                    )
-                )
+                showEmptyText("No services")
             case .reconnecting(let attempt, let lastError):
                 showPlaceholder(
                     .error(
@@ -293,20 +308,22 @@ final class ServicesListViewController: NSViewController,
         message: String,
         canControl: Bool
     ) {
-        let title: String
-        let action: StatePlaceholderView.Action?
         switch operation {
         case .status:
-            title = "Unable to check Kubernetes"
-            action = canControl ? .init(title: "Retry", handler: onCheckStatus) : nil
+            showPlaceholder(
+                .error(title: "Unable to check Kubernetes", message: message),
+                action: canControl ? .init(title: "Retry", handler: onCheckStatus) : nil
+            )
         case .start:
-            title = "Failed to start Kubernetes"
-            action = canControl ? .init(title: "Retry", handler: onStart) : nil
+            showKubernetesDisabled(
+                .startFailed(message: message, canControl: canControl)
+            )
         case .stop:
-            title = "Failed to stop Kubernetes"
-            action = canControl ? .init(title: "Retry", handler: onStop) : nil
+            showPlaceholder(
+                .error(title: "Failed to stop Kubernetes", message: message),
+                action: canControl ? .init(title: "Retry", handler: onStop) : nil
+            )
         }
-        showPlaceholder(.error(title: title, message: message), action: action)
     }
 
     private func reconnectMessage(attempt: Int, lastError: String?) -> String {
@@ -322,11 +339,33 @@ final class ServicesListViewController: NSViewController,
         statusIndicator.stopAnimation(nil)
         placeholderView.update(state, action: action)
         placeholderView.isHidden = false
+        kubernetesDisabledView.isHidden = true
+        emptyLabel.isHidden = true
+        contentStack.isHidden = true
+    }
+
+    private func showKubernetesDisabled(_ state: KubernetesDisabledView.State) {
+        statusIndicator.stopAnimation(nil)
+        kubernetesDisabledView.update(state, onTurnOn: onStart)
+        kubernetesDisabledView.isHidden = false
+        placeholderView.isHidden = true
+        emptyLabel.isHidden = true
+        contentStack.isHidden = true
+    }
+
+    private func showEmptyText(_ text: String) {
+        statusIndicator.stopAnimation(nil)
+        emptyLabel.stringValue = text
+        emptyLabel.isHidden = false
+        placeholderView.isHidden = true
+        kubernetesDisabledView.isHidden = true
         contentStack.isHidden = true
     }
 
     private func showTable(status: String? = nil) {
         placeholderView.isHidden = true
+        kubernetesDisabledView.isHidden = true
+        emptyLabel.isHidden = true
         contentStack.isHidden = false
         statusBar.isHidden = status == nil
         statusLabel.stringValue = status ?? ""
@@ -347,7 +386,7 @@ final class ServicesListViewController: NSViewController,
         tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         tableView.allowsMultipleSelection = false
         tableView.allowsEmptySelection = true
-        tableView.selectionHighlightStyle = .regular
+        tableView.selectionHighlightStyle = .none
         tableView.dataSource = self
         tableView.delegate = self
         tableView.setAccessibilityLabel("Services")
@@ -449,11 +488,12 @@ private final class ServiceTableCellView: NSTableCellView {
         iconBox.boxType = .custom
         iconBox.borderWidth = 0
         iconBox.cornerRadius = 6
-        iconBox.fillColor = .quaternarySystemFill
+        iconBox.fillColor = AppColors.iconBackgroundNSColor
         iconBox.translatesAutoresizingMaskIntoConstraints = false
 
         serviceImageView.image = NSImage(systemSymbolName: "network", accessibilityDescription: nil)
         serviceImageView.symbolConfiguration = .init(pointSize: 14, weight: .regular)
+        serviceImageView.contentTintColor = .secondaryLabelColor
         serviceImageView.setAccessibilityElement(false)
         serviceImageView.translatesAutoresizingMaskIntoConstraints = false
         iconBox.addSubview(serviceImageView)
@@ -478,7 +518,7 @@ private final class ServiceTableCellView: NSTableCellView {
         textField = nameLabel
 
         NSLayoutConstraint.activate([
-            iconBox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            iconBox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             iconBox.centerYAnchor.constraint(equalTo: centerYAnchor),
             iconBox.widthAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
             iconBox.heightAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
@@ -486,8 +526,8 @@ private final class ServiceTableCellView: NSTableCellView {
             serviceImageView.centerYAnchor.constraint(equalTo: iconBox.centerYAnchor),
             serviceImageView.widthAnchor.constraint(equalToConstant: 20),
             serviceImageView.heightAnchor.constraint(equalToConstant: 20),
-            labels.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 10),
-            labels.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            labels.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 12),
+            labels.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             labels.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
     }
@@ -505,8 +545,7 @@ private final class ServiceTableCellView: NSTableCellView {
                 isSelected
                 ? .alternateSelectedControlTextColor.withAlphaComponent(0.67)
                 : .secondaryLabelColor
-            serviceImageView.contentTintColor =
-                isSelected ? .alternateSelectedControlTextColor : .secondaryLabelColor
+            serviceImageView.contentTintColor = .secondaryLabelColor
         }
     }
 

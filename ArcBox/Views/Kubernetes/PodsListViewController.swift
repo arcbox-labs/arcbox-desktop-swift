@@ -44,6 +44,8 @@ final class PodsListViewController: NSViewController,
     private let placeholderView = StatePlaceholderView(
         state: .loading(title: "Checking Kubernetes…")
     )
+    private let kubernetesDisabledView = KubernetesDisabledView()
+    private let emptyLabel = NSTextField(labelWithString: "")
 
     private var snapshot: Snapshot?
     private var canControl: Bool
@@ -90,9 +92,17 @@ final class PodsListViewController: NSViewController,
         contentStack.addArrangedSubview(scrollView)
         contentStack.translatesAutoresizingMaskIntoConstraints = false
         placeholderView.translatesAutoresizingMaskIntoConstraints = false
+        kubernetesDisabledView.translatesAutoresizingMaskIntoConstraints = false
+
+        emptyLabel.alignment = .center
+        emptyLabel.font = .systemFont(ofSize: 13)
+        emptyLabel.textColor = .secondaryLabelColor
+        emptyLabel.translatesAutoresizingMaskIntoConstraints = false
 
         container.addSubview(contentStack)
         container.addSubview(placeholderView)
+        container.addSubview(kubernetesDisabledView)
+        container.addSubview(emptyLabel)
         NSLayoutConstraint.activate([
             contentStack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             contentStack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -104,6 +114,20 @@ final class PodsListViewController: NSViewController,
             placeholderView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             placeholderView.topAnchor.constraint(equalTo: container.topAnchor),
             placeholderView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            kubernetesDisabledView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            kubernetesDisabledView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            kubernetesDisabledView.topAnchor.constraint(equalTo: container.topAnchor),
+            kubernetesDisabledView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            emptyLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            emptyLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            emptyLabel.leadingAnchor.constraint(
+                greaterThanOrEqualTo: container.leadingAnchor,
+                constant: 16
+            ),
+            emptyLabel.trailingAnchor.constraint(
+                lessThanOrEqualTo: container.trailingAnchor,
+                constant: -16
+            ),
         ])
 
         view = container
@@ -153,6 +177,10 @@ final class PodsListViewController: NSViewController,
 
     func tableView(_: NSTableView, heightOfRow _: Int) -> CGFloat {
         AppMetrics.rowHeight
+    }
+
+    func tableView(_: NSTableView, rowViewForRow _: Int) -> NSTableRowView? {
+        ResourceListRowView(horizontalInset: 8)
     }
 
     func tableViewSelectionDidChange(_: Notification) {
@@ -205,18 +233,11 @@ final class PodsListViewController: NSViewController,
             case .checking:
                 showPlaceholder(.loading(title: "Checking Kubernetes…"))
             case .disabled:
-                showPlaceholder(
-                    .empty(
-                        systemImage: "gear",
-                        title: "Kubernetes Disabled",
-                        message: snapshot.canControl ? nil : "ArcBox daemon is unavailable."
-                    ),
-                    action: snapshot.canControl
-                        ? .init(title: "Turn On", handler: onStart)
-                        : nil
+                showKubernetesDisabled(
+                    .disabled(canControl: snapshot.canControl)
                 )
             case .starting:
-                showPlaceholder(.loading(title: "Starting Kubernetes…"))
+                showKubernetesDisabled(.starting)
             case .ready:
                 renderReady(snapshot)
             case .stopping:
@@ -240,15 +261,9 @@ final class PodsListViewController: NSViewController,
         guard snapshot.hasPods else {
             switch snapshot.streamPhase {
             case .connecting:
-                showPlaceholder(.loading(title: "Loading pods…"))
+                showPlaceholder(.loading(title: nil))
             case .live:
-                showPlaceholder(
-                    .empty(
-                        systemImage: "cube",
-                        title: "No pods",
-                        message: nil
-                    )
-                )
+                showEmptyText("No pods")
             case .reconnecting(let attempt, let lastError):
                 showPlaceholder(
                     .error(
@@ -293,20 +308,22 @@ final class PodsListViewController: NSViewController,
         message: String,
         canControl: Bool
     ) {
-        let title: String
-        let action: StatePlaceholderView.Action?
         switch operation {
         case .status:
-            title = "Unable to check Kubernetes"
-            action = canControl ? .init(title: "Retry", handler: onCheckStatus) : nil
+            showPlaceholder(
+                .error(title: "Unable to check Kubernetes", message: message),
+                action: canControl ? .init(title: "Retry", handler: onCheckStatus) : nil
+            )
         case .start:
-            title = "Failed to start Kubernetes"
-            action = canControl ? .init(title: "Retry", handler: onStart) : nil
+            showKubernetesDisabled(
+                .startFailed(message: message, canControl: canControl)
+            )
         case .stop:
-            title = "Failed to stop Kubernetes"
-            action = canControl ? .init(title: "Retry", handler: onStop) : nil
+            showPlaceholder(
+                .error(title: "Failed to stop Kubernetes", message: message),
+                action: canControl ? .init(title: "Retry", handler: onStop) : nil
+            )
         }
-        showPlaceholder(.error(title: title, message: message), action: action)
     }
 
     private func reconnectMessage(attempt: Int, lastError: String?) -> String {
@@ -322,11 +339,33 @@ final class PodsListViewController: NSViewController,
         statusIndicator.stopAnimation(nil)
         placeholderView.update(state, action: action)
         placeholderView.isHidden = false
+        kubernetesDisabledView.isHidden = true
+        emptyLabel.isHidden = true
+        contentStack.isHidden = true
+    }
+
+    private func showKubernetesDisabled(_ state: KubernetesDisabledView.State) {
+        statusIndicator.stopAnimation(nil)
+        kubernetesDisabledView.update(state, onTurnOn: onStart)
+        kubernetesDisabledView.isHidden = false
+        placeholderView.isHidden = true
+        emptyLabel.isHidden = true
+        contentStack.isHidden = true
+    }
+
+    private func showEmptyText(_ text: String) {
+        statusIndicator.stopAnimation(nil)
+        emptyLabel.stringValue = text
+        emptyLabel.isHidden = false
+        placeholderView.isHidden = true
+        kubernetesDisabledView.isHidden = true
         contentStack.isHidden = true
     }
 
     private func showTable(status: String? = nil) {
         placeholderView.isHidden = true
+        kubernetesDisabledView.isHidden = true
+        emptyLabel.isHidden = true
         contentStack.isHidden = false
         statusBar.isHidden = status == nil
         statusLabel.stringValue = status ?? ""
@@ -347,7 +386,7 @@ final class PodsListViewController: NSViewController,
         tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         tableView.allowsMultipleSelection = false
         tableView.allowsEmptySelection = true
-        tableView.selectionHighlightStyle = .regular
+        tableView.selectionHighlightStyle = .none
         tableView.dataSource = self
         tableView.delegate = self
         tableView.setAccessibilityLabel("Pods")
@@ -448,12 +487,138 @@ final class PodsListViewController: NSViewController,
 }
 
 @MainActor
+final class KubernetesDisabledView: NSView {
+    enum State {
+        case disabled(canControl: Bool)
+        case starting
+        case startFailed(message: String, canControl: Bool)
+    }
+
+    private let iconView = NSImageView()
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let errorLabel = NSTextField(labelWithString: "")
+    private let progressIndicator = NSProgressIndicator()
+    private let actionButton = NSButton()
+    private var actionHandler: (@MainActor () -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+
+        iconView.identifier = NSUserInterfaceItemIdentifier("KubernetesDisabledIcon")
+        iconView.image = NSImage(systemSymbolName: "gear", accessibilityDescription: nil)
+        iconView.imageScaling = .scaleProportionallyDown
+        iconView.symbolConfiguration = .init(pointSize: 48, weight: .regular)
+        iconView.contentTintColor = .tertiaryLabelColor
+        iconView.setAccessibilityElement(false)
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+
+        titleLabel.identifier = NSUserInterfaceItemIdentifier("KubernetesDisabledTitle")
+        titleLabel.alignment = .center
+        titleLabel.font = .systemFont(ofSize: 20, weight: .medium)
+        titleLabel.textColor = .secondaryLabelColor
+
+        errorLabel.identifier = NSUserInterfaceItemIdentifier("KubernetesDisabledError")
+        errorLabel.alignment = .center
+        errorLabel.font = .systemFont(ofSize: 12)
+        errorLabel.textColor = .systemRed
+        errorLabel.maximumNumberOfLines = 0
+        errorLabel.lineBreakMode = .byWordWrapping
+
+        progressIndicator.identifier = NSUserInterfaceItemIdentifier(
+            "KubernetesDisabledProgress"
+        )
+        progressIndicator.style = .spinning
+        progressIndicator.controlSize = .regular
+        progressIndicator.isIndeterminate = true
+
+        actionButton.identifier = NSUserInterfaceItemIdentifier("KubernetesDisabledAction")
+        actionButton.bezelStyle = .rounded
+        actionButton.bezelColor = .controlAccentColor
+        actionButton.contentTintColor = .white
+        actionButton.controlSize = .regular
+        actionButton.font = .systemFont(ofSize: 13)
+        actionButton.target = self
+        actionButton.action = #selector(performAction)
+
+        let stack = NSStackView(
+            views: [iconView, titleLabel, errorLabel, progressIndicator, actionButton]
+        )
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 20
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: centerYAnchor),
+            stack.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -24),
+            iconView.widthAnchor.constraint(equalToConstant: 48),
+            iconView.heightAnchor.constraint(equalToConstant: 48),
+            errorLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 420),
+        ])
+
+        update(.disabled(canControl: true), onTurnOn: {})
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(_ state: State, onTurnOn: @escaping @MainActor () -> Void) {
+        progressIndicator.stopAnimation(nil)
+        progressIndicator.isHidden = true
+        errorLabel.isHidden = true
+        actionButton.isHidden = true
+        actionHandler = nil
+
+        switch state {
+        case .disabled(let canControl):
+            titleLabel.stringValue = "Kubernetes Disabled"
+            if canControl {
+                actionButton.title = "Turn On"
+                actionButton.isHidden = false
+                actionHandler = onTurnOn
+            } else {
+                errorLabel.stringValue = "ArcBox daemon is unavailable."
+                errorLabel.isHidden = false
+            }
+        case .starting:
+            titleLabel.stringValue = "Starting Kubernetes…"
+            progressIndicator.isHidden = false
+            progressIndicator.startAnimation(nil)
+        case .startFailed(let message, let canControl):
+            titleLabel.stringValue = "Kubernetes Disabled"
+            errorLabel.stringValue = message
+            errorLabel.isHidden = false
+            if canControl {
+                actionButton.title = "Retry"
+                actionButton.isHidden = false
+                actionHandler = onTurnOn
+            }
+        }
+
+        setAccessibilityElement(true)
+        setAccessibilityRole(.group)
+        setAccessibilityLabel(titleLabel.stringValue)
+        setAccessibilityHelp(errorLabel.isHidden ? nil : errorLabel.stringValue)
+    }
+
+    @objc private func performAction() {
+        actionHandler?()
+    }
+}
+
+@MainActor
 private final class PodTableCellView: NSTableCellView {
     private let iconBox = NSBox()
     private let podImageView = NSImageView()
     private let nameLabel = NSTextField(labelWithString: "")
     private let namespaceLabel = NSTextField(labelWithString: "")
     private let statusDot = NSView()
+    private var statusColor = NSColor.secondaryLabelColor
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -461,11 +626,12 @@ private final class PodTableCellView: NSTableCellView {
         iconBox.boxType = .custom
         iconBox.borderWidth = 0
         iconBox.cornerRadius = 6
-        iconBox.fillColor = .quaternarySystemFill
+        iconBox.fillColor = AppColors.iconBackgroundNSColor
         iconBox.translatesAutoresizingMaskIntoConstraints = false
 
         podImageView.image = NSImage(systemSymbolName: "cube", accessibilityDescription: nil)
         podImageView.symbolConfiguration = .init(pointSize: 14, weight: .regular)
+        podImageView.contentTintColor = .secondaryLabelColor
         podImageView.setAccessibilityElement(false)
         podImageView.translatesAutoresizingMaskIntoConstraints = false
         iconBox.addSubview(podImageView)
@@ -484,6 +650,7 @@ private final class PodTableCellView: NSTableCellView {
         labels.spacing = 2
         labels.translatesAutoresizingMaskIntoConstraints = false
 
+        statusDot.identifier = NSUserInterfaceItemIdentifier("PodStatusDot")
         statusDot.wantsLayer = true
         statusDot.layer?.cornerRadius = AppMetrics.statusDot / 2
         statusDot.setAccessibilityElement(false)
@@ -496,7 +663,7 @@ private final class PodTableCellView: NSTableCellView {
         textField = nameLabel
 
         NSLayoutConstraint.activate([
-            iconBox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            iconBox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             iconBox.centerYAnchor.constraint(equalTo: centerYAnchor),
             iconBox.widthAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
             iconBox.heightAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
@@ -504,10 +671,10 @@ private final class PodTableCellView: NSTableCellView {
             podImageView.centerYAnchor.constraint(equalTo: iconBox.centerYAnchor),
             podImageView.widthAnchor.constraint(equalToConstant: 20),
             podImageView.heightAnchor.constraint(equalToConstant: 20),
-            labels.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 10),
+            labels.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 12),
             labels.centerYAnchor.constraint(equalTo: centerYAnchor),
             labels.trailingAnchor.constraint(lessThanOrEqualTo: statusDot.leadingAnchor, constant: -8),
-            statusDot.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            statusDot.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             statusDot.centerYAnchor.constraint(equalTo: centerYAnchor),
             statusDot.widthAnchor.constraint(equalToConstant: AppMetrics.statusDot),
             statusDot.heightAnchor.constraint(equalToConstant: AppMetrics.statusDot),
@@ -527,15 +694,20 @@ private final class PodTableCellView: NSTableCellView {
                 isSelected
                 ? .alternateSelectedControlTextColor.withAlphaComponent(0.67)
                 : .secondaryLabelColor
-            podImageView.contentTintColor =
-                isSelected ? .alternateSelectedControlTextColor : .secondaryLabelColor
+            podImageView.contentTintColor = .secondaryLabelColor
         }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        statusDot.layer?.backgroundColor = statusColor.cgColor
     }
 
     func configure(pod: PodViewModel) {
         nameLabel.stringValue = pod.name
         namespaceLabel.stringValue = pod.namespace
-        statusDot.layer?.backgroundColor = Self.color(for: pod.phase).cgColor
+        statusColor = Self.color(for: pod.phase)
+        statusDot.layer?.backgroundColor = statusColor.cgColor
         setAccessibilityElement(true)
         setAccessibilityLabel("\(pod.name), \(pod.phase.rawValue)")
     }

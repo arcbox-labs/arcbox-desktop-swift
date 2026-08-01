@@ -21,10 +21,20 @@ final class KubernetesListViewControllerTests: XCTestCase {
         let rootView = controller.view
         let tableView = try XCTUnwrap(findTableView(in: rootView))
 
-        XCTAssertTrue(hasText("Loading pods…", in: rootView))
+        XCTAssertFalse(hasText("Loading pods…", in: rootView))
+        XCTAssertEqual(
+            try XCTUnwrap(
+                visibleView(identifier: "StatePlaceholderProgress", in: rootView)
+                    as? NSProgressIndicator
+            ).controlSize,
+            .regular
+        )
 
         viewModel.streamPhase = .live
         try await waitUntil { self.hasText("No pods", in: rootView) }
+        let noPodsLabel = try XCTUnwrap(textField(titled: "No pods", in: rootView))
+        XCTAssertEqual(noPodsLabel.font?.pointSize, 13)
+        XCTAssertEqual(noPodsLabel.textColor, .secondaryLabelColor)
 
         viewModel.streamPhase = .reconnecting(attempt: 2, lastError: "Connection lost")
         try await waitUntil {
@@ -42,6 +52,22 @@ final class KubernetesListViewControllerTests: XCTestCase {
 
         viewModel.selectedID = "beta"
         try await waitUntil { tableView.selectedRow == 1 }
+        let betaCell = try XCTUnwrap(
+            tableView.view(atColumn: 0, row: 1, makeIfNecessary: true)
+                as? NSTableCellView
+        )
+        betaCell.frame = NSRect(x: 0, y: 0, width: 360, height: AppMetrics.rowHeight)
+        betaCell.layoutSubtreeIfNeeded()
+        let podIconBox = try XCTUnwrap(ancestorBox(of: betaCell.imageView))
+        let podLabels = try XCTUnwrap(betaCell.textField?.superview as? NSStackView)
+        let podStatusDot = try XCTUnwrap(
+            view(identifier: "PodStatusDot", in: betaCell)
+        )
+        XCTAssertEqual(podIconBox.fillColor, AppColors.iconBackgroundNSColor)
+        XCTAssertEqual(podIconBox.frame.minX, 16, accuracy: 0.5)
+        XCTAssertEqual(podLabels.frame.minX - podIconBox.frame.maxX, 12, accuracy: 0.5)
+        XCTAssertEqual(betaCell.bounds.maxX - podStatusDot.frame.maxX, 16, accuracy: 0.5)
+        XCTAssertEqual(betaCell.imageView?.contentTintColor, .secondaryLabelColor)
 
         viewModel.searchText = "alpha"
         try await waitUntil { tableView.numberOfRows == 1 && tableView.selectedRow == -1 }
@@ -85,8 +111,27 @@ final class KubernetesListViewControllerTests: XCTestCase {
             onRetryStreams: {}
         )
         let disabledRoot = disabledController.view
+        disabledRoot.frame = NSRect(x: 0, y: 0, width: 600, height: 500)
+        disabledRoot.layoutSubtreeIfNeeded()
 
-        try XCTUnwrap(visibleButton(titled: "Turn On", in: disabledRoot)).performClick(nil)
+        let disabledIcon = try XCTUnwrap(
+            visibleView(identifier: "KubernetesDisabledIcon", in: disabledRoot)
+        )
+        let disabledTitle = try XCTUnwrap(
+            textField(titled: "Kubernetes Disabled", in: disabledRoot)
+        )
+        let turnOnButton = try XCTUnwrap(visibleButton(titled: "Turn On", in: disabledRoot))
+        XCTAssertEqual(disabledIcon.frame.width, 48, accuracy: 0.5)
+        XCTAssertEqual((disabledIcon.superview as? NSStackView)?.spacing, 20)
+        XCTAssertEqual(
+            disabledTitle.font,
+            NSFont.systemFont(ofSize: 20, weight: .medium)
+        )
+        XCTAssertEqual(disabledTitle.textColor, .secondaryLabelColor)
+        XCTAssertEqual(turnOnButton.controlSize, .regular)
+        XCTAssertEqual(turnOnButton.bezelStyle, .rounded)
+        XCTAssertEqual(turnOnButton.bezelColor, .controlAccentColor)
+        turnOnButton.performClick(nil)
         XCTAssertTrue(didStart)
 
         let readyState = KubernetesState(lifecycle: .ready)
@@ -111,6 +156,27 @@ final class KubernetesListViewControllerTests: XCTestCase {
         XCTAssertEqual(tableView.numberOfRows, 2)
         tableView.selectRowIndexes(IndexSet(integer: 1), byExtendingSelection: false)
         XCTAssertEqual(viewModel.selectedID, "database")
+        let selectedCell = try XCTUnwrap(
+            tableView.view(atColumn: 0, row: 1, makeIfNecessary: true)
+                as? NSTableCellView
+        )
+        selectedCell.frame = NSRect(x: 0, y: 0, width: 360, height: AppMetrics.rowHeight)
+        selectedCell.layoutSubtreeIfNeeded()
+        let serviceIconBox = try XCTUnwrap(ancestorBox(of: selectedCell.imageView))
+        let serviceLabels = try XCTUnwrap(selectedCell.textField?.superview as? NSStackView)
+        XCTAssertEqual(serviceIconBox.fillColor, AppColors.iconBackgroundNSColor)
+        XCTAssertEqual(serviceIconBox.frame.minX, 16, accuracy: 0.5)
+        XCTAssertEqual(
+            serviceLabels.frame.minX - serviceIconBox.frame.maxX,
+            12,
+            accuracy: 0.5
+        )
+        XCTAssertEqual(
+            selectedCell.bounds.maxX - serviceLabels.frame.maxX,
+            16,
+            accuracy: 0.5
+        )
+        XCTAssertEqual(selectedCell.imageView?.contentTintColor, .secondaryLabelColor)
 
         viewModel.searchText = "api"
         try await waitUntil { tableView.numberOfRows == 1 && tableView.selectedRow == -1 }
@@ -121,6 +187,78 @@ final class KubernetesListViewControllerTests: XCTestCase {
             tableView.numberOfRows == 0
                 && self.hasText("No Results", in: rootView)
         }
+    }
+
+    @MainActor
+    func testStartingStartFailureAndEmptyServicesMatchLegacyPresentation() throws {
+        let startingController = PodsListViewController(
+            state: KubernetesState(lifecycle: .starting),
+            viewModel: PodsViewModel(),
+            canControl: true,
+            onCheckStatus: {},
+            onStart: {},
+            onStop: {},
+            onRetryStreams: {}
+        )
+        let startingRoot = startingController.view
+        XCTAssertTrue(hasText("Starting Kubernetes…", in: startingRoot))
+        let progress = try XCTUnwrap(
+            visibleView(identifier: "KubernetesDisabledProgress", in: startingRoot)
+                as? NSProgressIndicator
+        )
+        XCTAssertEqual(progress.controlSize, .regular)
+
+        var didRetry = false
+        let failedController = ServicesListViewController(
+            state: KubernetesState(lifecycle: .failed(.start, "Kubernetes did not start.")),
+            viewModel: ServicesViewModel(),
+            canControl: true,
+            onCheckStatus: {},
+            onStart: { didRetry = true },
+            onStop: {},
+            onRetryStreams: {}
+        )
+        let failedRoot = failedController.view
+        let errorLabel = try XCTUnwrap(
+            textField(titled: "Kubernetes did not start.", in: failedRoot)
+        )
+        XCTAssertEqual(errorLabel.font?.pointSize, 12)
+        XCTAssertEqual(errorLabel.textColor, .systemRed)
+        try XCTUnwrap(visibleButton(titled: "Retry", in: failedRoot)).performClick(nil)
+        XCTAssertTrue(didRetry)
+
+        let loadingServicesController = ServicesListViewController(
+            state: KubernetesState(lifecycle: .ready),
+            viewModel: ServicesViewModel(),
+            canControl: true,
+            onCheckStatus: {},
+            onStart: {},
+            onStop: {},
+            onRetryStreams: {}
+        )
+        let loadingServicesRoot = loadingServicesController.view
+        XCTAssertFalse(hasText("Loading services…", in: loadingServicesRoot))
+        XCTAssertNotNil(
+            visibleView(identifier: "StatePlaceholderProgress", in: loadingServicesRoot)
+                as? NSProgressIndicator
+        )
+
+        let emptyServicesModel = ServicesViewModel()
+        emptyServicesModel.streamPhase = .live
+        let emptyServicesController = ServicesListViewController(
+            state: KubernetesState(lifecycle: .ready),
+            viewModel: emptyServicesModel,
+            canControl: true,
+            onCheckStatus: {},
+            onStart: {},
+            onStop: {},
+            onRetryStreams: {}
+        )
+        let emptyServicesLabel = try XCTUnwrap(
+            textField(titled: "No services", in: emptyServicesController.view)
+        )
+        XCTAssertEqual(emptyServicesLabel.font?.pointSize, 13)
+        XCTAssertEqual(emptyServicesLabel.textColor, .secondaryLabelColor)
     }
 
     @MainActor
@@ -212,6 +350,44 @@ final class KubernetesListViewControllerTests: XCTestCase {
             return true
         }
         return view.subviews.contains { self.hasText(text, in: $0) }
+    }
+
+    @MainActor
+    private func textField(titled title: String, in view: NSView) -> NSTextField? {
+        guard !view.isHiddenOrHasHiddenAncestor else { return nil }
+        if let textField = view as? NSTextField, textField.stringValue == title {
+            return textField
+        }
+        return view.subviews.lazy.compactMap {
+            self.textField(titled: title, in: $0)
+        }.first
+    }
+
+    @MainActor
+    private func visibleView(identifier: String, in view: NSView) -> NSView? {
+        guard !view.isHiddenOrHasHiddenAncestor else { return nil }
+        if view.identifier == NSUserInterfaceItemIdentifier(identifier) {
+            return view
+        }
+        return view.subviews.lazy.compactMap {
+            self.visibleView(identifier: identifier, in: $0)
+        }.first
+    }
+
+    @MainActor
+    private func view(identifier: String, in view: NSView) -> NSView? {
+        if view.identifier == NSUserInterfaceItemIdentifier(identifier) {
+            return view
+        }
+        return view.subviews.lazy.compactMap {
+            self.view(identifier: identifier, in: $0)
+        }.first
+    }
+
+    @MainActor
+    private func ancestorBox(of view: NSView?) -> NSBox? {
+        guard let superview = view?.superview else { return nil }
+        return superview as? NSBox ?? ancestorBox(of: superview)
     }
 
     private func pod(id: String, name: String) -> PodViewModel {

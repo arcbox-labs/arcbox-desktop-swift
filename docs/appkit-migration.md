@@ -7,10 +7,11 @@
 > 目标：第一方运行时代码最终不再依赖 SwiftUI、Swift Charts、`NSHostingView` 或
 > `NSViewRepresentable` 或 `NSViewControllerRepresentable`
 
-当前过渡边界：主窗口外层为 AppKit 固定侧栏与内容容器；Containers／Volumes／Networks／Images／
-Machines 的列表行、分组、选择及 loading／empty／error 已由 AppKit 接管，其中 Containers 使用
-原生 Compose outline，Networks 的 Info／Connected Containers 详情亦已原生化。其 toolbar、创建
-sheet 与其他详情仍在过渡 host。其他内容／详情、设置与菜单栏中尚未迁移的 feature 临时使用
+当前过渡边界：AppKit window 暂时承载唯一的 SwiftUI 三栏 `NavigationSplitView`，其中 sidebar
+通过 representable 嵌入原生 AppKit controller。Containers／Volumes／Networks／Images／Machines
+的列表行、分组、选择及 loading／empty／error 已由 AppKit 接管，其中 Containers 使用原生 Compose
+outline，Networks 的 Info／Connected Containers 详情亦已原生化。其 toolbar、创建 sheet 与其他
+详情仍在过渡 host。其他内容／详情、设置与菜单栏中尚未迁移的 feature 临时使用
 `NSHostingController`。这一边界只用于保持每个迁移提交可运行，最终静态门槛仍要求全部删除。
 
 ## 1. 范围、假设与完成定义
@@ -653,8 +654,9 @@ Task 归属：
 | `ContentUnavailableView` | 共享轻量 `StatePlaceholderView` |
 | `Form` | `NSScrollView` + `NSStackView` + `NSGridView` |
 
-只新增一个 `StatePlaceholderView`，覆盖 loading、empty、error 和可选 action；不为每个 feature
-复制一套 placeholder，也不造完整 UI framework。
+共享 `StatePlaceholderView` 覆盖 loading、搜索为空、通用加载错误、详情未选择和纯文本状态；
+Kubernetes 未启用／启动失败与 Machines 引导态保留各自的呈现，因为它们的图标、字号、说明和按钮
+层级不同。共享状态只抽取确实一致的结构，不造完整 UI framework。
 
 ### 7.3 列表与 feature 组件
 
@@ -670,6 +672,11 @@ Task 归属：
 | Swift Charts sparkline | 小型自定义 `NSView` + shape／gradient layers | mouse tracking 完成 scrub |
 | Sandbox ports／snapshots／events | `NSTableView` + 顶部 controls | 状态显式化 |
 | Menu bar container rows | `NSTableView` | 复用 selection 与 cell lifecycle |
+
+资源行必须保留 SwiftUI 基线几何：行高 44，Docker 行选中／hover 背景水平缩进 12，
+Machines／Kubernetes 为 8，圆角 6；内容整体左右 24，Kubernetes 内容左右 16，图标块 32 且使用
+不透出 selection 的 opaque background。操作按钮为 26 × 26、12 pt symbol、hover 圆角 5；仅在
+hover／selection 时参与 layout，隐藏后不保留宽度。
 
 ### 7.4 Modifier 与行为
 
