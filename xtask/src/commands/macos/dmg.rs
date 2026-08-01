@@ -20,7 +20,7 @@ use xtask_kit::{github_actions, process, repo};
 use super::bundle::{self, BundleOptions, BundleProfile};
 use super::{ABCTL_CODE_SIGN_IDENTIFIER, HELPER_CODE_SIGN_IDENTIFIER};
 use crate::support::fs as xfs;
-use crate::{MacosDmgArgs, MacosPrepareResourcesArgs};
+use crate::{MacosDmgArgs, MacosPrepareResourcesArgs, MacosStageResourcesArgs};
 
 #[cfg(test)]
 mod tests;
@@ -362,7 +362,7 @@ fn unpack_boot_assets_tarball(tarball: &Path, dest: &Path) -> Result<()> {
     if !status.success() {
         bail!("extracting {} failed", tarball.display());
     }
-    for name in ["manifest.json", "kernel", "rootfs.erofs"] {
+    for name in boot_asset_files(&dest.join("manifest.json"))? {
         let path = dest.join(name);
         if !path.is_file() {
             bail!(
@@ -375,9 +375,27 @@ fn unpack_boot_assets_tarball(tarball: &Path, dest: &Path) -> Result<()> {
 }
 
 fn boot_cache_ready(cache_dir: &Path) -> bool {
-    cache_dir.join("manifest.json").is_file()
-        && cache_dir.join("kernel").is_file()
-        && cache_dir.join("rootfs.erofs").is_file()
+    boot_asset_files(&cache_dir.join("manifest.json"))
+        .is_ok_and(|files| files.into_iter().all(|name| cache_dir.join(name).is_file()))
+}
+
+fn boot_asset_files(manifest_path: &Path) -> Result<Vec<&'static str>> {
+    let manifest: serde_json::Value = serde_json::from_reader(
+        std::fs::File::open(manifest_path)
+            .with_context(|| format!("opening {}", manifest_path.display()))?,
+    )
+    .with_context(|| format!("parsing {}", manifest_path.display()))?;
+    let target = manifest
+        .pointer(&format!("/targets/{HOST_ARCH}"))
+        .context("boot manifest is missing the host target")?;
+    let mut files = vec!["manifest.json", "kernel", "rootfs.erofs"];
+    if target
+        .get("runtime")
+        .is_some_and(|runtime| !runtime.is_null())
+    {
+        files.push("runtime.erofs");
+    }
+    Ok(files)
 }
 
 fn build_local_boot_assets(
@@ -522,7 +540,7 @@ fn embed_boot_assets(app_bundle: &Path, arcbox_dir: &Path, profile: BundleProfil
     let boot_dest = resources.join("assets").join(&boot_version);
     std::fs::create_dir_all(&boot_dest)
         .with_context(|| format!("creating {}", boot_dest.display()))?;
-    for name in ["kernel", "rootfs.erofs", "manifest.json"] {
+    for name in boot_asset_files(&boot_cache.join("manifest.json"))? {
         std::fs::copy(boot_cache.join(name), boot_dest.join(name))
             .with_context(|| format!("copying boot asset {name}"))?;
     }
@@ -1120,6 +1138,211 @@ pub fn prepare_resources_command(args: MacosPrepareResourcesArgs) -> Result<()> 
     }
 
     prepare_profile_resources(&desktop_repo, &arcbox_dir, profile, &resource_options)
+}
+
+pub fn stage_resources_command(args: MacosStageResourcesArgs) -> Result<()> {
+    let desktop_repo = desktop_repo()?;
+    let arcbox_dir = resolve_arcbox_dir(&desktop_repo, args.arcbox_dir.as_deref())?;
+    let profile = BundleProfile::from_dev_flag(args.dev);
+    let app_bundle = args
+        .app_bundle
+        .canonicalize()
+        .with_context(|| format!("resolving {}", args.app_bundle.display()))?;
+    if app_bundle
+        .extension()
+        .is_none_or(|extension| extension != "app")
+    {
+        bail!("app bundle must end in .app: {}", app_bundle.display());
+    }
+    verify_app_identity(&app_bundle, profile)?;
+
+    println!("=== Staging ArcBox development resources ===");
+    println!("  App bundle  : {}", app_bundle.display());
+    println!("  Arcbox dir  : {}", arcbox_dir.display());
+    println!("  Profile     : {}", profile.arcbox_profile());
+
+    prepare_profile_resources(
+        &desktop_repo,
+        &arcbox_dir,
+        profile,
+        &ResourceOptions {
+            force: false,
+            boot_assets_dir: None,
+            boot_assets_kernel: None,
+            boot_assets_rootfs: None,
+        },
+    )?;
+    embed_boot_assets(&app_bundle, &arcbox_dir, profile)?;
+    embed_docker_tools(&app_bundle, &args.sign, profile)?;
+    embed_runtime(&app_bundle, &args.sign, profile)?;
+    embed_completions(&app_bundle)?;
+    embed_pstramp(&app_bundle, &arcbox_dir, &args.sign)?;
+    inject_profile_key(&app_bundle, profile)?;
+    rewrite_launch_agent_plist(&app_bundle, profile)?;
+    verify_runnable_bundle(&app_bundle, profile)?;
+    Ok(())
+}
+
+fn verify_app_identity(app_bundle: &Path, profile: BundleProfile) -> Result<()> {
+    let plist_path = app_bundle.join("Contents").join("Info.plist");
+    let plist = plist::Value::from_file(&plist_path)
+        .with_context(|| format!("reading {}", plist_path.display()))?;
+    let dictionary = plist
+        .as_dictionary()
+        .context("app Info.plist root must be a dictionary")?;
+    for (key, expected) in [
+        ("CFBundleIdentifier", profile.product_bundle_identifier()),
+        ("CFBundleExecutable", "ArcBox"),
+    ] {
+        let actual = dictionary
+            .get(key)
+            .and_then(plist::Value::as_string)
+            .with_context(|| format!("app Info.plist is missing {key}"))?;
+        if actual != expected {
+            bail!("app {key} must be {expected}, got {actual}");
+        }
+    }
+    Ok(())
+}
+
+fn verify_runnable_bundle(app_bundle: &Path, profile: BundleProfile) -> Result<()> {
+    let contents = app_bundle.join("Contents");
+    let resources = contents.join("Resources");
+    let abctl = contents.join("MacOS").join("bin").join("abctl");
+    let helper = contents.join("MacOS").join("bin").join("arcbox-helper");
+    let daemon_name = profile.daemon_label();
+    let daemon = contents
+        .join("Frameworks")
+        .join(format!("{daemon_name}.app"))
+        .join("Contents")
+        .join("MacOS")
+        .join(daemon_name);
+    let launch_agent = contents
+        .join("Library")
+        .join("LaunchAgents")
+        .join(format!("{daemon_name}.plist"));
+    let required = [
+        contents.join("MacOS").join("ArcBox"),
+        abctl.clone(),
+        helper.clone(),
+        daemon.clone(),
+        launch_agent.clone(),
+        resources.join("bin").join("arcbox-agent"),
+        resources.join("bin").join("vm-agent"),
+        contents.join("MacOS").join("xbin").join("docker"),
+        contents.join("MacOS").join("xbin").join("docker-buildx"),
+        contents.join("MacOS").join("xbin").join("docker-compose"),
+        contents
+            .join("MacOS")
+            .join("xbin")
+            .join("docker-credential-osxkeychain"),
+    ];
+    require_files(required)?;
+    for binary in [&abctl, &helper, &daemon] {
+        let output = Command::new("/usr/bin/otool")
+            .arg("-L")
+            .arg(binary)
+            .output()
+            .with_context(|| format!("inspecting {}", binary.display()))?;
+        if !output.status.success() {
+            bail!("otool failed for {}", binary.display());
+        }
+        if String::from_utf8_lossy(&output.stdout).contains("/nix/store/") {
+            bail!(
+                "runnable app binary has a non-portable Nix dependency: {}",
+                binary.display()
+            );
+        }
+    }
+
+    let launch_agent_value = plist::Value::from_file(&launch_agent)
+        .with_context(|| format!("reading {}", launch_agent.display()))?;
+    let launch_agent_dict = launch_agent_value
+        .as_dictionary()
+        .context("LaunchAgent plist root is not a dictionary")?;
+    for (key, expected) in [
+        ("Label", daemon_name.to_owned()),
+        (
+            "BundleProgram",
+            format!("Contents/Frameworks/{daemon_name}.app/Contents/MacOS/{daemon_name}"),
+        ),
+    ] {
+        let actual = launch_agent_dict
+            .get(key)
+            .and_then(plist::Value::as_string)
+            .with_context(|| format!("LaunchAgent plist is missing {key}"))?;
+        if actual != expected {
+            bail!("LaunchAgent {key} must be {expected}, got {actual}");
+        }
+    }
+    let arguments = launch_agent_dict
+        .get("ProgramArguments")
+        .and_then(plist::Value::as_array)
+        .context("LaunchAgent plist is missing ProgramArguments")?
+        .iter()
+        .map(|value| {
+            value
+                .as_string()
+                .context("LaunchAgent ProgramArguments must contain strings")
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let expected_arguments = [
+        daemon_name,
+        "--profile",
+        profile.arcbox_profile(),
+        "--docker-integration",
+    ];
+    if arguments != expected_arguments {
+        bail!("LaunchAgent ProgramArguments must be {expected_arguments:?}, got {arguments:?}");
+    }
+
+    let boot_version = read_boot_version(&resources.join("assets.lock"))?;
+    let boot_dir = resources.join("assets").join(boot_version);
+    require_files(
+        boot_asset_files(&boot_dir.join("manifest.json"))?
+            .into_iter()
+            .map(|name| boot_dir.join(name)),
+    )?;
+
+    let manifest: serde_json::Value =
+        serde_json::from_reader(std::fs::File::open(boot_dir.join("manifest.json"))?)
+            .context("parsing bundled boot manifest")?;
+    let runtime_names = manifest["binaries"]
+        .as_array()
+        .context("boot manifest binaries must be an array")?
+        .iter()
+        .filter(|binary| !binary["targets"][HOST_ARCH].is_null())
+        .map(|binary| {
+            let name = binary["name"]
+                .as_str()
+                .context("boot manifest binary is missing its name")?;
+            let install_dir = binary["install_dir"].as_str().unwrap_or("bin");
+            Ok(resources.join("runtime").join(install_dir).join(name))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    require_files(runtime_names)?;
+
+    apple::verify_signature(&daemon).context("verifying bundled daemon signature")?;
+    let entitlements = apple::entitlements_xml(&daemon)?;
+    for entitlement in [
+        "com.apple.security.virtualization",
+        "com.apple.security.hypervisor",
+    ] {
+        if !entitlements.contains(entitlement) {
+            bail!("bundled daemon is missing entitlement {entitlement}");
+        }
+    }
+    println!("  Runnable bundle contract verified");
+    Ok(())
+}
+
+fn require_files(paths: impl IntoIterator<Item = PathBuf>) -> Result<()> {
+    for path in paths {
+        if !path.is_file() {
+            bail!("runnable app resource is missing: {}", path.display());
+        }
+    }
+    Ok(())
 }
 
 pub fn run(args: MacosDmgArgs) -> Result<()> {

@@ -17,6 +17,7 @@ simply stay off.
 | Command | What it does |
 |---|---|
 | `make build` | Debug, Swift only, no embedded Rust binaries |
+| `make build-runnable` | complete signed Debug app using the isolated development profile |
 | `make test` | full test suite |
 | `make format` / `make lint` | swift-format and SwiftLint |
 | `make generate-xcodeproj` | run after adding or removing a file |
@@ -30,7 +31,23 @@ simply stay off.
 
 ## Running against a real daemon
 
-Swift-only keeps the loop fast, but the app needs a daemon to talk to, and packaging is what supplies one.
+Swift-only keeps the loop fast. For a Debug build that can boot machines and use Docker normally, run:
+
+```bash
+./script/build_and_run.sh
+```
+
+This builds and signs the daemon, then stages boot assets, guest runtime, agents, Docker tools, and
+completions into the Debug bundle. It uses the `development` profile (`~/.arcbox-dev`) so it does not
+share daemon state with an installed production app. The machine must have the ArcBox Developer ID
+certificate because macOS rejects the daemon's virtualization entitlements under ad-hoc signing.
+Use `./script/build_and_run.sh --verify` to also wait for the development LaunchAgent, socket, and
+bundled `abctl` connection.
+
+To get the same behavior from Xcode's Run button, enable the full-debug settings documented at the
+bottom of `Local.xcconfig.example`. Codex exposes the same script as its project Run action.
+
+Packaging also supplies a daemon for distribution testing.
 Both DMG targets first run `make prefetch`, which builds `arcbox-daemon`, `abctl`, and `arcbox-helper` from
 `../arcbox` (override with `ARCBOX_DIR`) and downloads the guest boot assets. They differ in how the
 daemon ends up signed, and that difference decides whether the app can do anything:
