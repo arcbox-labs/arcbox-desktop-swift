@@ -4,9 +4,9 @@ import SwiftUI
 ///
 /// Apple scopes the material to the *functional* layer — toolbars, floating
 /// bars, controls — so the content underneath stays legible and the two layers
-/// read as distinct. Content panels keep `cardStyle()`; stacking glass on glass
-/// is what the guidance warns against, and so is spreading it over every
-/// element on a screen.
+/// read as distinct. Content panels stay opaque; stacking glass on glass is
+/// what the guidance warns against, and so is spreading it over every element
+/// on a screen.
 ///
 /// The effects ship in macOS 26. Each helper degrades on its own so call sites
 /// never spell out an availability check.

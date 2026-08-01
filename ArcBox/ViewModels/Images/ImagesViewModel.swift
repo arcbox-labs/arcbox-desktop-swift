@@ -11,7 +11,6 @@ class ImagesViewModel {
     let listLoadGate = SingleFlightLoadGate()
     var selectedID: String?
     var activeTab: ImageDetailTab = .info
-    var listWidth: CGFloat = 320
     var showPullImageSheet: Bool = false
     var searchText: String = ""
     var isSearching: Bool = false

@@ -24,11 +24,3 @@ struct AvatarView: View {
         .accessibilityLabel("User avatar")
     }
 }
-
-#Preview {
-    HStack(spacing: 16) {
-        AvatarView(url: nil, size: 64)
-        AvatarView(url: nil, size: 28)
-    }
-    .padding()
-}

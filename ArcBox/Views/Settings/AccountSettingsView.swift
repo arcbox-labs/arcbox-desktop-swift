@@ -1,4 +1,3 @@
-import AppKit
 import ArcBoxAuth
 import SwiftUI
 
@@ -36,11 +35,6 @@ struct AccountSettingsView: View {
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
-                    // Button("Copy User ID", systemImage: "doc.on.doc", action: copyUserID)
-                    //     .labelStyle(.iconOnly)
-                    //     .buttonStyle(.borderless)
-                    //     .controlSize(.small)
-                    //     .help("Copy User ID")
                 }
             }
             LabeledContent("Provider", value: authSession.configuration.environmentLabel)
@@ -107,12 +101,6 @@ struct AccountSettingsView: View {
     private func signOut() {
         Task { await authSession.signOut() }
     }
-
-    private func copyUserID() {
-        guard let subject = authSession.identity?.subject else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(subject, forType: .string)
-    }
 }
 
 /// Hero header for the signed-in account — avatar, display name, and email
@@ -144,9 +132,4 @@ private struct AccountIdentityHeader: View {
         .padding(.vertical, 8)
         .listRowBackground(Color.clear)
     }
-}
-
-#Preview {
-    AccountSettingsView()
-        .environment(AuthSession())
 }

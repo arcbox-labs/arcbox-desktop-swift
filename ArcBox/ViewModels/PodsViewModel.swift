@@ -1,5 +1,6 @@
+import Foundation
 import K8sClient
-import SwiftUI
+import Observation
 
 /// Detail tab for pods
 enum PodDetailTab: String, @MainActor DetailTab {
@@ -17,7 +18,6 @@ class PodsViewModel {
     var pods: [PodViewModel] = []
     var selectedID: String?
     var activeTab: PodDetailTab = .info
-    var listWidth: CGFloat = 320
     var isLoading: Bool = false
     var searchText: String = ""
     var isSearching: Bool = false

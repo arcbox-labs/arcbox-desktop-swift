@@ -1,5 +1,6 @@
+import Foundation
 import K8sClient
-import SwiftUI
+import Observation
 
 /// Detail tab for services
 enum ServiceDetailTab: String, @MainActor DetailTab {
@@ -15,7 +16,6 @@ class ServicesViewModel {
     var services: [ServiceViewModel] = []
     var selectedID: String?
     var activeTab: ServiceDetailTab = .info
-    var listWidth: CGFloat = 320
     var isLoading: Bool = false
     var searchText: String = ""
     var isSearching: Bool = false

@@ -205,8 +205,3 @@ struct StorageSettingsView: View {
         // Additional cleanup could be done here in the future (K8s, machines, etc.)
     }
 }
-
-#Preview {
-    StorageSettingsView()
-        .frame(width: AppMetrics.settingsPaneWidth, height: AppMetrics.settingsPaneHeight)
-}

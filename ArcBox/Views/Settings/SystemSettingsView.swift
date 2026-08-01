@@ -231,10 +231,3 @@ struct SystemSettingsView: View {
     //     return "\(Int(cpuLimit * 100 / 16))%"
     // }
 }
-
-#Preview {
-    SystemSettingsView()
-        .environment(DaemonManager())
-        .environment(SystemVmBackendModel())
-        .frame(width: AppMetrics.settingsPaneWidth, height: AppMetrics.settingsPaneHeight)
-}

@@ -1,6 +1,7 @@
 import ArcBoxClient
+import Foundation
 import OSLog
-import SwiftUI
+import Observation
 
 /// Detail tab for sandboxes
 enum SandboxDetailTab: String, @MainActor DetailTab {
@@ -56,7 +57,6 @@ class SandboxesViewModel {
     var selectedID: String?
     var activeTab: SandboxDetailTab = .info
     var pageTab: SandboxPageTab = .list
-    var listWidth: CGFloat = 320
     var sortBy: SandboxSortField = .name
     var sortAscending: Bool = true
 

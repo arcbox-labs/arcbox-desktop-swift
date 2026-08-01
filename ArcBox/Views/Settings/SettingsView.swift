@@ -43,18 +43,10 @@ struct SettingsView: View {
             AccountSettingsView()
         case .system:
             SystemSettingsView()
-        // TODO: Implement network settings (ABXD-88)
-        // case .network:
-        //     NetworkSettingsView()
         case .storage:
             StorageSettingsView()
         case nil:
             EmptyView()
         }
     }
-}
-
-#Preview {
-    SettingsView()
-        .environment(AppViewModel())
 }

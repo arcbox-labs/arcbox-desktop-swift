@@ -1,7 +1,6 @@
 import ArcBoxClient
 import PostHog
 import ServiceManagement
-import Sparkle
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -249,16 +248,4 @@ struct GeneralSettingsView: View {
             startAtLogin = !enabled
         }
     }
-}
-
-#Preview {
-    let updater = SPUStandardUpdaterController(
-        startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil
-    ).updater
-    return GeneralSettingsView()
-        .environment(DaemonManager())
-        .environment(ContainersViewModel())
-        .environment(ImagesViewModel())
-        .environment(UpdaterSettingsModel(updater: updater))
-        .frame(width: AppMetrics.settingsPaneWidth, height: 400)
 }
