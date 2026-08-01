@@ -75,7 +75,7 @@ struct ImageRowView: View {
             }
         }
         .padding(.horizontal, 12)
-        .frame(height: 44)
+        .frame(height: AppMetrics.rowHeight)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(

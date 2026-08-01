@@ -2,7 +2,7 @@ import K8sClient
 import SwiftUI
 
 /// Detail tab for pods
-enum PodDetailTab: String, CaseIterable, Identifiable {
+enum PodDetailTab: String, @MainActor DetailTab {
     case info = "Info"
     case logs = "Logs"
     case terminal = "Terminal"

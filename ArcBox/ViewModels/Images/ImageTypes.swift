@@ -1,5 +1,5 @@
 /// Detail tab for images
-enum ImageDetailTab: String, CaseIterable, Identifiable {
+enum ImageDetailTab: String, @MainActor DetailTab {
     case info = "Info"
     case terminal = "Terminal"
     case files = "Files"

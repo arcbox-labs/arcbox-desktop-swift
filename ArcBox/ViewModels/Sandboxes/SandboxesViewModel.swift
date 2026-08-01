@@ -3,7 +3,7 @@ import OSLog
 import SwiftUI
 
 /// Detail tab for sandboxes
-enum SandboxDetailTab: String, CaseIterable, Identifiable {
+enum SandboxDetailTab: String, @MainActor DetailTab {
     case info = "Info"
     case terminal = "Terminal"
     case files = "Files"

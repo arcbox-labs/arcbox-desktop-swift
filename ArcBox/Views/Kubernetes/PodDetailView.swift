@@ -45,15 +45,7 @@ struct PodDetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Picker("Tab", selection: $vm.activeTab) {
-                    ForEach(PodDetailTab.allCases) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 250)
-            }
+            DetailTabPicker(selection: $vm.activeTab)
         }
     }
 }

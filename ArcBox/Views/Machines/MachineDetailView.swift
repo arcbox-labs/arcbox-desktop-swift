@@ -35,15 +35,7 @@ struct MachineDetailView: View {
             await vm.loadMachineDetails(id, client: client)
         }
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Picker("Tab", selection: $vm.activeTab) {
-                    ForEach(MachineDetailTab.allCases) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 300)
-            }
+            DetailTabPicker(selection: $vm.activeTab)
         }
     }
 }

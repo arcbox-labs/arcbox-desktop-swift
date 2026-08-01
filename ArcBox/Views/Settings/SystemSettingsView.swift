@@ -236,5 +236,5 @@ struct SystemSettingsView: View {
     SystemSettingsView()
         .environment(DaemonManager())
         .environment(SystemVmBackendModel())
-        .frame(width: 500, height: 600)
+        .frame(width: AppMetrics.settingsPaneWidth, height: AppMetrics.settingsPaneHeight)
 }

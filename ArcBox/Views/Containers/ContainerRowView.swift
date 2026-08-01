@@ -122,7 +122,7 @@ struct ContainerRowView: View {
                                     .foregroundStyle(
                                         isSelected ? AppColors.onAccent : AppColors.textSecondary
                                     )
-                                    .frame(width: 26, height: 26)
+                                    .frame(width: AppMetrics.rowActionButton, height: AppMetrics.rowActionButton)
                             }
                             .menuStyle(.borderlessButton)
                             .menuIndicator(.hidden)
@@ -133,7 +133,7 @@ struct ContainerRowView: View {
                     if container.isTransitioning {
                         ProgressView()
                             .controlSize(.small)
-                            .frame(width: 26, height: 26)
+                            .frame(width: AppMetrics.rowActionButton, height: AppMetrics.rowActionButton)
                     } else {
                         IconButton(
                             symbol: container.isRunning ? "stop.fill" : "play.fill",
@@ -153,7 +153,7 @@ struct ContainerRowView: View {
         }
         .padding(.horizontal, 12)
         .padding(.leading, indented ? 28 : 0)
-        .frame(height: 44)
+        .frame(height: AppMetrics.rowHeight)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(

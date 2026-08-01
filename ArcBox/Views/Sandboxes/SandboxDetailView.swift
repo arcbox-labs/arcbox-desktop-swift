@@ -49,15 +49,7 @@ struct SandboxDetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Picker("Tab", selection: $vm.activeTab) {
-                    ForEach(SandboxDetailTab.allCases) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 420)
-            }
+            DetailTabPicker(selection: $vm.activeTab)
         }
         .task(id: vm.selectedID) {
             if let id = vm.selectedID {

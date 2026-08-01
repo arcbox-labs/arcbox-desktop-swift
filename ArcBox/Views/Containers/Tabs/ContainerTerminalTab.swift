@@ -30,7 +30,7 @@ struct ContainerTerminalTab: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .frame(width: 140)
+                    .frame(width: AppMetrics.shellPickerWidth)
                     .disabled(session.state == .connected)
 
                     Spacer()
@@ -150,7 +150,7 @@ struct ContainerTerminalTab: View {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(container.state.color)
-                        .frame(width: 8, height: 8)
+                        .frame(width: AppMetrics.statusDot, height: AppMetrics.statusDot)
                     Text(container.state.label)
                         .font(.system(size: 13))
                         .foregroundStyle(AppColors.textSecondary)

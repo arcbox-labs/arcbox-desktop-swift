@@ -14,7 +14,7 @@ struct PodRowView: View {
             // Pod icon
             RoundedRectangle(cornerRadius: 6)
                 .fill(AppColors.iconBackground)
-                .frame(width: 32, height: 32)
+                .frame(width: AppMetrics.rowIcon, height: AppMetrics.rowIcon)
                 .overlay {
                     Image(systemName: "cube")
                         .font(.system(size: 14))
@@ -37,10 +37,10 @@ struct PodRowView: View {
             // Phase indicator
             Circle()
                 .fill(pod.phase.color)
-                .frame(width: 8, height: 8)
+                .frame(width: AppMetrics.statusDot, height: AppMetrics.statusDot)
         }
         .padding(.horizontal, 8)
-        .frame(height: 44)
+        .frame(height: AppMetrics.rowHeight)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(

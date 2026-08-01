@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Detail tab for templates
-enum TemplateDetailTab: String, CaseIterable, Identifiable {
+enum TemplateDetailTab: String, @MainActor DetailTab {
     case info = "Info"
     case sandboxes = "Sandboxes"
 
