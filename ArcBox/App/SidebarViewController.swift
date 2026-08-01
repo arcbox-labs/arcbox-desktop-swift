@@ -158,6 +158,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         outlineView.outlineTableColumn = column
         outlineView.headerView = nil
         outlineView.style = .sourceList
+        outlineView.rowSizeStyle = .medium
         outlineView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         outlineView.allowsMultipleSelection = false
         outlineView.allowsEmptySelection = false
@@ -241,8 +242,8 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         cell.addSubview(label)
 
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
-            label.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
+            label.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
+            label.trailingAnchor.constraint(equalTo: cell.trailingAnchor),
             label.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
         ])
         return cell
@@ -254,7 +255,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
         let imageView = NSImageView()
         imageView.imageScaling = .scaleProportionallyDown
-        imageView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+        imageView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 11, weight: .regular)
         imageView.setAccessibilityElement(false)
         imageView.translatesAutoresizingMaskIntoConstraints = false
 
