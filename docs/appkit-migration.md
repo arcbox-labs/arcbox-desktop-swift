@@ -154,7 +154,7 @@ flowchart TD
     AD["AppDelegate<br/>只处理 NSApplication 生命周期与 OS 事件"]
     AC["ApplicationCoordinator<br/>app-scoped 服务、状态与任务"]
     MW["MainWindowController"]
-    MS["MainSplitViewController"]
+    MS["ContentView<br/>单一三栏 NavigationSplitView"]
     SB["SidebarViewController<br/>NSOutlineView source list"]
     CL["ContentHostViewController<br/>当前资源列表"]
     DT["DetailHostViewController<br/>当前详情"]
@@ -217,7 +217,7 @@ Kubernetes、Machines、Sandboxes stores 由 `MainWindowController` 持有。Tem
 
 | Surface | 当前 | AppKit 目标 | 几何与约束 |
 |---|---|---|---|
-| 主窗口 | `Window("ArcBox", id: "main")` | 单例 `MainWindowController` | 默认 `1200 × 800`；最小 `900 × 600`；frame autosave |
+| 主窗口 | `Window("ArcBox", id: "main")` | 单例 `MainWindowController` | 外框默认 `1200 × 800`；内容最小 `900 × 600`；沿用 frame autosave key `main` |
 | 设置 | 普通 SwiftUI `Window` | 单例 `SettingsWindowController` | 默认 `700 × 580`；内容尺寸控制 |
 | 菜单栏 | `MenuBarExtra(.window)` | `NSStatusItem` + transient `NSPopover` | 内容宽 260；容器最多 8 行 |
 | 关于 | `NSPanel` + `NSHostingView` | 保留 panel，换原生 content controller | `500 × 660`；单例；Esc 关闭 |
@@ -241,6 +241,11 @@ Kubernetes、Machines、Sandboxes stores 由 `MainWindowController` 持有。Tem
 | Sidebar | 固定宽 180 | `NSSplitViewItem(sidebarWithViewController:)` + source-list `NSOutlineView` |
 | Content list | min 280／ideal 320／max 600 | `NSSplitViewItem(contentListWithViewController:)` |
 | Detail | 剩余空间 | 普通 `NSSplitViewItem` |
+
+迁移期由一个 `NavigationSplitView` 继续统一管理三栏几何与 toolbar，AppKit sidebar 通过
+`NSViewControllerRepresentable` 嵌入。不要在外面再套 `NSSplitViewController`；「外层两栏 +
+内层两栏」会产生重复 divider、错误的 sidebar toggle 和不同的窗口布局。等 content、detail 与
+toolbar 全部迁成原生 controller 后，再一次性替换这唯一的 split owner。
 
 Activity 选中时折叠 content list。底部账户区使用 sidebar 内「滚动内容 + 固定 footer」容器，
 不为 `macOS 26` accessory API 增加两套结构。
@@ -609,7 +614,7 @@ Task 归属：
 | `@main App` | `@main AppDelegate` + coordinator | app-scoped 状态与 task 不挂在窗口 |
 | `Window` | `NSWindowController` | 单例、frame autosave、明确强引用 |
 | `MenuBarExtra(.window)` | `NSStatusItem` + `NSPopover` | popover delegate 启停 stats |
-| `NavigationSplitView` | `NSSplitViewController` + `NSSplitViewItem` | 三栏几何保持 |
+| `NavigationSplitView` | 最终替换为 `NSSplitViewController` + `NSSplitViewItem` | 迁移期只保留一个三栏 split owner |
 | sidebar `List` | source-list `NSOutlineView` | section + selection |
 | `openWindow` environment | 强持有 controller 的 `showWindow` | 不扫描 window title |
 | `CommandGroup` | `NSMenu` + responder chain | `validateMenuItem` |
@@ -789,13 +794,11 @@ Task 归属：
 ### 10.2 自动验证
 
 - 保留 `DeepLinkTests`。
-- 当前 `MainSplitViewControllerTests` 验证迁移期原生外层两栏、180 pt sidebar floor 与 content
-  controller replacement。内容／详情迁出 host 后扩展为最终 AppKit 窗口测试，验证：
-  - 3 个 split items；
-  - content list 最小 280；
-  - 2 个 tracking separators；
-  - toolbar item 不越栏；
-  - Activity 时 content list 折叠。
+- `MainWindowControllerTests` 验证默认外框、full-size titlebar、最小内容尺寸、旧 `main`
+  frame 恢复；`ContentViewColumnLayoutTests` 验证迁移期只有一个三栏 split、content list
+  最小 280 且 toolbar item 不越栏。
+- `SidebarViewControllerTests` 验证 source-list 行、selection 同步，以及账户 footer 的
+  `24 pt` avatar、左右 `12 pt`、无额外 separator。
 - 为新 `LoadPhase` 派生逻辑、preferences 默认值和 task key 增加最小有意义测试；
   `KubernetesStateTests` 已覆盖 lifecycle、client 注入后的 supersede／cancel 与数据保留。
 - `ContainersListViewControllerTests` 验证状态页、Compose outline、搜索可见批量范围、折叠／
