@@ -1,13 +1,11 @@
 import Foundation
 
 /// Kubernetes service types
-enum ServiceType: String, CaseIterable, Identifiable {
+enum ServiceType: String {
     case clusterIP = "ClusterIP"
     case nodePort = "NodePort"
     case loadBalancer = "LoadBalancer"
     case externalName = "ExternalName"
-
-    var id: String { rawValue }
 }
 
 /// Service port mapping
