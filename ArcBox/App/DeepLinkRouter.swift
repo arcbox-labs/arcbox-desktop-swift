@@ -3,9 +3,8 @@ import OSLog
 
 /// Applies parsed deep links to app navigation.
 ///
-/// URLs arrive via `NSApplicationDelegate`, possibly before the SwiftUI scene
-/// has created the view models (e.g. when a URL launches the app), so links
-/// are buffered until `configure(_:)` provides the navigation target.
+/// URLs can arrive through `NSApplicationDelegate` before the coordinator is
+/// configured, so links are buffered until `configure(_:)` provides a target.
 final class DeepLinkRouter {
     struct Target {
         let appVM: AppViewModel

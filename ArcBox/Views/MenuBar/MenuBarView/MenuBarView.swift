@@ -10,7 +10,6 @@ struct MenuBarView: View {
     @Environment(ImagesViewModel.self) var imagesVM
     @Environment(NetworksViewModel.self) var networksVM
     @Environment(VolumesViewModel.self) var volumesVM
-    @Environment(\.openWindow) var openWindow
     @Environment(\.arcboxClient) var client
     @Environment(\.dockerClient) var docker
 
@@ -23,8 +22,8 @@ struct MenuBarView: View {
         mainPanel
             .padding(6)
             .animation(.easeInOut(duration: 0.2), value: containersExpanded)
-            .task(id: docker != nil && daemonManager.state.isRunning) {
-                guard docker != nil, daemonManager.state.isRunning else { return }
+            .task(id: docker != nil && daemonManager.setupPhase.isDockerReady) {
+                guard docker != nil, daemonManager.setupPhase.isDockerReady else { return }
                 await loadAll()
             }
             // Keyed on the client identity as well as daemon state: the

@@ -61,3 +61,35 @@ enum AppColors {
     static let sidebarItemHover = Color.primary.opacity(0.03)
     static let sidebarItemSelected = Color.primary.opacity(0.06)
 }
+
+extension ContainerState {
+    var color: Color {
+        switch self {
+        case .running: AppColors.running
+        case .stopped: AppColors.stopped
+        case .restarting, .paused: AppColors.warning
+        case .dead: AppColors.error
+        }
+    }
+}
+
+extension MachineState {
+    var color: Color {
+        switch self {
+        case .running: AppColors.running
+        case .created, .stopped: AppColors.stopped
+        case .starting, .stopping: AppColors.warning
+        }
+    }
+}
+
+extension PodPhase {
+    var color: Color {
+        switch self {
+        case .running, .succeeded: AppColors.running
+        case .pending: .orange
+        case .failed: .red
+        case .unknown: AppColors.textSecondary
+        }
+    }
+}

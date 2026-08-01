@@ -28,7 +28,7 @@ enum ColumnWidth {
 struct ContentView: View {
     @Environment(AppViewModel.self) private var appVM
 
-    // Shared ViewModels (injected from ArcBoxApp, shared with menu bar)
+    // Shared ViewModels (owned by ApplicationCoordinator, shared with the menu bar)
     @Environment(ContainersViewModel.self) private var containersVM
     @Environment(VolumesViewModel.self) private var volumesVM
     @Environment(ImagesViewModel.self) private var imagesVM

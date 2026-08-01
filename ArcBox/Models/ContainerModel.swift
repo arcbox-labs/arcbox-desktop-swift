@@ -1,5 +1,4 @@
 import Foundation
-import SwiftUI
 
 /// Container state representation
 enum ContainerState: String, CaseIterable, Identifiable {
@@ -15,14 +14,6 @@ enum ContainerState: String, CaseIterable, Identifiable {
 
     var isRunning: Bool { self == .running }
 
-    var color: Color {
-        switch self {
-        case .running: AppColors.running
-        case .stopped: AppColors.stopped
-        case .restarting, .paused: AppColors.warning
-        case .dead: AppColors.error
-        }
-    }
 }
 
 /// Port mapping for container

@@ -1,5 +1,4 @@
 import AppKit
-import SwiftUI
 
 /// Tracks the currently visible "Coming Soon" panel so we don't create duplicates.
 /// Strong ref: we manage the lifecycle ourselves since isReleasedWhenClosed is off.
@@ -31,14 +30,7 @@ func showComingSoonPanel() {
     panel.hidesOnDeactivate = true
     panel.center()
 
-    let hostingView = NSHostingView(
-        rootView: ComingSoonContent(onDismiss: {
-            currentPanel?.close()
-        }))
-    hostingView.wantsLayer = true
-    hostingView.layer?.cornerRadius = 20
-    hostingView.layer?.masksToBounds = true
-    panel.contentView = hostingView
+    panel.contentViewController = ComingSoonViewController()
     panel.makeKeyAndOrderFront(nil)
     NSApp.activate(ignoringOtherApps: true)
 
@@ -60,31 +52,63 @@ private final class ComingSoonPanel: NSPanel {
     }
 }
 
-// MARK: - Content
+private final class ComingSoonViewController: NSViewController {
+    private lazy var okButton: NSButton = {
+        let button = NSButton(title: "OK", target: self, action: #selector(dismissPanel))
+        button.bezelColor = .controlAccentColor
+        button.bezelStyle = .rounded
+        button.controlSize = .large
+        button.contentTintColor = .white
+        button.keyEquivalent = "\r"
+        button.setAccessibilityHelp("Close the Coming Soon panel")
+        return button
+    }()
 
-private struct ComingSoonContent: View {
-    var onDismiss: () -> Void
+    override func loadView() {
+        let background = NSVisualEffectView()
+        background.blendingMode = .behindWindow
+        background.material = .popover
+        background.state = .active
+        background.wantsLayer = true
+        background.layer?.cornerRadius = 20
+        background.layer?.masksToBounds = true
 
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .frame(width: 80, height: 80)
+        let icon = NSImageView(image: NSApp.applicationIconImage)
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        icon.setAccessibilityElement(true)
+        icon.setAccessibilityRole(.image)
+        icon.setAccessibilityLabel("ArcBox application icon")
+        NSLayoutConstraint.activate([
+            icon.widthAnchor.constraint(equalToConstant: 80),
+            icon.heightAnchor.constraint(equalToConstant: 80),
+        ])
 
-            Text("Coming Soon!")
-                .font(.title2)
-                .fontWeight(.semibold)
+        let title = NSTextField(labelWithString: "Coming Soon!")
+        title.alignment = .center
+        title.font = .systemFont(ofSize: 20, weight: .semibold)
 
-            Button(action: onDismiss) {
-                Text("OK")
-                    .frame(maxWidth: .infinity)
-            }
-            .controlSize(.large)
-            .buttonStyle(.borderedProminent)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
-        .frame(width: 280)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
+        let stack = NSStackView(views: [icon, title, okButton])
+        stack.alignment = .centerX
+        stack.orientation = .vertical
+        stack.spacing = 20
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        background.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: background.trailingAnchor, constant: -16),
+            stack.centerYAnchor.constraint(equalTo: background.centerYAnchor),
+            okButton.widthAnchor.constraint(equalTo: stack.widthAnchor),
+        ])
+        view = background
+    }
+
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        view.window?.makeFirstResponder(okButton)
+    }
+
+    @objc private func dismissPanel() {
+        view.window?.close()
     }
 }

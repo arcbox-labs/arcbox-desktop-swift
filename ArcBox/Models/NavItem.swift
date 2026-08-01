@@ -1,5 +1,3 @@
-import SwiftUI
-
 /// Navigation item in sidebar
 enum NavItem: String, CaseIterable, Identifiable {
     case activity

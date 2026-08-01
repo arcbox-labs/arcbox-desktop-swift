@@ -1,4 +1,4 @@
-import SwiftUI
+import Foundation
 
 /// Pod phase states
 enum PodPhase: String, CaseIterable, Identifiable {
@@ -12,15 +12,6 @@ enum PodPhase: String, CaseIterable, Identifiable {
 
     var isRunning: Bool { self == .running }
 
-    var color: Color {
-        switch self {
-        case .running: AppColors.running
-        case .succeeded: AppColors.running
-        case .pending: .orange
-        case .failed: .red
-        case .unknown: AppColors.textSecondary
-        }
-    }
 }
 
 /// Pod view model for UI display
