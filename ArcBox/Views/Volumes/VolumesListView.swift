@@ -15,34 +15,19 @@ struct VolumesListView: View {
                 StartupProgressView(orchestrator: orchestrator)
             } else if !daemonManager.state.isRunning {
                 DaemonLoadingView(state: daemonManager.state)
-            } else if case .failed(let message) = vm.loadState {
-                ListLoadErrorView(title: "Failed to load volumes", message: message) {
-                    Task { await vm.loadVolumes(docker: docker) }
-                }
-            } else if vm.loadState != .loaded {
-                ProgressView(daemonManager.setupPhase.isDockerReady ? "Loading volumes…" : "Starting Docker engine…")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if vm.volumes.isEmpty {
-                VolumeEmptyState()
-            } else if vm.sortedVolumes.isEmpty {
-                ContentUnavailableView.search(text: vm.searchText)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        if !inUseVolumes.isEmpty {
-                            sectionHeader("In Use")
-                            ForEach(inUseVolumes) { volume in
-                                volumeRow(volume)
-                            }
-                        }
-                        if !unusedVolumes.isEmpty {
-                            sectionHeader("Unused")
-                            ForEach(unusedVolumes) { volume in
-                                volumeRow(volume)
-                            }
-                        }
+                VolumesListControllerView(
+                    viewModel: vm,
+                    loadingTitle: daemonManager.setupPhase.isDockerReady
+                        ? "Loading volumes…"
+                        : "Starting Docker engine…",
+                    onRetry: {
+                        Task { await vm.loadVolumes(docker: docker) }
+                    },
+                    onDelete: { name in
+                        Task { await vm.removeVolume(name, docker: docker) }
                     }
-                }
+                )
             }
         }
         .navigationTitle("Volumes")
@@ -85,37 +70,31 @@ struct VolumesListView: View {
             Task { await vm.loadVolumes(docker: docker) }
         }
     }
+}
 
-    private var inUseVolumes: [VolumeViewModel] {
-        vm.sortedVolumes.filter(\.inUse)
+private struct VolumesListControllerView: NSViewControllerRepresentable {
+    let viewModel: VolumesViewModel
+    let loadingTitle: String
+    let onRetry: @MainActor () -> Void
+    let onDelete: @MainActor (String) -> Void
+
+    func makeNSViewController(context _: Context) -> VolumesListViewController {
+        VolumesListViewController(
+            viewModel: viewModel,
+            loadingTitle: loadingTitle,
+            onRetry: onRetry,
+            onDelete: onDelete
+        )
     }
 
-    private var unusedVolumes: [VolumeViewModel] {
-        vm.sortedVolumes.filter { !$0.inUse }
-    }
-
-    @ViewBuilder
-    private func sectionHeader(_ title: String) -> some View {
-        HStack {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(AppColors.textSecondary)
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
-    }
-
-    @ViewBuilder
-    private func volumeRow(_ volume: VolumeViewModel) -> some View {
-        VolumeRowView(
-            volume: volume,
-            isSelected: vm.selectedID == volume.id,
-            onSelect: { vm.selectVolume(volume.id) },
-            onDelete: {
-                Task { await vm.removeVolume(volume.name, docker: docker) }
-            }
+    func updateNSViewController(
+        _ controller: VolumesListViewController,
+        context _: Context
+    ) {
+        controller.update(
+            loadingTitle: loadingTitle,
+            onRetry: onRetry,
+            onDelete: onDelete
         )
     }
 }
