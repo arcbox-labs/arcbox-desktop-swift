@@ -162,7 +162,6 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         outlineView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         outlineView.allowsMultipleSelection = false
         outlineView.allowsEmptySelection = false
-        outlineView.backgroundColor = .clear
         outlineView.dataSource = self
         outlineView.delegate = self
         outlineView.setAccessibilityLabel("Main navigation")

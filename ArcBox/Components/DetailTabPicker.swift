@@ -29,7 +29,10 @@ struct DetailTabPicker<Tab: DetailTab>: ToolbarContent {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(maxWidth: CGFloat(Tab.allCases.count) * AppMetrics.detailTabSegment)
+            .frame(
+                minWidth: AppMetrics.detailTabSegment,
+                maxWidth: CGFloat(Tab.allCases.count) * AppMetrics.detailTabSegment
+            )
         }
     }
 }
