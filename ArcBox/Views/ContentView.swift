@@ -39,7 +39,6 @@ struct ContentView: View {
     @State private var k8sState = KubernetesState()
     @State private var machinesVM = MachinesViewModel()
     @State private var sandboxesVM = SandboxesViewModel()
-    @State private var templatesVM = TemplatesViewModel()
 
     var body: some View {
         NavigationSplitView {
@@ -155,8 +154,7 @@ struct ContentView: View {
             SandboxDetailView()
                 .environment(sandboxesVM)
         case .templates:
-            TemplatesListView()
-                .environment(templatesVM)
+            Color.clear
         case nil:
             ContainerDetailView()
                 .environment(containersVM)
