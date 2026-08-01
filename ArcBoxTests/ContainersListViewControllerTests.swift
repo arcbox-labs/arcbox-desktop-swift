@@ -220,7 +220,8 @@ final class ContainersListViewControllerTests: XCTestCase {
 
     @MainActor
     private func visibleButton(titled title: String, in view: NSView) -> NSButton? {
-        if let button = view as? NSButton, button.title == title, !button.isHidden {
+        guard !view.isHiddenOrHasHiddenAncestor else { return nil }
+        if let button = view as? NSButton, button.title == title {
             return button
         }
         return view.subviews.lazy.compactMap {
@@ -230,6 +231,7 @@ final class ContainersListViewControllerTests: XCTestCase {
 
     @MainActor
     private func hasText(_ text: String, in view: NSView) -> Bool {
+        guard !view.isHiddenOrHasHiddenAncestor else { return false }
         if let textField = view as? NSTextField, textField.stringValue == text {
             return true
         }
