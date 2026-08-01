@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		012B6BCE79F6FAE406EE97A0 /* ContainerLogsTab+Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CC2B117E020C62C1E9952E /* ContainerLogsTab+Views.swift */; };
 		0188EE6B84CB38AA29EBEC57 /* ContainersViewModel+GRPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70BE1C3890C5F6A96C6BCBD /* ContainersViewModel+GRPC.swift */; };
+		03AB091DAB7FD7F059C90480 /* ImagesListViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13FD9C27ABD090B7DBA435AA /* ImagesListViewController.swift */; };
 		0601E3B8363540B1F627754C /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42B624914056B0B39B7A3E08 /* AppTheme.swift */; };
 		0720D45362971FA9338BAA53 /* SwiftTermView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEA74DBE71D29DEB680F08E7 /* SwiftTermView.swift */; };
 		07A382D149C73C697CAA1601 /* SandboxRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE564AAFEC0EF6D094409728 /* SandboxRowView.swift */; };
@@ -90,7 +91,6 @@
 		5DBFB63C5C744C1FC45C7808 /* SandboxMonitoringView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A8DDE58F61A6B736A63E11 /* SandboxMonitoringView.swift */; };
 		5F8BD0B16CBBDC44080F6EA5 /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9101DCB26B0BB5B8DE4CAE70 /* Analytics.swift */; };
 		60F6AB6A3277A7813AB8F30D /* TerminalAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = F893B8994BA04A6813FCB819 /* TerminalAppearance.swift */; };
-		614A69F2B70BA6E4CCA4CF0D /* ImageRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17331246035D7AEF58CA2258 /* ImageRowView.swift */; };
 		625FE4F092DDC9323DA622C1 /* MachineTerminalTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4705819BA2C07E7EADAC37E /* MachineTerminalTab.swift */; };
 		6276E31C6E2F736A7B5F41E0 /* ArcBoxClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B20797EBE3F932D8DDAD42C /* ArcBoxClientTests.swift */; };
 		6319B6C6A8717F3AA19AD65B /* NavItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69038D73EF8AC0CC09D4B39C /* NavItem.swift */; };
@@ -230,6 +230,7 @@
 		DAC7224E4BF7F459BB7013CB /* RemoteIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18574DEF808329D8152A379 /* RemoteIconView.swift */; };
 		DC9E1747A0F6F6574688BBD0 /* arcbox.version in Resources */ = {isa = PBXBuildFile; fileRef = AC70A79B919D909CF6D811B4 /* arcbox.version */; };
 		DDF9F74BA0638A51322686DE /* PodsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF5B0B3EC77FB12D8B4EA6A /* PodsViewModel.swift */; };
+		E0C997A42E6F8D8B4D9C26FF /* ImagesListViewControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35969670AC4F826B4A3BB567 /* ImagesListViewControllerTests.swift */; };
 		E12C55C4C275DCBAB9DA8150 /* VolumeFilesTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DDFA2EDA7A3AC8448696F91 /* VolumeFilesTab.swift */; };
 		E387F94A583E46FCAE612008 /* TemplateModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6845260698FF44B2E54D301B /* TemplateModel.swift */; };
 		E69436579DA555FA6133A1CF /* ServiceRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A147995028C8DB6F49BBD8EF /* ServiceRowView.swift */; };
@@ -252,7 +253,6 @@
 		F65C1148B776397730836A3D /* TerminalViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 454ED6CBDC3B851667C70AF8 /* TerminalViewController.swift */; };
 		FA1617761F2AA43D4999DA82 /* TemplateDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F861F75EAD82307CECE21855 /* TemplateDetailView.swift */; };
 		FA631E839B38C6D0DBDBA928 /* ArcBoxAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 1EEA05F99067212B54970FA5 /* ArcBoxAuth */; };
-		FACCEFF5F4CDC1CCDB664C3D /* ImageEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C249CE2887E590B9F543B37 /* ImageEmptyState.swift */; };
 		FBDBF39F818DDE35E0B7D0DF /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = D50E2875839AD5944467DBC0 /* Sentry */; };
 		FBDC1F10288E1448184A91E3 /* IconButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E73318FC9D8EBCB39E5C0AE /* IconButton.swift */; };
 		FBE7E964F895EFE9C7818256 /* ContainerViewModel+Mapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D5BDCAAF11D1A6B52990E28 /* ContainerViewModel+Mapping.swift */; };
@@ -299,7 +299,7 @@
 		0FA3C6B6F10198DFC435A33E /* NetworkDetailViewControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDetailViewControllerTests.swift; sourceTree = "<group>"; };
 		11EB6AEBF371E6B88EF8D08E /* SandboxPortsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxPortsTab.swift; sourceTree = "<group>"; };
 		13203BD67479A8191C1A3BD6 /* ServiceModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceModel.swift; sourceTree = "<group>"; };
-		17331246035D7AEF58CA2258 /* ImageRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageRowView.swift; sourceTree = "<group>"; };
+		13FD9C27ABD090B7DBA435AA /* ImagesListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagesListViewController.swift; sourceTree = "<group>"; };
 		1808332CF700CF6900F556F5 /* SampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleData.swift; sourceTree = "<group>"; };
 		185A238D021D6C976574528C /* ImageDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageDetailView.swift; sourceTree = "<group>"; };
 		18DFEA7126F89956523019B4 /* KeychainTokenStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainTokenStoreTests.swift; sourceTree = "<group>"; };
@@ -331,6 +331,7 @@
 		32C86546753C11A9E6CA8CB8 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 		33250D1306B30B4E3D4C9B0E /* LayeredRootFS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayeredRootFS.swift; sourceTree = "<group>"; };
 		3572105F94A4F2399F9446D4 /* LiquidGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlass.swift; sourceTree = "<group>"; };
+		35969670AC4F826B4A3BB567 /* ImagesListViewControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagesListViewControllerTests.swift; sourceTree = "<group>"; };
 		3750055AEC4C49576A78A909 /* ByteFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ByteFormattingTests.swift; sourceTree = "<group>"; };
 		3CD990EEEF43CDA673BC1816 /* ActivityRowGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRowGroupingTests.swift; sourceTree = "<group>"; };
 		3DAC9EE4F067CB69F022C1E0 /* ActivityViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityViewModel.swift; sourceTree = "<group>"; };
@@ -398,7 +399,6 @@
 		7AB1B1CD1D5E0E961CD17118 /* MachinesViewModel+GRPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MachinesViewModel+GRPC.swift"; sourceTree = "<group>"; };
 		7B6FDB677AE01E62877A17AC /* K8sModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = K8sModelsTests.swift; sourceTree = "<group>"; };
 		7BC24B8A6E422D834614E5D5 /* ArcBoxAuth */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ArcBoxAuth; path = Packages/ArcBoxAuth; sourceTree = SOURCE_ROOT; };
-		7C249CE2887E590B9F543B37 /* ImageEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageEmptyState.swift; sourceTree = "<group>"; };
 		7CD5F80A65CA7E59F453286D /* VolumeDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeDetailView.swift; sourceTree = "<group>"; };
 		7D4E14745A6F16951FB5B8EB /* TemplateRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateRowView.swift; sourceTree = "<group>"; };
 		7D5BDCAAF11D1A6B52990E28 /* ContainerViewModel+Mapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ContainerViewModel+Mapping.swift"; sourceTree = "<group>"; };
@@ -760,9 +760,8 @@
 			isa = PBXGroup;
 			children = (
 				185A238D021D6C976574528C /* ImageDetailView.swift */,
-				7C249CE2887E590B9F543B37 /* ImageEmptyState.swift */,
-				17331246035D7AEF58CA2258 /* ImageRowView.swift */,
 				03C9AACAD52AFF216B6A69E0 /* ImagesListView.swift */,
+				13FD9C27ABD090B7DBA435AA /* ImagesListViewController.swift */,
 				B8254D67C0D80B99FC18DAD5 /* PullImageSheet.swift */,
 				DABD42F9F3267AFFB1DC0EFE /* Tabs */,
 			);
@@ -1156,6 +1155,7 @@
 				27130DDA57D2645C7E81D75D /* GuestDataMountTests.swift */,
 				738233A82C7BAA825F73EE2F /* GuestExportFixture.swift */,
 				C964312D5336EE55A8E4680B /* ImageLayerChainTests.swift */,
+				35969670AC4F826B4A3BB567 /* ImagesListViewControllerTests.swift */,
 				A2B6587D59B9EFA18E51A3F3 /* ImagesViewModelTests.swift */,
 				7B6FDB677AE01E62877A17AC /* K8sModelsTests.swift */,
 				0F065A1CBDA891A5647FE6F6 /* K8sWatchTests.swift */,
@@ -1398,15 +1398,14 @@
 				BA5C4C0A98D9650B14A2ECB8 /* GuestDataMount.swift in Sources */,
 				FBDC1F10288E1448184A91E3 /* IconButton.swift in Sources */,
 				BB6DA9C1B509BF12CDA5A92E /* ImageDetailView.swift in Sources */,
-				FACCEFF5F4CDC1CCDB664C3D /* ImageEmptyState.swift in Sources */,
 				BDE44A1851827C2069778F08 /* ImageFilesTab.swift in Sources */,
 				43CA6777ECD31C582D9EEB09 /* ImageLayerChain.swift in Sources */,
 				7F091F3F3F75F500937DC7BC /* ImageModel.swift in Sources */,
-				614A69F2B70BA6E4CCA4CF0D /* ImageRowView.swift in Sources */,
 				3B38458299F141A08B8C7107 /* ImageTerminalTab.swift in Sources */,
 				8939A06F20FE4F92A72E3372 /* ImageTypes.swift in Sources */,
 				8E14FB4D9A34870BC6956970 /* ImageViewModel+Docker.swift in Sources */,
 				94A832E6C744F534C80CB410 /* ImagesListView.swift in Sources */,
+				03AB091DAB7FD7F059C90480 /* ImagesListViewController.swift in Sources */,
 				71FE37D46B4D2D51BEEA35D9 /* ImagesViewModel+Docker.swift in Sources */,
 				09FF7CE0E252DAD805077C7E /* ImagesViewModel.swift in Sources */,
 				9D6E13499CA3B4666836F0F1 /* InfoRow.swift in Sources */,
@@ -1559,6 +1558,7 @@
 				466BD76F6F334FBAEA392BD5 /* HelperInstallErrorTests.swift in Sources */,
 				16C56B60D5654AB3F14B41A9 /* IDTokenClaimsTests.swift in Sources */,
 				8BBBA54130403D89D35986F7 /* ImageLayerChainTests.swift in Sources */,
+				E0C997A42E6F8D8B4D9C26FF /* ImagesListViewControllerTests.swift in Sources */,
 				0BCE503CC2BF6C2BEC9DC4EA /* ImagesViewModelTests.swift in Sources */,
 				F40C3E6023452858EEEA893F /* K8sModelsTests.swift in Sources */,
 				25E25D58DAE59E9EB433B6F5 /* K8sWatchTests.swift in Sources */,
