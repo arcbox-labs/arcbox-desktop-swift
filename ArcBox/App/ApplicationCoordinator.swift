@@ -342,6 +342,7 @@ final class ApplicationCoordinator: NSObject {
                 .environment(\.dockerClient, dockerClient)
                 .environment(\.startupOrchestrator, startupOrchestrator)
                 .environment(\.accessTokenProvider, authSession)
+                .frame(minWidth: 900, minHeight: 600)
         )
     }
 

@@ -26,7 +26,7 @@ struct DetailTabPicker<Tab: DetailTab>: ToolbarContent {
             ToolbarItem(placement: .principal) {
                 LiquidGlassDetailTabPicker(selection: $selection)
             }
-            .sharedBackgroundVisibility(.hidden)
+            .sharedBackgroundVisibility(.visible)
         } else {
             ToolbarItem(placement: .principal) {
                 Picker("Tab", selection: $selection) {
@@ -63,8 +63,12 @@ private struct LiquidGlassDetailTabPicker<Tab: DetailTab>: View {
                         Text(tab.rawValue)
                             .font(.system(size: 12))
                             .lineLimit(1)
-                            .padding(.horizontal, 12)
-                            .frame(height: 24)
+                            .frame(
+                                minWidth: 44,
+                                idealWidth: AppMetrics.detailTabSegment,
+                                maxWidth: AppMetrics.detailTabSegment
+                            )
+                            .frame(height: 28)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -79,12 +83,6 @@ private struct LiquidGlassDetailTabPicker<Tab: DetailTab>: View {
                 }
             }
             .padding(2)
-            .frame(minWidth: AppMetrics.detailTabSegment)
-            .background(Color.primary.opacity(0.055), in: Capsule())
-            .overlay {
-                Capsule()
-                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-            }
         }
         .animation(
             reduceMotion ? nil : .smooth(duration: 0.3),
