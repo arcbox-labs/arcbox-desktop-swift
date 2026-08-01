@@ -42,9 +42,13 @@ extension MenuBarView {
 
                 Spacer(minLength: 0)
 
-                Text("\(containersVM.runningCount) running")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                Text(
+                    containersVM.loadState == .loaded
+                        ? "\(containersVM.runningCount) running"
+                        : "—"
+                )
+                .font(.caption2)
+                .foregroundStyle(.secondary)
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .semibold))

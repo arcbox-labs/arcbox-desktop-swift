@@ -1,3 +1,5 @@
+import ArcBoxClient
+import DockerClient
 import XCTest
 
 @testable import ArcBox
@@ -103,6 +105,46 @@ final class ContainersViewModelTests: XCTestCase {
         XCTAssertTrue(events.contains("latest ran"))
         XCTAssertTrue(events.contains("middle returned"))
         XCTAssertTrue(events.contains("latest returned"))
+    }
+
+    func testSingleFlightLoadGateRunsPendingWorkAfterFirstWaiterIsCancelled() async {
+        let gate = SingleFlightLoadGate()
+        var events: [String] = []
+        var releaseFirst = false
+
+        let first = Task {
+            await gate.run {
+                events.append("first ran")
+                while !releaseFirst {
+                    if Task.isCancelled {
+                        events.append("first cancelled")
+                        return
+                    }
+                    await Task.yield()
+                }
+            }
+        }
+        while !events.contains("first ran") {
+            await Task.yield()
+        }
+
+        let pending = Task {
+            events.append("pending called")
+            await gate.run {
+                events.append(Task.isCancelled ? "pending cancelled" : "pending ran")
+            }
+        }
+        while !events.contains("pending called") {
+            await Task.yield()
+        }
+
+        first.cancel()
+        releaseFirst = true
+        await first.value
+        await pending.value
+
+        XCTAssertTrue(events.contains("pending ran"))
+        XCTAssertFalse(events.contains("pending cancelled"))
     }
 
     // MARK: - Selection
@@ -319,6 +361,44 @@ final class ContainersViewModelTests: XCTestCase {
         XCTAssertEqual(vm.lastError, "previous error")
     }
 
+    func testContainerStartResponseRejectsDocumentedFailures() {
+        let notFound = Operations.ContainerStart.Output.notFound(
+            .init(body: .json(.init(message: "No such container.")))
+        )
+        let serverError = Operations.ContainerStart.Output.internalServerError(
+            .init(body: .json(.init(message: "Runtime failed.")))
+        )
+
+        XCTAssertEqual(notFound.startFailureMessage, "No such container.")
+        XCTAssertEqual(serverError.startFailureMessage, "Runtime failed.")
+        XCTAssertNil(Operations.ContainerStart.Output.noContent.startFailureMessage)
+        XCTAssertNil(Operations.ContainerStart.Output.notModified.startFailureMessage)
+    }
+
+    func testContainerStopAndDeleteResponseClassification() {
+        let stopFailure = Operations.ContainerStop.Output.internalServerError(
+            .init(body: .json(.init(message: "Stop failed.")))
+        )
+        let deleteFailure = Operations.ContainerDelete.Output.conflict(
+            .init(body: .json(.init(message: "Container is running.")))
+        )
+
+        XCTAssertNil(Operations.ContainerStop.Output.noContent.stopFailureMessage)
+        XCTAssertNil(Operations.ContainerStop.Output.notModified.stopFailureMessage)
+        XCTAssertEqual(stopFailure.stopFailureMessage, "Stop failed.")
+        XCTAssertEqual(
+            Operations.ContainerStop.Output.undocumented(statusCode: 418, .init()).stopFailureMessage,
+            "Unexpected response status 418."
+        )
+
+        XCTAssertNil(Operations.ContainerDelete.Output.noContent.deleteFailureMessage)
+        XCTAssertEqual(deleteFailure.deleteFailureMessage, "Container is running.")
+        XCTAssertEqual(
+            Operations.ContainerDelete.Output.undocumented(statusCode: 418, .init()).deleteFailureMessage,
+            "Unexpected response status 418."
+        )
+    }
+
     // MARK: - Helpers
 
     private func makeContainer(
@@ -343,5 +423,61 @@ final class ContainersViewModelTests: XCTestCase {
             memoryMB: 0,
             memoryLimitMB: 0
         )
+    }
+}
+
+@MainActor
+final class SandboxesLoadStateTests: XCTestCase {
+    func testDescendingSortUsesIDAsTieBreaker() {
+        var alpha = Sandbox_V1_SandboxSummary()
+        alpha.id = "alpha"
+        alpha.labels = ["name": "same"]
+        var beta = Sandbox_V1_SandboxSummary()
+        beta.id = "beta"
+        beta.labels = ["name": "same"]
+
+        let vm = SandboxesViewModel()
+        vm.sandboxes = [SandboxViewModel(from: alpha), SandboxViewModel(from: beta)]
+        vm.sortAscending = false
+
+        XCTAssertEqual(vm.sortedSandboxes.map(\.id), ["beta", "alpha"])
+    }
+
+    func testCreateReportsUnavailableDaemon() async {
+        let vm = SandboxesViewModel()
+
+        let id = await vm.createSandbox(SandboxCreateSpec(), client: nil)
+
+        XCTAssertNil(id)
+        XCTAssertEqual(vm.lastError, "ArcBox daemon is unavailable.")
+    }
+
+    func testUnavailableClientDoesNotResolveEmptyListAsLoaded() async {
+        let vm = SandboxesViewModel()
+
+        await vm.loadSandboxes(client: nil)
+
+        XCTAssertEqual(vm.loadState, .waiting)
+        XCTAssertTrue(vm.sandboxes.isEmpty)
+    }
+
+    func testUnavailableClientClearsStaleSnapshotsAndWaitsForNewTarget() async {
+        var summary = Sandbox_V1_SnapshotSummary()
+        summary.id = "snapshot-1"
+        summary.sandboxID = "old-sandbox"
+        summary.name = "old"
+
+        let vm = SandboxesViewModel()
+        vm.snapshots = [SandboxSnapshotViewModel(from: summary)]
+        vm.snapshotsSandboxID = "old-sandbox"
+        vm.snapshotsLoadState = .loaded
+        vm.snapshotsRefreshError = "old error"
+
+        await vm.loadSnapshots(for: "new-sandbox", client: nil)
+
+        XCTAssertEqual(vm.snapshotsSandboxID, "new-sandbox")
+        XCTAssertEqual(vm.snapshotsLoadState, .waiting)
+        XCTAssertNil(vm.snapshotsRefreshError)
+        XCTAssertTrue(vm.snapshots.isEmpty)
     }
 }

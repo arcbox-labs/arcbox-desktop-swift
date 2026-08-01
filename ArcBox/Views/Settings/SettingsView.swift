@@ -9,28 +9,19 @@ struct SettingsView: View {
         } detail: {
             settingsContent
                 .navigationTitle(appVM.settingsTab?.rawValue ?? "")
-                .background(AppColors.background)
         }
         .frame(minWidth: 700, minHeight: 580)
-        .background(AppColors.background)
     }
 
     private var sidebar: some View {
         @Bindable var vm = appVM
 
-        return ZStack {
-            AppColors.sidebar
-                .ignoresSafeArea(.container, edges: [.top, .bottom, .leading])
-
-            List(SettingsTab.allCases, selection: $vm.settingsTab) { tab in
-                Label(tab.rawValue, systemImage: tab.sfSymbol)
-                    .tag(tab)
-            }
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
+        return List(SettingsTab.allCases, selection: $vm.settingsTab) { tab in
+            Label(tab.rawValue, systemImage: tab.sfSymbol)
+                .tag(tab)
         }
-        .background(AppColors.sidebar)
+        .listStyle(.sidebar)
+        .accessibilityLabel("Settings navigation")
         .navigationSplitViewColumnWidth(180)
     }
 

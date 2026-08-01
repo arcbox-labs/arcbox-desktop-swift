@@ -93,6 +93,19 @@ final class VolumesListViewControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testDescendingSortUsesIDAsTieBreaker() {
+        let viewModel = VolumesViewModel()
+        viewModel.volumes = [
+            volume(name: "alpha", inUse: false),
+            volume(name: "beta", inUse: false),
+        ]
+        viewModel.sortBy = .size
+        viewModel.sortAscending = false
+
+        XCTAssertEqual(viewModel.sortedVolumes.map(\.id), ["beta", "alpha"])
+    }
+
+    @MainActor
     private func waitUntil(_ condition: @escaping @MainActor () -> Bool) async throws {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: .seconds(1))

@@ -24,7 +24,7 @@ struct MachineCreateSheet: View {
     }
 
     private var canCreate: Bool {
-        !isCreating && !trimmedName.isEmpty && !selectedRelease.isEmpty
+        client != nil && !isCreating && !trimmedName.isEmpty && !selectedRelease.isEmpty
     }
 
     private var trimmedName: String {
@@ -48,6 +48,7 @@ struct MachineCreateSheet: View {
                     }
                 )
                 .buttonStyle(.plain)
+                .disabled(isCreating)
             }
             .padding(.horizontal, 16)
             .frame(height: AppMetrics.sheetTitleBarHeight)
@@ -56,7 +57,6 @@ struct MachineCreateSheet: View {
             Form {
                 Section {
                     TextField("Name", text: $name, prompt: Text("my-machine"))
-                        .disabled(isCreating)
                 }
 
                 Section("Image") {
@@ -71,14 +71,12 @@ struct MachineCreateSheet: View {
                         }
                     }
                 }
-                .disabled(isCreating)
 
                 Section("Resources") {
                     Stepper("CPUs: \(cpus)", value: $cpus, in: 1...16)
                     Stepper("Memory: \(memoryGiB) GiB", value: $memoryGiB, in: 1...64)
                     Stepper("Disk: \(diskGiB) GB", value: $diskGiB, in: 10...500, step: 10)
                 }
-                .disabled(isCreating)
 
                 if let errorMessage {
                     Section {
@@ -89,6 +87,7 @@ struct MachineCreateSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .disabled(isCreating)
 
             Divider()
 
@@ -111,6 +110,7 @@ struct MachineCreateSheet: View {
             .padding(16)
         }
         .frame(width: 440, height: 460)
+        .interactiveDismissDisabled(isCreating)
         .task {
             distros = await MachineImageCatalog.fetch()
             normalizeSelection()
@@ -131,7 +131,7 @@ struct MachineCreateSheet: View {
     }
 
     private func create() {
-        guard let client else { return }
+        guard !isCreating, let client else { return }
         var spec = MachineCreateSpec()
         spec.name = trimmedName
         spec.distro = selectedDistro

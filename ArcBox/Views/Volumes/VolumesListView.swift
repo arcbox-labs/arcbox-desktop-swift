@@ -15,12 +15,19 @@ struct VolumesListView: View {
                 StartupProgressView(orchestrator: orchestrator)
             } else if !daemonManager.state.isRunning {
                 DaemonLoadingView(state: daemonManager.state)
+            } else if !daemonManager.setupPhase.isDockerReady {
+                ProgressView("Starting Docker engine…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if docker == nil {
+                ContentUnavailableView {
+                    Label("Docker Client Unavailable", systemImage: "shippingbox")
+                } description: {
+                    Text("ArcBox is running, but no Docker client is available.")
+                }
             } else {
                 VolumesListControllerView(
                     viewModel: vm,
-                    loadingTitle: daemonManager.setupPhase.isDockerReady
-                        ? "Loading volumes…"
-                        : "Starting Docker engine…",
+                    loadingTitle: "Loading volumes…",
                     onRetry: {
                         Task { await vm.loadVolumes(docker: docker) }
                     },
@@ -31,7 +38,7 @@ struct VolumesListView: View {
             }
         }
         .navigationTitle("Volumes")
-        .navigationSubtitle(vm.totalSize)
+        .navigationSubtitle(listSubtitle)
         .searchable(text: Bindable(vm).searchText, isPresented: Bindable(vm).isSearching)
         .onChange(of: vm.isSearching) { _, newValue in
             if !newValue { vm.searchText = "" }
@@ -39,6 +46,7 @@ struct VolumesListView: View {
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 SortMenuButton(sortBy: Bindable(vm).sortBy, ascending: Bindable(vm).sortAscending)
+                    .disabled(!dockerActionsAvailable)
                 Button(
                     action: { vm.showNewVolumeSheet = true },
                     label: {
@@ -47,6 +55,7 @@ struct VolumesListView: View {
                 )
                 .accessibilityLabel("New volume")
                 .keyboardShortcut("n", modifiers: .command)
+                .disabled(!dockerActionsAvailable)
             }
         }
         .sheet(isPresented: Bindable(vm).showNewVolumeSheet) {
@@ -68,6 +77,36 @@ struct VolumesListView: View {
         .onReceive(NotificationCenter.default.publisher(for: .dockerDataChanged)) { _ in
             guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             Task { await vm.loadVolumes(docker: docker) }
+        }
+    }
+
+    private var dockerActionsAvailable: Bool {
+        (orchestrator?.isReady ?? true)
+            && daemonManager.state.isRunning
+            && daemonManager.setupPhase.isDockerReady
+            && docker != nil
+    }
+
+    private var listSubtitle: String {
+        if let orchestrator, !orchestrator.isReady {
+            return "Starting…"
+        }
+        guard daemonManager.state.isRunning else {
+            return "Unavailable"
+        }
+        guard daemonManager.setupPhase.isDockerReady else {
+            return "Starting…"
+        }
+        guard docker != nil else {
+            return "Unavailable"
+        }
+        return switch vm.loadState {
+        case .waiting, .loading:
+            "Loading…"
+        case .failed:
+            "Unavailable"
+        case .loaded:
+            vm.totalSize
         }
     }
 }

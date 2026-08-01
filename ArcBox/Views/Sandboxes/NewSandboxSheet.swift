@@ -25,6 +25,7 @@ struct NewSandboxSheet: View {
     @Environment(ImagesViewModel.self) private var imagesVM
 
     @State private var isCreating = false
+    @State private var errorMessage: String?
 
     // Count
     @State private var count: Int = 1
@@ -64,6 +65,7 @@ struct NewSandboxSheet: View {
                     }
                 )
                 .buttonStyle(.plain)
+                .disabled(isCreating)
             }
             .padding(.horizontal, 16)
             .frame(height: AppMetrics.sheetTitleBarHeight)
@@ -111,22 +113,32 @@ struct NewSandboxSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .disabled(isCreating)
 
             // Footer buttons
             HStack {
+                SheetErrorMessage(message: errorMessage)
+
                 Spacer()
 
                 Button("Cancel") {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
+                .disabled(isCreating)
 
                 Button("Create") {
+                    let requestedCount = count
                     isCreating = true
+                    errorMessage = nil
                     Task {
-                        await createSandboxes()
+                        let createdCount = await createSandboxes(count: requestedCount)
                         isCreating = false
-                        dismiss()
+                        if createdCount == requestedCount {
+                            dismiss()
+                        } else {
+                            count = requestedCount - createdCount
+                        }
                     }
                 }
                 .keyboardShortcut(.defaultAction)
@@ -137,7 +149,9 @@ struct NewSandboxSheet: View {
             .overlay(alignment: .top) { Divider() }
         }
         .frame(width: AppMetrics.sheetWidth, height: 540)
+        .interactiveDismissDisabled(isCreating)
         .task {
+            vm.clearError()
             // Populate the image picker even when the Images view hasn't been
             // opened yet; loadImages no-ops if the Docker client isn't ready.
             await imagesVM.loadImages(docker: docker, iconClient: client)
@@ -155,7 +169,13 @@ struct NewSandboxSheet: View {
         ).sorted()
     }
 
-    private func createSandboxes() async {
+    private func createSandboxes(count requestedCount: Int) async -> Int {
+        guard client != nil else {
+            errorMessage = "ArcBox daemon is unavailable."
+            return 0
+        }
+
+        vm.clearError()
         var spec = SandboxCreateSpec()
         spec.image = image.trimmingCharacters(in: .whitespaces)
         spec.vcpus = UInt32(vcpus)
@@ -167,9 +187,22 @@ struct NewSandboxSheet: View {
         spec.networkMode = networkMode.rawValue
         spec.ttlSeconds = UInt32(ttlSeconds)
 
-        for _ in 0..<count {
+        var createdCount = 0
+        for _ in 0..<requestedCount {
             let id = await vm.createSandbox(spec, client: client, docker: docker)
-            if id == nil { break }
+            guard id != nil else {
+                let failure = vm.lastError ?? "Sandbox creation failed."
+                vm.clearError()
+                if createdCount == 0 {
+                    errorMessage = failure
+                } else {
+                    errorMessage =
+                        "Created \(createdCount) of \(requestedCount) sandboxes. \(failure)"
+                }
+                return createdCount
+            }
+            createdCount += 1
         }
+        return createdCount
     }
 }

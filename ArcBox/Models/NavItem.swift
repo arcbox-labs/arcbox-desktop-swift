@@ -69,7 +69,7 @@ enum NavItem: String, CaseIterable, Identifiable {
             case .docker: [.containers, .volumes, .images, .networks]
             case .kubernetes: [.pods, .services]
             case .linux: [.machines]
-            case .sandbox: [.sandboxes, .templates]
+            case .sandbox: [.sandboxes]
             }
         }
     }

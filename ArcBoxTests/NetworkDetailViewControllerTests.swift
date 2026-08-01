@@ -61,6 +61,13 @@ final class NetworkDetailViewControllerTests: XCTestCase {
 
         controller?.update(
             loadContainers: loader,
+            runningContainerIDs: nil
+        )
+        XCTAssertTrue(cellText(in: tableView, column: 1, row: 0).contains("—"))
+        XCTAssertEqual(attempts, 3)
+
+        controller?.update(
+            loadContainers: loader,
             runningContainerIDs: ["container-id"]
         )
         XCTAssertTrue(cellText(in: tableView, column: 1, row: 0).contains("Running"))

@@ -7,13 +7,25 @@ extension SandboxesViewModel {
 
     /// Load snapshots taken from one sandbox.
     func loadSnapshots(for sandboxID: String, client: ArcBoxClient?) async {
-        guard let client else { return }
+        snapshotsLoadToken = nil
         // Drop a previously-selected sandbox's snapshots up front so a slow or
         // failing load never leaves another sandbox's snapshots on screen.
         if snapshotsSandboxID != sandboxID {
             snapshots = []
             snapshotsSandboxID = sandboxID
+            snapshotsLoadState = .waiting
+            snapshotsRefreshError = nil
         }
+        guard let client else {
+            if snapshotsLoadState == .loading {
+                snapshotsLoadState = .waiting
+            }
+            return
+        }
+
+        let loadToken = UUID()
+        snapshotsLoadToken = loadToken
+        let isRefresh = snapshotsLoadState.beginLoading()
         let metadata = SandboxMetadata.forMachine(activeMachineID)
         var request = Sandbox_V1_ListSnapshotsRequest()
         request.sandboxID = sandboxID
@@ -23,9 +35,25 @@ extension SandboxesViewModel {
                 metadata: metadata,
                 options: ArcBoxClient.defaultCallOptions
             )
+            guard snapshotsLoadToken == loadToken, snapshotsSandboxID == sandboxID else { return }
+            snapshotsLoadToken = nil
             snapshots = response.snapshots.map(SandboxSnapshotViewModel.init(from:))
+            snapshotsLoadState = .loaded
+            snapshotsRefreshError = nil
         } catch {
-            reportError(error, operation: "list_snapshots", surface: false)
+            guard snapshotsLoadToken == loadToken, snapshotsSandboxID == sandboxID else { return }
+            snapshotsLoadToken = nil
+            if snapshotsLoadState.cancelLoading(
+                for: error,
+                retainingLoadedContent: isRefresh
+            ) {
+                return
+            }
+            let message = reportError(error, operation: "list_snapshots", surface: false)
+            snapshotsRefreshError = snapshotsLoadState.fail(
+                message,
+                retainingLoadedContent: isRefresh
+            )
         }
     }
 
@@ -74,7 +102,6 @@ extension SandboxesViewModel {
                 options: ArcBoxClient.defaultCallOptions
             )
             Log.sandbox.info("Restored \(snapshotID, privacy: .public) → \(response.id, privacy: .public)")
-            recordSandboxStart()
             await loadSandboxes(client: client)
             return response.id
         } catch {
@@ -95,6 +122,7 @@ extension SandboxesViewModel {
                 metadata: metadata,
                 options: ArcBoxClient.defaultCallOptions
             )
+            snapshotsLoadToken = nil
             snapshots.removeAll { $0.id == snapshotID }
         } catch {
             reportError(error, operation: "delete_snapshot")

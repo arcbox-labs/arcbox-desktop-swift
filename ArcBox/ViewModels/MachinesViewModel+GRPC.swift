@@ -91,7 +91,10 @@ extension MachinesViewModel {
     /// Returns the new machine ID on success.
     @discardableResult
     func createMachine(_ spec: MachineCreateSpec, client: ArcBoxClient?) async -> String? {
-        guard let client else { return nil }
+        guard let client else {
+            lastError = "ArcBox daemon is unavailable."
+            return nil
+        }
         var request = Arcbox_V1_CreateMachineRequest()
         request.name = spec.name
         request.distro = spec.distro

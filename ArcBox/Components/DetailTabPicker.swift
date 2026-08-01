@@ -14,10 +14,8 @@ where RawValue == String, AllCases: RandomAccessCollection {}
 
 /// The segmented tab bar in a detail view's toolbar.
 ///
-/// The pre-Tahoe fallback width follows from the tab count. Each detail view
-/// used to carry its own total — 120 through 420 across eight views, fitted by
-/// eye and with no consistent width per segment — so adding a tab meant
-/// re-tuning a number that gave no hint it needed re-tuning.
+/// The width follows the tab count with a three-segment floor, so single-tab
+/// detail views keep the same toolbar presence instead of collapsing to a chip.
 struct DetailTabPicker<Tab: DetailTab>: ToolbarContent {
     @Binding var selection: Tab
 
@@ -36,8 +34,9 @@ struct DetailTabPicker<Tab: DetailTab>: ToolbarContent {
                 }
                 .pickerStyle(.segmented)
                 .frame(
-                    minWidth: AppMetrics.detailTabSegment,
-                    maxWidth: CGFloat(Tab.allCases.count) * AppMetrics.detailTabSegment
+                    minWidth: DetailTabLayout.minimumWidth(for: Tab.allCases.count),
+                    idealWidth: DetailTabLayout.idealWidth(for: Tab.allCases.count),
+                    maxWidth: DetailTabLayout.idealWidth(for: Tab.allCases.count)
                 )
             }
         }
@@ -63,15 +62,12 @@ private struct LiquidGlassDetailTabPicker<Tab: DetailTab>: View {
                         Text(tab.rawValue)
                             .font(.system(size: 12))
                             .lineLimit(1)
-                            .frame(
-                                minWidth: 44,
-                                idealWidth: AppMetrics.detailTabSegment,
-                                maxWidth: AppMetrics.detailTabSegment
-                            )
+                            .frame(minWidth: 44, maxWidth: .infinity)
                             .frame(height: 28)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity)
                     .foregroundStyle(selection == tab ? .primary : .secondary)
                     .glassEffect(
                         selection == tab ? .regular.interactive() : .identity
@@ -84,6 +80,11 @@ private struct LiquidGlassDetailTabPicker<Tab: DetailTab>: View {
             }
             .padding(2)
         }
+        .frame(
+            minWidth: DetailTabLayout.minimumWidth(for: Tab.allCases.count),
+            idealWidth: DetailTabLayout.idealWidth(for: Tab.allCases.count),
+            maxWidth: DetailTabLayout.idealWidth(for: Tab.allCases.count)
+        )
         .animation(
             reduceMotion ? nil : .smooth(duration: 0.3),
             value: selection
@@ -96,5 +97,17 @@ private struct LiquidGlassDetailTabPicker<Tab: DetailTab>: View {
             }
             .pickerStyle(.segmented)
         }
+    }
+}
+
+private enum DetailTabLayout {
+    static func minimumWidth(for count: Int) -> CGFloat {
+        count <= 2
+            ? 3 * AppMetrics.detailTabSegment
+            : CGFloat(count) * AppMetrics.detailTabSegment * 0.7
+    }
+
+    static func idealWidth(for count: Int) -> CGFloat {
+        CGFloat(max(count, 3)) * AppMetrics.detailTabSegment
     }
 }

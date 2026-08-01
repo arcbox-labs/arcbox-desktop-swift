@@ -43,14 +43,12 @@ struct NewVolumeSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .disabled(isCreating)
 
             // Footer buttons
             HStack {
-                Button("?") {}
-                    .buttonStyle(.plain)
-                    .frame(width: AppMetrics.sheetCloseButton, height: AppMetrics.sheetCloseButton)
-
                 Button("Import...") {
+                    guard !isCreating else { return }
                     let panel = NSOpenPanel()
                     var types: [UTType] = [.gzip]
                     if let tar = UTType(filenameExtension: "tar") { types.insert(tar, at: 0) }
@@ -73,8 +71,10 @@ struct NewVolumeSheet: View {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
+                .disabled(isCreating)
 
                 Button("Create") {
+                    guard !isCreating else { return }
                     isCreating = true
                     Task {
                         let ok = await vm.createVolume(name: name, docker: docker)
@@ -90,5 +90,6 @@ struct NewVolumeSheet: View {
             .overlay(alignment: .top) { Divider() }
         }
         .frame(width: AppMetrics.sheetWidth, height: 240)
+        .interactiveDismissDisabled(isCreating)
     }
 }

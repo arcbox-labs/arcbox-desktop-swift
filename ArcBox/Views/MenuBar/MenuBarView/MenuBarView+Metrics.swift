@@ -75,7 +75,7 @@ extension MenuBarView {
         HStack(spacing: 6) {
             metricCard(
                 title: "Volumes",
-                count: volumesVM.volumes.count,
+                count: volumesVM.loadState == .loaded ? volumesVM.volumes.count : nil,
                 symbol: "internaldrive",
                 tint: .mint
             ) {
@@ -84,7 +84,7 @@ extension MenuBarView {
 
             metricCard(
                 title: "Images",
-                count: imagesVM.images.count,
+                count: imagesVM.loadState == .loaded ? imagesVM.images.count : nil,
                 symbol: "circle.circle",
                 tint: .indigo
             ) {
@@ -93,7 +93,7 @@ extension MenuBarView {
 
             metricCard(
                 title: "Networks",
-                count: networksVM.networks.count,
+                count: networksVM.loadState == .loaded ? networksVM.networks.count : nil,
                 symbol: "point.3.filled.connected.trianglepath.dotted",
                 tint: .cyan
             ) {
@@ -105,7 +105,7 @@ extension MenuBarView {
 
     func metricCard(
         title: String,
-        count: Int,
+        count: Int?,
         symbol: String,
         tint: Color,
         action: @escaping () -> Void
@@ -123,7 +123,7 @@ extension MenuBarView {
 
                 Spacer(minLength: 0)
 
-                Text("\(count)")
+                Text(count.map(String.init) ?? "—")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(tint)
                     .frame(maxWidth: .infinity, alignment: .center)

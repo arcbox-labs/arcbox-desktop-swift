@@ -83,16 +83,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let appItem = NSMenuItem()
         let fileItem = NSMenuItem()
         let editItem = NSMenuItem()
+        let viewItem = NSMenuItem()
         let windowItem = NSMenuItem()
 
         mainMenu.addItem(appItem)
         mainMenu.addItem(fileItem)
         mainMenu.addItem(editItem)
+        mainMenu.addItem(viewItem)
         mainMenu.addItem(windowItem)
 
         appItem.submenu = makeApplicationMenu()
         fileItem.submenu = makeFileMenu()
         editItem.submenu = makeEditMenu()
+        viewItem.submenu = makeViewMenu()
         let windowMenu = makeWindowMenu()
         windowItem.submenu = windowMenu
 
@@ -178,6 +181,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         menu.addItem(responderItem("Paste", action: #selector(NSText.paste(_:)), key: "v"))
         menu.addItem(
             responderItem("Select All", action: #selector(NSText.selectAll(_:)), key: "a"))
+        return menu
+    }
+
+    private func makeViewMenu() -> NSMenu {
+        let menu = NSMenu(title: "View")
+        let toggleSidebar = responderItem(
+            "Toggle Sidebar",
+            action: #selector(NSSplitViewController.toggleSidebar(_:)),
+            key: "s"
+        )
+        toggleSidebar.keyEquivalentModifierMask = [.command, .control]
+        menu.addItem(toggleSidebar)
         return menu
     }
 

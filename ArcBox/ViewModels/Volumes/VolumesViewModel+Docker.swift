@@ -65,10 +65,16 @@ extension VolumesViewModel {
     /// Ensure a helper image exists locally, pulling it on demand if necessary.
     func ensureImageExists(_ image: String, docker: DockerClient) async throws {
         // Check if image exists locally
-        do {
-            _ = try await docker.api.ImageInspect(path: .init(name: image))
+        let inspect = try await docker.api.ImageInspect(path: .init(name: image))
+        switch inspect {
+        case .ok:
             return
-        } catch {}
+        case .notFound:
+            break
+        default:
+            _ = try inspect.ok
+        }
+
         // Pull it
         let response = try await docker.api.ImageCreate(query: .init(fromImage: image))
         _ = try response.ok

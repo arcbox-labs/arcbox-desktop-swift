@@ -10,8 +10,6 @@ struct NetworkDetailView: View {
     @Environment(\.dockerClient) private var docker
 
     var body: some View {
-        let runningContainerIDs = Set(containersVM.containers.filter(\.isRunning).map(\.id))
-
         NetworkDetailControllerView(
             viewModel: vm,
             loadContainers: makeContainerLoader(),
@@ -20,6 +18,21 @@ struct NetworkDetailView: View {
         .toolbar {
             DetailTabPicker(selection: .constant(NetworkDetailTab.info))
         }
+        .task(id: dockerRuntimeAvailable) {
+            await loadContainerStates()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .dockerContainerChanged)) { _ in
+            Task { await loadContainerStates() }
+        }
+    }
+
+    private var dockerRuntimeAvailable: Bool {
+        daemonManager.setupPhase.isDockerReady && docker != nil
+    }
+
+    private var runningContainerIDs: Set<String>? {
+        guard dockerRuntimeAvailable, containersVM.loadState == .loaded else { return nil }
+        return Set(containersVM.containers.filter(\.isRunning).map(\.id))
     }
 
     private func makeContainerLoader() -> NetworkDetailViewController.LoadContainers? {
@@ -45,6 +58,11 @@ struct NetworkDetailView: View {
                 }
         }
     }
+
+    private func loadContainerStates() async {
+        guard dockerRuntimeAvailable else { return }
+        await containersVM.loadContainersFromDocker(docker: docker)
+    }
 }
 
 private enum NetworkDetailTab: String, @MainActor DetailTab {
@@ -56,7 +74,7 @@ private enum NetworkDetailTab: String, @MainActor DetailTab {
 private struct NetworkDetailControllerView: NSViewControllerRepresentable {
     let viewModel: NetworksViewModel
     let loadContainers: NetworkDetailViewController.LoadContainers?
-    let runningContainerIDs: Set<String>
+    let runningContainerIDs: Set<String>?
 
     func makeNSViewController(context _: Context) -> NetworkDetailViewController {
         NetworkDetailViewController(

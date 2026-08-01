@@ -1,59 +1,36 @@
 import ArcBoxClient
 import SwiftUI
 
-/// Column 2: sandboxes page with List and Monitoring tabs
+/// Column 2: sandbox list and lifecycle actions.
 struct SandboxesListView: View {
     @Environment(SandboxesViewModel.self) private var vm
+    @Environment(DaemonManager.self) private var daemonManager
+    @Environment(\.startupOrchestrator) private var orchestrator
     @Environment(\.arcboxClient) private var client
 
     @State private var sandboxToRemove: SandboxViewModel?
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Page tab bar
-            HStack(spacing: 0) {
-                ForEach(SandboxPageTab.allCases) { tab in
-                    Button {
-                        vm.pageTab = tab
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: tab == .monitoring ? "chart.xyaxis.line" : "list.bullet")
-                                .font(.system(size: 12))
-                            Text(tab.rawValue)
-                                .font(.system(size: 13, weight: .medium))
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            vm.pageTab == tab
-                                ? AppColors.surfaceElevated
-                                : Color.clear
-                        )
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            Divider()
-
-            // Tab content
-            switch vm.pageTab {
-            case .monitoring:
-                SandboxMonitoringView(vm: vm)
-            case .list:
+        Group {
+            if let orchestrator, !orchestrator.isReady {
+                StartupProgressView(orchestrator: orchestrator)
+            } else if !daemonManager.state.isRunning {
+                DaemonLoadingView(state: daemonManager.state)
+            } else if !daemonManager.setupPhase.isDockerReady {
+                ProgressView("Starting ArcBox runtime…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if client == nil {
+                DaemonLoadingView(state: .registered)
+            } else {
                 sandboxListContent
             }
         }
         .navigationTitle("Sandboxes")
-        .navigationSubtitle(vm.pageTab == .list ? "\(vm.sandboxCount) total" : "\(vm.concurrentSandboxes) concurrent")
+        .navigationSubtitle(listSubtitle)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                if vm.pageTab == .list {
-                    SortMenuButton(sortBy: Bindable(vm).sortBy, ascending: Bindable(vm).sortAscending)
-                }
+                SortMenuButton(sortBy: Bindable(vm).sortBy, ascending: Bindable(vm).sortAscending)
+                    .disabled(!sandboxActionsAvailable)
                 Button(
                     action: { vm.showNewSandboxSheet = true },
                     label: {
@@ -61,12 +38,15 @@ struct SandboxesListView: View {
                     }
                 )
                 .help("New Sandbox")
+                .disabled(!sandboxActionsAvailable)
             }
         }
-        .task(id: client != nil) {
+        .task(id: daemonManager.setupPhase.isDockerReady && client != nil) {
+            guard daemonManager.setupPhase.isDockerReady, client != nil else { return }
             await vm.loadSandboxes(client: client)
         }
         .onReceive(NotificationCenter.default.publisher(for: .sandboxChanged)) { _ in
+            guard daemonManager.setupPhase.isDockerReady, client != nil else { return }
             Task {
                 await vm.loadSandboxes(client: client)
             }
@@ -93,7 +73,7 @@ struct SandboxesListView: View {
         .alert(
             "Error",
             isPresented: Binding(
-                get: { vm.lastError != nil },
+                get: { !vm.showNewSandboxSheet && vm.lastError != nil },
                 set: { if !$0 { vm.clearError() } }
             )
         ) {
@@ -104,10 +84,37 @@ struct SandboxesListView: View {
         .sheet(isPresented: Bindable(vm).showNewSandboxSheet) {
             NewSandboxSheet()
         }
+        .errorToast(message: Bindable(vm).refreshError)
     }
 
+    private var sandboxActionsAvailable: Bool {
+        (orchestrator?.isReady ?? true)
+            && daemonManager.state.isRunning
+            && daemonManager.setupPhase.isDockerReady
+            && client != nil
+    }
+
+    @ViewBuilder
     private var sandboxListContent: some View {
-        VStack(spacing: 0) {
+        switch vm.loadState {
+        case .waiting:
+            loadingPlaceholder("Waiting for ArcBox daemon…")
+        case .loading:
+            loadingPlaceholder("Loading sandboxes…")
+        case .failed(let message):
+            ContentUnavailableView {
+                Label("Couldn’t Load Sandboxes", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(message)
+            } actions: {
+                Button("Retry") {
+                    Task {
+                        await vm.loadSandboxes(client: client)
+                    }
+                }
+                .disabled(client == nil)
+            }
+        case .loaded:
             if vm.sandboxes.isEmpty {
                 SandboxEmptyState()
             } else {
@@ -130,5 +137,44 @@ struct SandboxesListView: View {
                 }
             }
         }
+    }
+
+    private var listSubtitle: String {
+        if let orchestrator, !orchestrator.isReady {
+            return "Starting…"
+        }
+        guard daemonManager.state.isRunning else {
+            return "Unavailable"
+        }
+        guard daemonManager.setupPhase.isDockerReady else {
+            return "Starting…"
+        }
+        guard client != nil else {
+            return "Connecting…"
+        }
+
+        return switch vm.loadState {
+        case .waiting:
+            "Waiting for daemon"
+        case .loading:
+            "Loading…"
+        case .loaded:
+            "\(vm.sandboxCount) total"
+        case .failed:
+            "Unavailable"
+        }
+    }
+
+    private func loadingPlaceholder(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Spacer()
+            ProgressView()
+                .controlSize(.small)
+            Text(message)
+                .font(.system(size: 13))
+                .foregroundStyle(AppColors.textSecondary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

@@ -14,6 +14,10 @@
 #   make dmg-release ARCBOX_DIR=arcbox-core SIGN_IDENTITY="..." NOTARIZE=1
 
 ARCBOX_DIR ?= $(shell cd ../arcbox 2>/dev/null && pwd)
+ifneq ($(strip $(ARCBOX_DIR)),)
+override ARCBOX_DIR := $(abspath $(ARCBOX_DIR))
+endif
+ARCBOX_VERSION := $(strip $(shell /bin/cat arcbox.version))
 SIGN_IDENTITY ?= $(shell security find-identity -v -p codesigning 2>/dev/null \
 	| grep -o '"Developer ID Application: ArcBox, Inc\.[^"]*"' \
 	| head -1 | tr -d '"')
@@ -88,6 +92,7 @@ help:
 # poisoned DEVELOPER_DIR cannot leak in through it).
 XCODE_DEVELOPER_DIR ?=
 CARGO_BIN_DIR ?= $(dir $(shell command -v cargo 2>/dev/null))
+NODE_BIN_DIR ?= $(dir $(shell command -v node 2>/dev/null))
 SYSTEM_DEVELOPER_DIR = $(shell /usr/bin/env -i PATH=/usr/bin:/bin /usr/bin/xcode-select -p)
 SYSTEM_SDKROOT = $(shell /usr/bin/env -i PATH=/usr/bin:/bin DEVELOPER_DIR="$(SYSTEM_DEVELOPER_DIR)" /usr/bin/xcrun --sdk macosx --show-sdk-path)
 XCODE_ENV = /usr/bin/env -i \
@@ -99,7 +104,7 @@ XCODE_ENV = /usr/bin/env -i \
 	$(if $(XCODE_DEVELOPER_DIR),DEVELOPER_DIR="$(XCODE_DEVELOPER_DIR)")
 HOST_RUST_ENV = /usr/bin/env -i \
 	HOME="$$HOME" \
-	PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:$(CARGO_BIN_DIR):$(CURDIR)/.devenv/profile/bin" \
+	PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:$(CARGO_BIN_DIR):$(NODE_BIN_DIR):$(CURDIR)/.devenv/profile/bin" \
 	$(if $(TMPDIR),TMPDIR="$(TMPDIR)") \
 	$(if $(USER),USER="$(USER)") \
 	DEVELOPER_DIR="$(SYSTEM_DEVELOPER_DIR)" \
@@ -145,7 +150,9 @@ XCODEBUILD_FLAGS = \
 	SKIP_RUST_BUILD=$(SKIP_RUST_BUILD) \
 	ARCBOX_STAGE_RESOURCES=$(ARCBOX_STAGE_RESOURCES) \
 	ARCBOX_CARGO_BIN_DIR='$(CARGO_BIN_DIR)' \
+	$(if $(NODE_BIN_DIR),ARCBOX_NODE_BIN_DIR='$(NODE_BIN_DIR)') \
 	$(if $(ARCBOX_HOST_BIN_DIR),ARCBOX_HOST_BIN_DIR='$(ARCBOX_HOST_BIN_DIR)') \
+	$(if $(ARCBOX_HOST_TARGET_DIR),ARCBOX_HOST_TARGET_DIR='$(ARCBOX_HOST_TARGET_DIR)') \
 	$(if $(ARCBOX_DIR),ARCBOX_DIR='$(ARCBOX_DIR)') \
 	$(if $(ARCBOX_PROFILE),ARCBOX_PROFILE='$(ARCBOX_PROFILE)') \
 	$(if $(ARCBOX_PRODUCT_BUNDLE_IDENTIFIER),ARCBOX_PRODUCT_BUNDLE_IDENTIFIER='$(ARCBOX_PRODUCT_BUNDLE_IDENTIFIER)') \
@@ -158,12 +165,27 @@ build:
 	$(XCODE_ENV) xcodebuild build $(XCODEBUILD_FLAGS)
 
 build-runnable:
+	@actual_commit=$$(/usr/bin/git -C "$(ARCBOX_DIR)" rev-parse HEAD) || exit 1; \
+	expected_commit=$$(/usr/bin/git -C "$(ARCBOX_DIR)" rev-parse "$(ARCBOX_VERSION)^{commit}") || exit 1; \
+	if [ "$$actual_commit" != "$$expected_commit" ]; then \
+		echo "ERROR: ARCBOX_DIR must be checked out at $(ARCBOX_VERSION)." >&2; \
+		echo "  Run ./script/build_and_run.sh to use the isolated compatible runtime." >&2; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(/usr/bin/git -C "$(ARCBOX_DIR)" status --porcelain --untracked-files=normal)" ]; then \
+		echo "ERROR: ARCBOX_DIR has tracked or untracked source changes." >&2; \
+		exit 1; \
+	fi
 	@if [ -z "$(SIGN_IDENTITY)" ]; then \
 		echo "ERROR: No ArcBox Developer ID signing identity found." >&2; \
 		exit 1; \
 	fi
 	@if [ -z "$(CARGO_BIN_DIR)" ]; then \
 		echo "ERROR: cargo is unavailable. Enter 'devenv shell' first." >&2; \
+		exit 1; \
+	fi
+	@if [ -z "$(NODE_BIN_DIR)" ]; then \
+		echo "ERROR: Node.js is unavailable; it is required to build guest agents." >&2; \
 		exit 1; \
 	fi
 	$(MAKE) build \
@@ -176,6 +198,7 @@ build-runnable:
 		ARCBOX_PRODUCT_BUNDLE_IDENTIFIER=com.arcboxlabs.desktop.dev \
 		ARCBOX_PRODUCT_NAME=ArcBox \
 		ARCBOX_APP_DISPLAY_NAME='ArcBox Dev' \
+		ARCBOX_HOST_TARGET_DIR='$(ARCBOX_HOST_TARGET_DIR)' \
 		ARCBOX_HOST_BIN_DIR='$(ARCBOX_HOST_BIN_DIR)' \
 		DAEMON_SIGN_IDENTITY='$(SIGN_IDENTITY)'
 
@@ -253,11 +276,19 @@ build-runnable-rust:
 		echo "ERROR: cargo is unavailable. Enter 'devenv shell' first." >&2; \
 		exit 1; \
 	fi
+	@if [ -z "$(NODE_BIN_DIR)" ]; then \
+		echo "ERROR: Node.js is unavailable; it is required to build guest agents." >&2; \
+		exit 1; \
+	fi
 	$(HOST_RUST_ENV) cargo build \
 		--manifest-path "$(ARCBOX_DIR)/Cargo.toml" \
 		-p arcbox-cli -p arcbox-helper -p arcbox-daemon \
 		--release
 	@for binary in abctl arcbox-helper arcbox-daemon; do \
+		if [ ! -x "$(ARCBOX_HOST_BIN_DIR)/$$binary" ]; then \
+			echo "ERROR: missing host binary: $(ARCBOX_HOST_BIN_DIR)/$$binary" >&2; \
+			exit 1; \
+		fi; \
 		if /usr/bin/otool -L "$(ARCBOX_HOST_BIN_DIR)/$$binary" | /usr/bin/grep -q /nix/store/; then \
 			echo "ERROR: $$binary has a non-portable Nix dylib dependency." >&2; \
 			exit 1; \

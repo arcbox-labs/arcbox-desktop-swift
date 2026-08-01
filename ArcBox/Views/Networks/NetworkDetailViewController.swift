@@ -54,13 +54,13 @@ final class NetworkDetailViewController: NSViewController,
     private var entries: [ContainerEntry] = []
     private var inspectState: LoadPhase = .waiting
     private var loadContainers: LoadContainers?
-    private var runningContainerIDs: Set<String>
+    private var runningContainerIDs: Set<String>?
     private var loadTask: Task<Void, Never>?
 
     init(
         viewModel: NetworksViewModel,
         loadContainers: LoadContainers?,
-        runningContainerIDs: Set<String>
+        runningContainerIDs: Set<String>?
     ) {
         self.viewModel = viewModel
         self.loadContainers = loadContainers
@@ -141,7 +141,7 @@ final class NetworkDetailViewController: NSViewController,
 
     func update(
         loadContainers: LoadContainers?,
-        runningContainerIDs: Set<String>
+        runningContainerIDs: Set<String>?
     ) {
         let availabilityChanged = (self.loadContainers == nil) != (loadContainers == nil)
         let runningStateChanged = self.runningContainerIDs != runningContainerIDs
@@ -186,8 +186,19 @@ final class NetworkDetailViewController: NSViewController,
             cell.setAccessibilityLabel(entry.name)
             return cell
         case Self.statusColumnIdentifier:
-            let isRunning = runningContainerIDs.contains(entry.id)
-            let status = isRunning ? "Running" : "Stopped"
+            let status: String
+            let color: NSColor
+            let accessibilityLabel: String
+            if let runningContainerIDs {
+                let isRunning = runningContainerIDs.contains(entry.id)
+                status = isRunning ? "Running" : "Stopped"
+                color = isRunning ? .systemGreen : .systemGray
+                accessibilityLabel = status
+            } else {
+                status = "—"
+                color = .tertiaryLabelColor
+                accessibilityLabel = "Status unavailable"
+            }
             let cell = textCell(
                 in: tableView,
                 identifier: identifier,
@@ -196,9 +207,9 @@ final class NetworkDetailViewController: NSViewController,
             )
             cell.textField?.attributedStringValue = statusValue(
                 status,
-                color: isRunning ? .systemGreen : .systemGray
+                color: color
             )
-            cell.setAccessibilityLabel(status)
+            cell.setAccessibilityLabel(accessibilityLabel)
             return cell
         case Self.ipv4ColumnIdentifier:
             let cell = textCell(

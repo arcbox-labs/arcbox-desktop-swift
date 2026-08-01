@@ -59,14 +59,12 @@ struct PullImageSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .disabled(isPulling)
 
             // Footer buttons
             HStack {
-                Button("?") {}
-                    .buttonStyle(.plain)
-                    .frame(width: AppMetrics.sheetCloseButton, height: AppMetrics.sheetCloseButton)
-
                 Button("Import...") {
+                    guard !isPulling else { return }
                     let panel = NSOpenPanel()
                     var types: [UTType] = [.gzip]
                     if let tar = UTType(filenameExtension: "tar") { types.insert(tar, at: 0) }
@@ -89,8 +87,10 @@ struct PullImageSheet: View {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
+                .disabled(isPulling)
 
                 Button("Pull") {
+                    guard !isPulling else { return }
                     isPulling = true
                     Task {
                         let ok = await vm.pullImage(
@@ -109,5 +109,6 @@ struct PullImageSheet: View {
             .overlay(alignment: .top) { Divider() }
         }
         .frame(width: AppMetrics.sheetWidth, height: 270)
+        .interactiveDismissDisabled(isPulling)
     }
 }
