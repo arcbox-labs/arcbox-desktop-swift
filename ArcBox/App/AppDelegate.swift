@@ -4,7 +4,6 @@ import Foundation
 @main
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private(set) var coordinator: ApplicationCoordinator?
-    var forceQuit = false
 
     static func main() {
         let application = NSApplication.shared
@@ -31,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
+        guard coordinator?.isTerminating != true else { return }
         urls.forEach { coordinator?.handleDeepLink($0) }
     }
 
@@ -38,20 +38,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         _ sender: NSApplication,
         hasVisibleWindows flag: Bool
     ) -> Bool {
+        guard coordinator?.isTerminating != true else { return false }
         coordinator?.showMainWindow()
         return true
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        let keepRunning = UserDefaults.standard.bool(forKey: "keepRunning")
-        let showInMenuBar = UserDefaults.standard.bool(forKey: "showInMenuBar")
-
-        if keepRunning && showInMenuBar && !forceQuit {
-            coordinator?.closeVisibleWindows()
-            return .terminateCancel
-        }
-
         guard let coordinator else { return .terminateNow }
+        guard coordinator.beginTermination() else { return .terminateLater }
         Task {
             await coordinator.shutdown()
             NSApp.reply(toApplicationShouldTerminate: true)
@@ -60,6 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard coordinator?.isTerminating != true else { return false }
         if menuItem.action == #selector(checkForUpdates(_:)) {
             return coordinator?.canCheckForUpdates == true
         }

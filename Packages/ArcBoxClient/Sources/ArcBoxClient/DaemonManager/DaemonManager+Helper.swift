@@ -73,7 +73,7 @@ extension DaemonManager {
             """
         )
 
-        let installError = await runPrivilegedHelperInstall(abctl: abctl, helper: helper)
+        let installError = try await runPrivilegedHelperInstall(abctl: abctl, helper: helper)
         if let installError {
             helperInstalled = false
             // Still refresh user-space PATH/CLI links — these do not need root
@@ -108,7 +108,7 @@ extension DaemonManager {
     /// or a typed error describing the failure.
     private func runPrivilegedHelperInstall(
         abctl: String, helper: String
-    ) async
+    ) async throws
         -> HelperInstallError?
     {
         func shellQuote(_ s: String) -> String {
@@ -120,31 +120,38 @@ extension DaemonManager {
         let script =
             "do shell script \(appleScriptStringLiteral(cmd)) with administrator privileges"
 
-        return await Task.detached { () -> HelperInstallError? in
-            var error: NSDictionary?
-            guard let appleScript = NSAppleScript(source: script) else {
-                return .appleScriptUnavailable
-            }
-            appleScript.executeAndReturnError(&error)
-            if let error {
-                // NSAppleScript error dictionary keys (Foundation string constants).
-                let message =
-                    (error["NSAppleScriptErrorMessage"] as? String)
-                    ?? String(describing: error)
-                let code = error["NSAppleScriptErrorNumber"] as? Int
-                ClientLog.daemon.warning(
-                    "Helper install failed (code=\(code.map(String.init) ?? "?", privacy: .public)): \(message, privacy: .private)"
-                )
-                // -128 is userCanceledErr from Authorization Services / AppleScript.
-                if code == -128 || message.localizedCaseInsensitiveContains("user canceled")
-                    || message.localizedCaseInsensitiveContains("user cancelled")
-                {
-                    return .userCanceled
-                }
-                return .installFailed(message)
-            }
+        let process = Process()
+        let errorPipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        process.standardError = errorPipe
+
+        do {
+            try await runCancellableProcess(process)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            return .appleScriptUnavailable
+        }
+
+        guard process.terminationStatus != 0 else {
             return nil
-        }.value
+        }
+
+        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        let standardError = (String(bytes: errorData, encoding: .utf8) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let message = standardError.isEmpty ? "Unknown AppleScript error" : standardError
+        ClientLog.daemon.warning(
+            "Helper install failed (status=\(process.terminationStatus, privacy: .public)): \(message, privacy: .private)"
+        )
+        if message.contains("(-128)")
+            || message.localizedCaseInsensitiveContains("user canceled")
+            || message.localizedCaseInsensitiveContains("user cancelled")
+        {
+            return .userCanceled
+        }
+        return .installFailed(message)
     }
 
     /// Run `abctl setup install` as the current user to set up shell
@@ -154,24 +161,23 @@ extension DaemonManager {
     /// available alongside `_abctl`.
     /// Non-critical — failures are logged but do not block startup.
     func installShellIntegration(abctl: String) async {
-        await Task.detached { @Sendable in
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: abctl)
-            process.arguments = Self.profileArguments + ["setup", "install"]
-            do {
-                try process.run()
-                process.waitUntilExit()
-                if process.terminationStatus == 0 {
-                    ClientLog.daemon.info("Shell integration installed via abctl setup install")
-                } else {
-                    ClientLog.daemon.warning(
-                        "abctl setup install exited with status \(process.terminationStatus)")
-                }
-            } catch {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: abctl)
+        process.arguments = Self.profileArguments + ["setup", "install"]
+        do {
+            try await runCancellableProcess(process)
+            if process.terminationStatus == 0 {
+                ClientLog.daemon.info("Shell integration installed via abctl setup install")
+            } else {
                 ClientLog.daemon.warning(
-                    "Failed to run abctl setup install: \(error, privacy: .public)")
+                    "abctl setup install exited with status \(process.terminationStatus)")
             }
-        }.value
+        } catch is CancellationError {
+            return
+        } catch {
+            ClientLog.daemon.warning(
+                "Failed to run abctl setup install: \(error, privacy: .public)")
+        }
 
         await installBundledCompletions()
     }
@@ -231,6 +237,21 @@ extension DaemonManager {
 }
 
 // MARK: - Errors
+
+func runCancellableProcess(_ process: Process) async throws {
+    try Task.checkCancellation()
+    try process.run()
+    await withTaskCancellationHandler {
+        await Task.detached {
+            process.waitUntilExit()
+        }.value
+    } onCancel: {
+        if process.isRunning {
+            process.terminate()
+        }
+    }
+    try Task.checkCancellation()
+}
 
 /// Encodes an arbitrary string as one AppleScript string literal.
 ///

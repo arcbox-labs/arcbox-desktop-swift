@@ -22,7 +22,6 @@ final class AppPreferencesTests: XCTestCase {
             ExternalTerminalApp.terminalBundleIdentifier
         )
         XCTAssertFalse(userDefaults.bool(forKey: "startAtLogin"))
-        XCTAssertFalse(userDefaults.bool(forKey: "keepRunning"))
         XCTAssertTrue(userDefaults.bool(forKey: "telemetryEnabled"))
         XCTAssertFalse(userDefaults.bool(forKey: "includeTimeMachine"))
         XCTAssertFalse(

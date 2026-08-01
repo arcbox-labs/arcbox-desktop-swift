@@ -10,8 +10,13 @@ final class WebAuthenticationController: NSObject,
 
     private var session: ASWebAuthenticationSession?
     private var presentationAnchor: ASPresentationAnchor?
+    private var continuation: CheckedContinuation<URL, Error>?
+    private var isTerminating = false
 
     func authenticate(using url: URL, callbackURLScheme: String) async throws -> URL {
+        guard !isTerminating else {
+            throw Self.canceledLoginError
+        }
         guard session == nil else {
             throw WebAuthenticationError.sessionAlreadyInProgress
         }
@@ -26,24 +31,26 @@ final class WebAuthenticationController: NSObject,
         let controller: WebAuthenticationController = self
 
         return try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
             let session = ASWebAuthenticationSession(
                 url: url,
                 callback: .customScheme(callbackURLScheme)
             ) { callbackURL, error in
                 Task { @MainActor in
-                    controller.finish()
                     if let error {
                         let nsError = error as NSError
                         if nsError.domain == ASWebAuthenticationSessionError.errorDomain {
-                            continuation.resume(
-                                throwing: ASWebAuthenticationSessionError(_nsError: nsError))
+                            controller.finish(
+                                with: .failure(
+                                    ASWebAuthenticationSessionError(_nsError: nsError)))
                         } else {
-                            continuation.resume(throwing: error)
+                            controller.finish(with: .failure(error))
                         }
                     } else if let callbackURL {
-                        continuation.resume(returning: callbackURL)
+                        controller.finish(with: .success(callbackURL))
                     } else {
-                        continuation.resume(throwing: WebAuthenticationError.missingCallbackURL)
+                        controller.finish(
+                            with: .failure(WebAuthenticationError.missingCallbackURL))
                     }
                 }
             }
@@ -51,11 +58,16 @@ final class WebAuthenticationController: NSObject,
             self.session = session
 
             guard session.start() else {
-                finish()
-                continuation.resume(throwing: WebAuthenticationError.failedToStart)
+                finish(with: .failure(WebAuthenticationError.failedToStart))
                 return
             }
         }
+    }
+
+    func cancelForTermination() {
+        isTerminating = true
+        session?.cancel()
+        finish(with: .failure(Self.canceledLoginError))
     }
 
     func presentationAnchor(for _: ASWebAuthenticationSession) -> ASPresentationAnchor {
@@ -65,9 +77,20 @@ final class WebAuthenticationController: NSObject,
         return presentationAnchor
     }
 
-    private func finish() {
+    private func finish(with result: Result<URL, Error>) {
+        guard let continuation else { return }
+        self.continuation = nil
         session = nil
         presentationAnchor = nil
+        continuation.resume(with: result)
+    }
+
+    private static var canceledLoginError: ASWebAuthenticationSessionError {
+        ASWebAuthenticationSessionError(
+            _nsError: NSError(
+                domain: ASWebAuthenticationSessionError.errorDomain,
+                code: ASWebAuthenticationSessionError.Code.canceledLogin.rawValue
+            ))
     }
 }
 

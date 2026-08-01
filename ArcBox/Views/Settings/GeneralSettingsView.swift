@@ -14,7 +14,6 @@ struct GeneralSettingsView: View {
 
     @AppStorage("startAtLogin") private var startAtLogin = false
     @AppStorage("showInMenuBar") private var showInMenuBar = false
-    @AppStorage("keepRunning") private var keepRunning = false
     @AppStorage("updateChannel") private var updateChannel = "stable"
     @AppStorage("terminalTheme") private var terminalTheme = "system"
     @AppStorage("externalTerminal") private var externalTerminal = ExternalTerminalApp.terminalBundleIdentifier
@@ -36,26 +35,6 @@ struct GeneralSettingsView: View {
                         updateLoginItem(enabled: newValue)
                     }
                 Toggle("Show in menu bar", isOn: $showInMenuBar)
-                    .onChange(of: showInMenuBar) { _, isVisible in
-                        if !isVisible {
-                            keepRunning = false
-                        }
-                    }
-                Toggle(isOn: $keepRunning) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Keep running when app is quit")
-                        Text("Requires the menu bar item so ArcBox remains accessible.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .accessibilityLabel("Keep running when app is quit")
-                .accessibilityHint("Requires the menu bar item so ArcBox remains accessible.")
-                .onChange(of: keepRunning) { _, shouldKeepRunning in
-                    if shouldKeepRunning {
-                        showInMenuBar = true
-                    }
-                }
             }
 
             Section("Updates") {
@@ -162,9 +141,6 @@ struct GeneralSettingsView: View {
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .onAppear {
-            if keepRunning {
-                showInMenuBar = true
-            }
             syncLoginItemState()
             refreshExternalTerminalApps()
         }
