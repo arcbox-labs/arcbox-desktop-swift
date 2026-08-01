@@ -74,9 +74,9 @@ final class ApplicationCoordinator: NSObject {
         startupOrchestrator = orchestrator
 
         installWindows()
+        observeNavigation()
         configureDeepLinks()
         observeDaemonState()
-        observeNavigation()
         observeAuthState()
         _ = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,

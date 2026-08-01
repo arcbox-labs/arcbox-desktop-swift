@@ -3,7 +3,7 @@
 > 快照日期：2026-08-01
 > 状态：迁移进行中；AppKit 生命周期壳、原生窗口／菜单／主侧栏、认证桥接、About、Coming Soon、
 > 共享 `LoadPhase`、terminal／command empty state、Volumes／Networks／Images／Machines
-> 原生列表与 Networks 原生详情已落地
+> 原生列表、Networks 原生详情与 Templates dead UI 清场已落地
 > 目标：第一方运行时代码最终不再依赖 SwiftUI、Swift Charts、`NSHostingView` 或
 > `NSViewRepresentable` 或 `NSViewControllerRepresentable`
 
@@ -84,7 +84,8 @@ make test
 | `@AppStorage` | 18 |
 | `@SceneStorage`／`@FocusState` | 0 |
 
-这是工作树快照，不复制一份容易过期的 127 项文件清单。以下命令是迁移期间的权威 manifest：
+这是迁移启动时的基线快照，不随迁移提交重算，也不复制一份容易过期的 127 项文件清单。
+以下命令是迁移期间当前状态的权威 manifest：
 
 ```bash
 rg -l '^import SwiftUI' ArcBox Packages -g '*.swift' | sort
@@ -740,15 +741,13 @@ Task 归属：
 | Auth | Account controller + web auth owner | restoring／signing out | AuthSession | presentation context |
 | Menu bar | status item + popover | shared Activity、Docker readiness | shared stores | popover task lifecycle |
 | About／Coming Soon | native panel content | 无 | panel lifecycle | 低 |
-| Templates | 不迁移 | 无 | 只保留 Coming Soon | 删除 dead UI |
+| Templates | 不迁移 | 无 | 只保留 Coming Soon | dead UI 已删除 |
 
 ## 9. 不迁移、直接删除
 
 「全部迁移」不包括翻译不可达或无调用代码：
 
-- `ArcBox/Views/Templates/*`
-- `TemplatesViewModel`
-- Templates sample data 与空操作 toolbar
+- `ArcBox/Views/Templates/*`、`TemplatesViewModel`、`TemplateViewModel` 与 `SampleData`（已删除）
 - `NetworkSettingsView`
 - `ListResizeHandle`
 - `CardModifier`
