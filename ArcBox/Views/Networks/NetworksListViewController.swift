@@ -2,59 +2,59 @@ import AppKit
 import Observation
 
 @MainActor
-final class VolumesListViewController: NSViewController,
+final class NetworksListViewController: NSViewController,
     NSTableViewDataSource,
     NSTableViewDelegate,
     NSMenuDelegate
 {
     private enum Row: Equatable {
         case section(String)
-        case volume(VolumeViewModel)
+        case network(NetworkViewModel)
     }
 
     private struct Snapshot: Equatable {
         let loadState: LoadPhase
-        let hasVolumes: Bool
+        let hasNetworks: Bool
         let rows: [Row]
         let searchText: String
         let selectedID: String?
 
-        init(viewModel: VolumesViewModel) {
+        init(viewModel: NetworksViewModel) {
             loadState = viewModel.loadState
-            hasVolumes = !viewModel.volumes.isEmpty
+            hasNetworks = !viewModel.networks.isEmpty
             searchText = viewModel.searchText
             selectedID = viewModel.selectedID
 
-            let volumes = viewModel.sortedVolumes
-            let inUse = volumes.filter(\.inUse)
-            let unused = volumes.filter { !$0.inUse }
+            let networks = viewModel.sortedNetworks
+            let inUse = networks.filter { $0.containerCount > 0 }
+            let unused = networks.filter { $0.containerCount == 0 }
             rows =
-                (inUse.isEmpty ? [] : [.section("In Use")] + inUse.map(Row.volume))
-                + (unused.isEmpty ? [] : [.section("Unused")] + unused.map(Row.volume))
+                (inUse.isEmpty ? [] : [.section("In Use")] + inUse.map(Row.network))
+                + (unused.isEmpty ? [] : [.section("Unused")] + unused.map(Row.network))
         }
     }
 
-    private static let sectionCellIdentifier = NSUserInterfaceItemIdentifier("VolumeSectionCell")
-    private static let volumeCellIdentifier = NSUserInterfaceItemIdentifier("VolumeCell")
+    private static let sectionCellIdentifier = NSUserInterfaceItemIdentifier("NetworkSectionCell")
+    private static let networkCellIdentifier = NSUserInterfaceItemIdentifier("NetworkCell")
 
-    private let viewModel: VolumesViewModel
+    private let viewModel: NetworksViewModel
     private let scrollView = NSScrollView()
     private let tableView = NSTableView()
     private let placeholderView = StatePlaceholderView(
-        state: .loading(title: "Loading volumes…")
+        state: .loading(title: "Loading networks…")
     )
     private let emptyStateView = CommandEmptyStateView(
-        systemImage: "internaldrive",
-        title: "No volumes yet",
-        prompt: "Create a volume:",
+        systemImage: "point.3.filled.connected.trianglepath.dotted",
+        title: "No networks yet",
+        prompt: "Create a network:",
         commands: [
             .init(
-                command: "docker volume create mydata",
-                description: "Create named volume"
+                command: "docker network create mynet",
+                description: "Create bridge network"
             ),
             .init(
-                command: "docker run -v mydata:/data nginx",
-                description: "Mount volume to container"
+                command: "docker network create --driver overlay mynet",
+                description: "Create overlay network"
             ),
         ]
     )
@@ -63,12 +63,12 @@ final class VolumesListViewController: NSViewController,
     private var loadingTitle: String
     private var onRetry: @MainActor () -> Void
     private var onDelete: @MainActor (String) -> Void
-    private var contextVolume: VolumeViewModel?
+    private var contextNetwork: NetworkViewModel?
     private var deleteAlert: NSAlert?
     private var isApplyingSelection = false
 
     init(
-        viewModel: VolumesViewModel,
+        viewModel: NetworksViewModel,
         loadingTitle: String,
         onRetry: @escaping @MainActor () -> Void,
         onDelete: @escaping @MainActor (String) -> Void
@@ -137,7 +137,7 @@ final class VolumesListViewController: NSViewController,
             }
         case .failed(let message):
             placeholderView.update(
-                .error(title: "Failed to load volumes", message: message),
+                .error(title: "Failed to load networks", message: message),
                 action: .init(title: "Retry", handler: onRetry)
             )
         default:
@@ -158,20 +158,20 @@ final class VolumesListViewController: NSViewController,
         switch item {
         case .section(let title):
             return sectionCell(title: title)
-        case .volume(let volume):
-            return volumeCell(volume: volume)
+        case .network(let network):
+            return networkCell(network: network)
         }
     }
 
-    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+    func tableView(_: NSTableView, heightOfRow row: Int) -> CGFloat {
         guard let item = snapshot?.rows[row] else { return 0 }
         switch item {
         case .section: return 28
-        case .volume: return 52
+        case .network: return AppMetrics.rowHeight
         }
     }
 
-    func tableView(_ tableView: NSTableView, isGroupRow row: Int) -> Bool {
+    func tableView(_: NSTableView, isGroupRow row: Int) -> Bool {
         guard let item = snapshot?.rows[row] else { return false }
         if case .section = item {
             return true
@@ -179,9 +179,9 @@ final class VolumesListViewController: NSViewController,
         return false
     }
 
-    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+    func tableView(_: NSTableView, shouldSelectRow row: Int) -> Bool {
         guard let item = snapshot?.rows[row] else { return false }
-        if case .volume = item {
+        if case .network = item {
             return true
         }
         return false
@@ -189,21 +189,27 @@ final class VolumesListViewController: NSViewController,
 
     func tableViewSelectionDidChange(_: Notification) {
         guard !isApplyingSelection else { return }
-        let selectedID = volume(at: tableView.selectedRow)?.id
+        let selectedID = network(at: tableView.selectedRow)?.id
         guard selectedID != viewModel.selectedID else { return }
         viewModel.selectedID = selectedID
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         let clickedRow = tableView.clickedRow
-        contextVolume = volume(at: clickedRow)
-        if contextVolume != nil, tableView.selectedRow != clickedRow {
+        contextNetwork = network(at: clickedRow)
+        if contextNetwork != nil, tableView.selectedRow != clickedRow {
             tableView.selectRowIndexes(
                 IndexSet(integer: clickedRow),
                 byExtendingSelection: false
             )
         }
-        menu.items.forEach { $0.isEnabled = contextVolume != nil }
+
+        let canCopy = contextNetwork != nil
+        let canDelete = contextNetwork.map { !$0.isSystem } ?? false
+        menu.item(withTitle: "Copy Name")?.isEnabled = canCopy
+        menu.item(withTitle: "Delete")?.isEnabled = canDelete
+        menu.item(withTitle: "Delete")?.isHidden = !canDelete
+        menu.items.first(where: \.isSeparatorItem)?.isHidden = !canDelete
     }
 
     private func observeAndRender() {
@@ -223,7 +229,7 @@ final class VolumesListViewController: NSViewController,
         let presentationChanged =
             previous == nil
             || previous?.loadState != snapshot.loadState
-            || previous?.hasVolumes != snapshot.hasVolumes
+            || previous?.hasNetworks != snapshot.hasNetworks
             || (snapshot.rows.isEmpty && previous?.searchText != snapshot.searchText)
 
         self.snapshot = snapshot
@@ -239,10 +245,10 @@ final class VolumesListViewController: NSViewController,
                 showPlaceholder(.loading(title: loadingTitle))
             case .failed(let message):
                 showPlaceholder(
-                    .error(title: "Failed to load volumes", message: message),
+                    .error(title: "Failed to load networks", message: message),
                     action: .init(title: "Retry", handler: onRetry)
                 )
-            case .loaded where !snapshot.hasVolumes:
+            case .loaded where !snapshot.hasNetworks:
                 placeholderView.isHidden = true
                 scrollView.isHidden = true
                 emptyStateView.isHidden = false
@@ -251,7 +257,7 @@ final class VolumesListViewController: NSViewController,
                     .empty(
                         systemImage: "magnifyingglass",
                         title: "No Results",
-                        message: "No volumes match “\(snapshot.searchText)”."
+                        message: "No networks match “\(snapshot.searchText)”."
                     )
                 )
             case .loaded:
@@ -278,7 +284,7 @@ final class VolumesListViewController: NSViewController,
     }
 
     private func setUpTableView() {
-        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("VolumeColumn"))
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("NetworkColumn"))
         column.resizingMask = .autoresizingMask
         tableView.addTableColumn(column)
         tableView.headerView = nil
@@ -291,7 +297,7 @@ final class VolumesListViewController: NSViewController,
         tableView.selectionHighlightStyle = .regular
         tableView.dataSource = self
         tableView.delegate = self
-        tableView.setAccessibilityLabel("Volumes")
+        tableView.setAccessibilityLabel("Networks")
         tableView.menu = makeContextMenu()
 
         scrollView.documentView = tableView
@@ -306,13 +312,13 @@ final class VolumesListViewController: NSViewController,
         menu.delegate = self
         menu.addItem(
             withTitle: "Copy Name",
-            action: #selector(copyVolumeName),
+            action: #selector(copyNetworkName),
             keyEquivalent: ""
         ).target = self
         menu.addItem(.separator())
         let deleteItem = menu.addItem(
             withTitle: "Delete",
-            action: #selector(deleteContextVolume),
+            action: #selector(deleteContextNetwork),
             keyEquivalent: ""
         )
         deleteItem.target = self
@@ -347,21 +353,21 @@ final class VolumesListViewController: NSViewController,
         return cell
     }
 
-    private func volumeCell(volume: VolumeViewModel) -> VolumeTableCellView {
+    private func networkCell(network: NetworkViewModel) -> NetworkTableCellView {
         let cell =
-            tableView.makeView(withIdentifier: Self.volumeCellIdentifier, owner: nil)
-            as? VolumeTableCellView ?? VolumeTableCellView()
-        cell.identifier = Self.volumeCellIdentifier
-        cell.configure(volume: volume) { [weak self] in
-            self?.confirmDelete(volume)
+            tableView.makeView(withIdentifier: Self.networkCellIdentifier, owner: nil)
+            as? NetworkTableCellView ?? NetworkTableCellView()
+        cell.identifier = Self.networkCellIdentifier
+        cell.configure(network: network) { [weak self] in
+            self?.confirmDelete(network)
         }
         return cell
     }
 
-    private func volume(at row: Int) -> VolumeViewModel? {
+    private func network(at row: Int) -> NetworkViewModel? {
         guard row >= 0, let rows = snapshot?.rows, row < rows.count else { return nil }
-        guard case .volume(let volume) = rows[row] else { return nil }
-        return volume
+        guard case .network(let network) = rows[row] else { return nil }
+        return network
     }
 
     private func applySelection(_ selectedID: String?) {
@@ -369,12 +375,12 @@ final class VolumesListViewController: NSViewController,
             let selectedID,
             let rows = snapshot?.rows,
             let row = rows.firstIndex(where: {
-                guard case .volume(let volume) = $0 else { return false }
-                return volume.id == selectedID
+                guard case .network(let network) = $0 else { return false }
+                return network.id == selectedID
             })
         else {
             if let selectedID,
-                !viewModel.volumes.contains(where: { $0.id == selectedID })
+                !viewModel.networks.contains(where: { $0.id == selectedID })
             {
                 viewModel.selectedID = nil
             }
@@ -397,23 +403,23 @@ final class VolumesListViewController: NSViewController,
         action()
     }
 
-    @objc private func copyVolumeName() {
-        guard let contextVolume else { return }
+    @objc private func copyNetworkName() {
+        guard let contextNetwork else { return }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(contextVolume.name, forType: .string)
+        NSPasteboard.general.setString(contextNetwork.name, forType: .string)
     }
 
-    @objc private func deleteContextVolume() {
-        guard let contextVolume else { return }
-        confirmDelete(contextVolume)
+    @objc private func deleteContextNetwork() {
+        guard let contextNetwork, !contextNetwork.isSystem else { return }
+        confirmDelete(contextNetwork)
     }
 
-    private func confirmDelete(_ volume: VolumeViewModel) {
-        guard deleteAlert == nil, let window = view.window else { return }
+    private func confirmDelete(_ network: NetworkViewModel) {
+        guard !network.isSystem, deleteAlert == nil, let window = view.window else { return }
         let alert = NSAlert()
-        alert.messageText = "Delete Volume?"
+        alert.messageText = "Delete Network?"
         alert.informativeText =
-            "Are you sure you want to delete volume “\(volume.name)”? This action cannot be undone."
+            "Are you sure you want to delete network “\(network.name)”? This action cannot be undone."
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Delete").hasDestructiveAction = true
         alert.addButton(withTitle: "Cancel")
@@ -422,63 +428,73 @@ final class VolumesListViewController: NSViewController,
             guard let self else { return }
             deleteAlert = nil
             guard response == .alertFirstButtonReturn else { return }
-            onDelete(volume.name)
+            onDelete(network.id)
         }
     }
 }
 
 @MainActor
-private final class VolumeTableCellView: NSTableCellView {
-    private let volumeImageView = NSImageView()
+private final class NetworkTableCellView: NSTableCellView {
+    private let iconBox = NSBox()
+    private let networkImageView = NSImageView()
     private let nameLabel = NSTextField(labelWithString: "")
-    private let sizeLabel = NSTextField(labelWithString: "")
+    private let driverLabel = NSTextField(labelWithString: "")
     private let deleteButton = NSButton()
     private var onDelete: (@MainActor () -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
-        volumeImageView.image = NSImage(
-            systemSymbolName: "externaldrive",
-            accessibilityDescription: nil
-        )
-        volumeImageView.contentTintColor = .secondaryLabelColor
-        volumeImageView.symbolConfiguration = .init(pointSize: 16, weight: .regular)
-        volumeImageView.setAccessibilityElement(false)
-        volumeImageView.translatesAutoresizingMaskIntoConstraints = false
+        iconBox.boxType = .custom
+        iconBox.borderWidth = 0
+        iconBox.cornerRadius = 6
+        iconBox.fillColor = .quaternarySystemFill
+        iconBox.translatesAutoresizingMaskIntoConstraints = false
+
+        networkImageView.contentTintColor = .secondaryLabelColor
+        networkImageView.symbolConfiguration = .init(pointSize: 14, weight: .regular)
+        networkImageView.setAccessibilityElement(false)
+        networkImageView.translatesAutoresizingMaskIntoConstraints = false
+        iconBox.addSubview(networkImageView)
 
         nameLabel.font = .systemFont(ofSize: 13)
         nameLabel.lineBreakMode = .byTruncatingTail
-        sizeLabel.font = .systemFont(ofSize: 11)
-        sizeLabel.textColor = .secondaryLabelColor
+        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        driverLabel.font = .systemFont(ofSize: 11)
+        driverLabel.textColor = .secondaryLabelColor
+        driverLabel.lineBreakMode = .byTruncatingTail
+        driverLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        let labels = NSStackView(views: [nameLabel, sizeLabel])
+        let labels = NSStackView(views: [nameLabel, driverLabel])
         labels.orientation = .vertical
         labels.alignment = .leading
         labels.spacing = 2
         labels.translatesAutoresizingMaskIntoConstraints = false
 
+        deleteButton.identifier = NSUserInterfaceItemIdentifier("NetworkDeleteButton")
         deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
         deleteButton.isBordered = false
         deleteButton.contentTintColor = .secondaryLabelColor
         deleteButton.target = self
         deleteButton.action = #selector(deletePressed)
-        deleteButton.toolTip = "Delete volume"
-        deleteButton.setAccessibilityLabel("Delete volume")
         deleteButton.translatesAutoresizingMaskIntoConstraints = false
 
-        addSubview(volumeImageView)
+        addSubview(iconBox)
         addSubview(labels)
         addSubview(deleteButton)
-        imageView = volumeImageView
+        imageView = networkImageView
         textField = nameLabel
 
         NSLayoutConstraint.activate([
-            volumeImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            volumeImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            volumeImageView.widthAnchor.constraint(equalToConstant: 24),
-            volumeImageView.heightAnchor.constraint(equalToConstant: 24),
-            labels.leadingAnchor.constraint(equalTo: volumeImageView.trailingAnchor, constant: 10),
+            iconBox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            iconBox.centerYAnchor.constraint(equalTo: centerYAnchor),
+            iconBox.widthAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
+            iconBox.heightAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
+            networkImageView.centerXAnchor.constraint(equalTo: iconBox.centerXAnchor),
+            networkImageView.centerYAnchor.constraint(equalTo: iconBox.centerYAnchor),
+            networkImageView.widthAnchor.constraint(equalToConstant: 16),
+            networkImageView.heightAnchor.constraint(equalToConstant: 16),
+            labels.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor, constant: 10),
             labels.centerYAnchor.constraint(equalTo: centerYAnchor),
             labels.trailingAnchor.constraint(lessThanOrEqualTo: deleteButton.leadingAnchor, constant: -8),
             deleteButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
@@ -497,11 +513,11 @@ private final class VolumeTableCellView: NSTableCellView {
         didSet {
             let isSelected = backgroundStyle == .emphasized
             nameLabel.textColor = isSelected ? .alternateSelectedControlTextColor : .labelColor
-            sizeLabel.textColor =
+            driverLabel.textColor =
                 isSelected
                 ? .alternateSelectedControlTextColor.withAlphaComponent(0.67)
                 : .secondaryLabelColor
-            volumeImageView.contentTintColor =
+            networkImageView.contentTintColor =
                 isSelected ? .alternateSelectedControlTextColor : .secondaryLabelColor
             deleteButton.contentTintColor =
                 isSelected ? .alternateSelectedControlTextColor : .secondaryLabelColor
@@ -509,17 +525,24 @@ private final class VolumeTableCellView: NSTableCellView {
     }
 
     func configure(
-        volume: VolumeViewModel,
+        network: NetworkViewModel,
         onDelete: @escaping @MainActor () -> Void
     ) {
-        nameLabel.stringValue = volume.name
-        sizeLabel.stringValue = volume.sizeDisplay
-        self.onDelete = onDelete
+        networkImageView.image = NSImage(
+            systemSymbolName: network.isSystem ? "globe" : "link",
+            accessibilityDescription: nil
+        )
+        nameLabel.stringValue = network.name
+        driverLabel.stringValue = network.driverDisplay
+        deleteButton.isHidden = network.isSystem
+        deleteButton.isEnabled = !network.isSystem
+        deleteButton.toolTip = network.isSystem ? nil : "Delete network"
+        deleteButton.setAccessibilityLabel("Delete \(network.name)")
+        self.onDelete = network.isSystem ? nil : onDelete
         setAccessibilityElement(true)
         setAccessibilityLabel(
-            "\(volume.name), \(volume.sizeDisplay), \(volume.inUse ? "In Use" : "Unused")"
+            "\(network.name), \(network.driverDisplay), \(network.containerCount > 0 ? "In Use" : "Unused")"
         )
-        deleteButton.setAccessibilityLabel("Delete \(volume.name)")
     }
 
     @objc private func deletePressed() {
