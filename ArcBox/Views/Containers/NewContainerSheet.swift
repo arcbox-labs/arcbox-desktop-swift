@@ -27,6 +27,10 @@ struct NewContainerSheet: View {
     @Environment(\.dockerClient) private var docker
 
     @State private var isCreating = false
+    /// Copied out of the view model rather than observed: the list behind this sheet has an
+    /// `.errorToast` on the same `lastError`, and the toast clears it after four seconds even
+    /// though it is hidden — which would wipe this message while the form is still open.
+    @State private var errorMessage: String?
 
     // Basic settings
     @State private var image = ""
@@ -148,7 +152,7 @@ struct NewContainerSheet: View {
 
             // Footer buttons
             HStack {
-                SheetErrorMessage(message: vm.lastError)
+                SheetErrorMessage(message: errorMessage)
 
                 Spacer()
 
@@ -165,7 +169,7 @@ struct NewContainerSheet: View {
                             docker: docker
                         )
                         isCreating = false
-                        if id != nil { dismiss() }
+                        if id != nil { dismiss() } else { errorMessage = vm.lastError }
                     }
                 }
                 .disabled(isCreating || imageIsEmpty)
@@ -182,6 +186,7 @@ struct NewContainerSheet: View {
                             dismiss()
                         } else {
                             isCreating = false
+                            errorMessage = vm.lastError
                         }
                     }
                 }
@@ -193,7 +198,5 @@ struct NewContainerSheet: View {
             .overlay(alignment: .top) { Divider() }
         }
         .frame(width: 480, height: 560)
-        // Do not open showing a failure from an earlier action.
-        .task { vm.lastError = nil }
     }
 }

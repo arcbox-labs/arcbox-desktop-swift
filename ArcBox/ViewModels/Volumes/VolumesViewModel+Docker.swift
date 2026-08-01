@@ -61,7 +61,11 @@ extension VolumesViewModel {
     /// Import a tar archive into a new volume. Returns true on success.
     /// Creates the volume, then uses a temporary container + PutContainerArchive to extract contents.
     func importVolume(name: String, tarURL: URL, docker: DockerClient?) async -> Bool {
-        guard let docker else { return false }
+        lastError = nil
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return false
+        }
 
         // 1. Create volume
         let volName: String
@@ -73,6 +77,7 @@ extension VolumesViewModel {
         } catch {
             Log.volume.error("Error creating volume for import: \(String(describing: error), privacy: .private)")
             ErrorReporting.capture(error, domain: .volume, operation: "import_create")
+            lastError = error.localizedDescription
             return false
         }
 
@@ -83,6 +88,7 @@ extension VolumesViewModel {
         } catch {
             _ = try? await docker.api.VolumeDelete(
                 path: .init(name: volName), query: .init(force: true))
+            lastError = error.localizedDescription
             return false
         }
 

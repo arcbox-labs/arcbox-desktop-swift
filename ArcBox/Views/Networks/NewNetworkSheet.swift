@@ -10,6 +10,10 @@ struct NewNetworkSheet: View {
     @State private var name = ""
     @State private var enableIPv6 = false
     @State private var isCreating = false
+    /// Copied out of the view model rather than observed: the list behind this sheet has an
+    /// `.errorToast` on the same `lastError`, and the toast clears it after four seconds even
+    /// though it is hidden — which would wipe this message while the form is still open.
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -23,7 +27,7 @@ struct NewNetworkSheet: View {
                 .font(.system(size: 13))
                 .foregroundStyle(AppColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-                SheetErrorMessage(message: vm.lastError)
+                SheetErrorMessage(message: errorMessage)
             }
             .padding(.bottom, 22)
 
@@ -117,8 +121,6 @@ struct NewNetworkSheet: View {
         .padding(.top, 22)
         .padding(.bottom, 18)
         .frame(width: 640, height: 430)
-        // Do not open showing a failure from an earlier action.
-        .task { vm.lastError = nil }
     }
 
     private func createNetwork() {
@@ -126,7 +128,7 @@ struct NewNetworkSheet: View {
         Task {
             let ok = await vm.createNetwork(name: name, enableIPv6: enableIPv6, docker: docker)
             isCreating = false
-            if ok { dismiss() }
+            if ok { dismiss() } else { errorMessage = vm.lastError }
         }
     }
 }

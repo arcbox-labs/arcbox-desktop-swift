@@ -54,6 +54,21 @@ final class CreateOperationErrorTests: XCTestCase {
         XCTAssertNotNil(vm.lastError)
     }
 
+    func testImportVolumeReportsFailure() async {
+        let vm = VolumesViewModel()
+        let ok = await vm.importVolume(
+            name: "data", tarURL: URL(fileURLWithPath: "/nonexistent.tar"), docker: nil)
+        XCTAssertFalse(ok)
+        XCTAssertNotNil(vm.lastError)
+    }
+
+    func testImportImageReportsFailure() async {
+        let vm = ImagesViewModel()
+        let ok = await vm.importImage(tarURL: URL(fileURLWithPath: "/nonexistent.tar"), docker: nil)
+        XCTAssertFalse(ok)
+        XCTAssertNotNil(vm.lastError)
+    }
+
     func testCreateNetworkRejectsBlankName() async {
         let vm = NetworksViewModel()
         let ok = await vm.createNetwork(name: "   ", enableIPv6: false, docker: nil)
