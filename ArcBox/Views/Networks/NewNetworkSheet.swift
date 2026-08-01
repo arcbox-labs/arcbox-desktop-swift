@@ -45,6 +45,7 @@ struct NewNetworkSheet: View {
                         .stroke(AppColors.border)
                 )
                 .padding(.bottom, 32)
+                .disabled(isCreating)
 
             VStack(alignment: .leading, spacing: 14) {
                 Text("Advanced")
@@ -60,19 +61,6 @@ struct NewNetworkSheet: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
-
-                    Divider()
-
-                    HStack {
-                        Text("Subnet (IPv4)")
-                            .font(.system(size: 14))
-                        Spacer()
-                        Text("172.30.30.0/24")
-                            .font(.system(size: 14))
-                            .foregroundStyle(AppColors.textMuted)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
                 }
                 .background(
                     RoundedRectangle(cornerRadius: 12)
@@ -84,23 +72,11 @@ struct NewNetworkSheet: View {
                 )
             }
             .padding(.bottom, 20)
+            .disabled(isCreating)
 
             Spacer(minLength: 0)
 
             HStack(spacing: 10) {
-                Button(
-                    action: {},
-                    label: {
-                        Image(systemName: "questionmark")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(AppColors.textSecondary)
-                            .frame(width: 40, height: 40)
-                            .background(Circle().fill(AppColors.surface))
-                            .overlay(Circle().stroke(AppColors.border))
-                    }
-                )
-                .buttonStyle(.plain)
-
                 Spacer()
 
                 Button("Cancel") {
@@ -108,6 +84,7 @@ struct NewNetworkSheet: View {
                 }
                 .buttonStyle(.bordered)
                 .keyboardShortcut(.cancelAction)
+                .disabled(isCreating)
 
                 Button("Create") {
                     createNetwork()
@@ -121,9 +98,11 @@ struct NewNetworkSheet: View {
         .padding(.top, 22)
         .padding(.bottom, 18)
         .frame(width: 640, height: 430)
+        .interactiveDismissDisabled(isCreating)
     }
 
     private func createNetwork() {
+        guard !isCreating else { return }
         isCreating = true
         Task {
             let ok = await vm.createNetwork(name: name, enableIPv6: enableIPv6, docker: docker)

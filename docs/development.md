@@ -41,6 +41,9 @@ This builds and signs the daemon, then stages boot assets, guest runtime, agents
 completions into the Debug bundle. It uses the `development` profile (`~/.arcbox-dev`) so it does not
 share daemon state with an installed production app. The machine must have the ArcBox Developer ID
 certificate because macOS rejects the daemon's virtualization entitlements under ad-hoc signing.
+The script creates an isolated `.build/arcbox-<version>` worktree so every runtime binary matches
+[`arcbox.version`](../arcbox.version), without changing the neighboring ArcBox checkout. It rejects
+the wrong commit and any tracked or untracked, non-ignored source changes in that worktree.
 Use `./script/build_and_run.sh --verify` to also wait for the development LaunchAgent, socket, and
 bundled `abctl` connection.
 

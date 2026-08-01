@@ -44,16 +44,21 @@ final class SingleFlightLoadGate {
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
     func run(_ operation: @escaping Operation) async {
-        if isRunning {
-            pending = operation
-            await withCheckedContinuation { continuation in
-                waiters.append(continuation)
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+            if isRunning {
+                pending = operation
+            } else {
+                isRunning = true
+                Task {
+                    await self.drain(startingWith: operation)
+                }
             }
-            return
         }
+    }
 
-        isRunning = true
-        var next: Operation? = operation
+    private func drain(startingWith first: @escaping Operation) async {
+        var next: Operation? = first
         while let operation = next {
             await operation()
             next = pending

@@ -2,22 +2,12 @@ import Foundation
 import K8sClient
 import Observation
 
-/// Detail tab for pods
-enum PodDetailTab: String, @MainActor DetailTab {
-    case info = "Info"
-    case logs = "Logs"
-    case terminal = "Terminal"
-
-    var id: String { rawValue }
-}
-
 /// Pod list state
 @MainActor
 @Observable
 class PodsViewModel {
     var pods: [PodViewModel] = []
     var selectedID: String?
-    var activeTab: PodDetailTab = .info
     var streamPhase: KubernetesStreamPhase = .connecting
     var searchText: String = ""
     var isSearching: Bool = false

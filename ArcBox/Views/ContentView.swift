@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Column geometry for the hosted content/detail split during migration.
+/// Column geometry for the main three-column split.
 ///
 /// The toolbar reserves one section for the content column — its
 /// navigation title and subtitle plus its `.primaryAction` items — ending at
@@ -15,8 +15,9 @@ import SwiftUI
 /// `contentMin` clears the two-item case the widest list columns ship today.
 ///
 /// Adding a third `.primaryAction` item to any list column would exceed
-/// `contentMin` — raise it alongside. This single split owns the native
-/// AppKit sidebar and each feature's existing toolbar and sheet behavior.
+/// `contentMin` — raise it alongside. Full-width destinations use a separate
+/// two-column split; features keep AppKit controllers only where native tables
+/// or terminals add value.
 enum ColumnWidth {
     static let sidebar: CGFloat = 180
     static let contentMin: CGFloat = 280
@@ -25,7 +26,7 @@ enum ColumnWidth {
 }
 
 struct ContentView: View {
-    let sidebarViewController: SidebarViewController
+    let onAccount: () -> Void
 
     @Environment(AppViewModel.self) private var appVM
 
@@ -42,21 +43,25 @@ struct ContentView: View {
     @State private var machinesVM = MachinesViewModel()
     @State private var sandboxesVM = SandboxesViewModel()
 
+    @ViewBuilder
     var body: some View {
+        if usesFullWidthDetail {
+            NavigationSplitView {
+                sidebar
+            } detail: {
+                detailPanel
+                    .background(AppColors.sidebar)
+                    .toolbarSeparator()
+            }
+        } else {
+            threeColumnLayout
+        }
+    }
+
+    private var threeColumnLayout: some View {
         NavigationSplitView {
-            SidebarViewControllerHost(
-                controller: sidebarViewController,
-                selection: appVM.currentNav
-            )
-            .navigationSplitViewColumnWidth(ColumnWidth.sidebar)
+            sidebar
         } content: {
-            // Always render `contentColumn` and vary only the numeric width
-            // through the SAME flexible overload. Mixing the fixed
-            // `navigationSplitViewColumnWidth(0)` overload with the flexible
-            // `(min:ideal:max:)` one across sibling branches makes the column
-            // width latch near 0 on navigation, collapsing the list content to
-            // one-character-per-line text (Activity/Templates collapse to 0).
-            //
             // `ideal` only applies on a first launch: afterwards the split
             // position is restored from the window's autosaved state, so `min`
             // is what actually guarantees toolbar alignment. See `ColumnWidth`.
@@ -64,9 +69,9 @@ struct ContentView: View {
                 .background(AppColors.background)
                 .toolbarSeparator()
                 .navigationSplitViewColumnWidth(
-                    min: isContentColumnCollapsed ? 0 : ColumnWidth.contentMin,
-                    ideal: isContentColumnCollapsed ? 0 : ColumnWidth.contentIdeal,
-                    max: isContentColumnCollapsed ? 0 : ColumnWidth.contentMax
+                    min: ColumnWidth.contentMin,
+                    ideal: ColumnWidth.contentIdeal,
+                    max: ColumnWidth.contentMax
                 )
         } detail: {
             detailPanel
@@ -75,25 +80,33 @@ struct ContentView: View {
         }
     }
 
-    private struct SidebarViewControllerHost: NSViewControllerRepresentable {
-        let controller: SidebarViewController
-        let selection: NavItem?
+    // MARK: - Sidebar
 
-        func makeNSViewController(context: Context) -> SidebarViewController {
-            controller
-        }
+    private var sidebar: some View {
+        @Bindable var vm = appVM
 
-        func updateNSViewController(
-            _ nsViewController: SidebarViewController,
-            context: Context
-        ) {
-            nsViewController.select(selection)
+        return List(selection: $vm.currentNav) {
+            ForEach(NavItem.Section.allCases) { section in
+                Section(section.rawValue.capitalized) {
+                    ForEach(section.items) { item in
+                        Label(item.label, systemImage: item.sfSymbol)
+                            .tag(item)
+                    }
+                }
+            }
         }
+        .listStyle(.sidebar)
+        .accessibilityLabel("Main navigation")
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            SidebarAccountButton(action: onAccount)
+        }
+        .navigationSplitViewColumnWidth(ColumnWidth.sidebar)
     }
 
-    /// Sections rendered full-width in the detail column collapse the content
-    /// column to zero width instead of showing a list.
-    private var isContentColumnCollapsed: Bool {
+    /// Full-width destinations use a real two-column hierarchy. Keeping a
+    /// zero-width middle pane in the three-column split leaves two internal
+    /// dividers stacked beside the sidebar.
+    private var usesFullWidthDetail: Bool {
         appVM.currentNav == .activity || appVM.currentNav == .templates
     }
 
@@ -103,7 +116,7 @@ struct ContentView: View {
     private var contentColumn: some View {
         switch appVM.currentNav {
         case .activity:
-            // Rendered full-width in the detail column; content column collapses.
+            // Rendered by the two-column branch.
             Color.clear
                 .navigationTitle("Activity")
         case .containers:
@@ -133,7 +146,7 @@ struct ContentView: View {
             SandboxesListView()
                 .environment(sandboxesVM)
         case .templates:
-            // Rendered full-width in the detail column; content column collapses.
+            // Rendered by the two-column branch.
             Color.clear
                 .navigationTitle("Templates")
         case nil:
@@ -184,5 +197,4 @@ struct ContentView: View {
                 .environment(containersVM)
         }
     }
-
 }

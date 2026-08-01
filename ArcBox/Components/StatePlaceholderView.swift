@@ -131,7 +131,7 @@ final class StatePlaceholderView: NSView {
     private func setUp() {
         progressIndicator.identifier = NSUserInterfaceItemIdentifier("StatePlaceholderProgress")
         progressIndicator.style = .spinning
-        progressIndicator.controlSize = .regular
+        progressIndicator.controlSize = .small
         progressIndicator.isIndeterminate = true
 
         imageContainer.boxType = .custom

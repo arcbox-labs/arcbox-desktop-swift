@@ -59,13 +59,23 @@ extension ContainersViewModel {
         }
     }
 
-    func startContainerDocker(_ id: String, docker: DockerClient?) async {
+    @discardableResult
+    func startContainerDocker(_ id: String, docker: DockerClient?) async -> Bool {
         lastError = nil
-        guard let docker else { return }
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return false
+        }
         setTransitioning(id, true)
+        var succeeded = false
         do {
-            _ = try await docker.api.ContainerStart(path: .init(id: id))
-            setContainerRunningState(id, isRunning: true)
+            let response = try await docker.api.ContainerStart(path: .init(id: id))
+            if let message = response.startFailureMessage {
+                lastError = message
+            } else {
+                setContainerRunningState(id, isRunning: true)
+                succeeded = true
+            }
         } catch {
             Log.container.error(
                 "Error starting container \(id, privacy: .private): \(error.localizedDescription, privacy: .private)")
@@ -74,15 +84,23 @@ extension ContainersViewModel {
         }
         setTransitioning(id, false)
         await loadContainersFromDocker(docker: docker)
+        return succeeded
     }
 
     func stopContainerDocker(_ id: String, docker: DockerClient?) async {
         lastError = nil
-        guard let docker else { return }
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return
+        }
         setTransitioning(id, true)
         do {
-            _ = try await docker.api.ContainerStop(path: .init(id: id))
-            setContainerRunningState(id, isRunning: false)
+            let response = try await docker.api.ContainerStop(path: .init(id: id))
+            if let message = response.stopFailureMessage {
+                lastError = message
+            } else {
+                setContainerRunningState(id, isRunning: false)
+            }
         } catch {
             Log.container.error(
                 "Error stopping container \(id, privacy: .private): \(error.localizedDescription, privacy: .private)")
@@ -95,11 +113,18 @@ extension ContainersViewModel {
 
     func removeContainerDocker(_ id: String, docker: DockerClient?) async {
         lastError = nil
-        guard let docker else { return }
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return
+        }
         do {
-            _ = try await docker.api.ContainerDelete(path: .init(id: id), query: .init(force: true))
-            removeContainerLocally(id)
-            NotificationCenter.default.post(name: .dockerDataChanged, object: nil)
+            let response = try await docker.api.ContainerDelete(path: .init(id: id), query: .init(force: true))
+            if let message = response.deleteFailureMessage {
+                lastError = message
+            } else {
+                removeContainerLocally(id)
+                NotificationCenter.default.post(name: .dockerDataChanged, object: nil)
+            }
         } catch {
             Log.container.error(
                 "Error removing container \(id, privacy: .private): \(error.localizedDescription, privacy: .private)")
@@ -183,5 +208,93 @@ extension ContainersViewModel {
             }
         }
     }
+}
 
+extension Operations.ContainerStart.Output {
+    nonisolated var startFailureMessage: String? {
+        switch self {
+        case .noContent, .notModified:
+            nil
+        case .notFound(let response):
+            switch response.body {
+            case .json(let error):
+                error.message
+            case .plainText:
+                "Container not found."
+            }
+        case .internalServerError(let response):
+            switch response.body {
+            case .json(let error):
+                error.message
+            case .plainText:
+                "Docker failed to start the container."
+            }
+        case .undocumented(let statusCode, _):
+            "Unexpected response status \(statusCode)."
+        }
+    }
+}
+
+extension Operations.ContainerStop.Output {
+    nonisolated var stopFailureMessage: String? {
+        switch self {
+        case .noContent, .notModified:
+            nil
+        case .notFound(let response):
+            switch response.body {
+            case .json(let error):
+                error.message
+            case .plainText:
+                "Container not found."
+            }
+        case .internalServerError(let response):
+            switch response.body {
+            case .json(let error):
+                error.message
+            case .plainText:
+                "Docker failed to stop the container."
+            }
+        case .undocumented(let statusCode, _):
+            "Unexpected response status \(statusCode)."
+        }
+    }
+}
+
+extension Operations.ContainerDelete.Output {
+    nonisolated var deleteFailureMessage: String? {
+        switch self {
+        case .noContent:
+            nil
+        case .badRequest(let response):
+            switch response.body {
+            case .json(let error):
+                error.message
+            case .plainText:
+                "Docker rejected the container removal request."
+            }
+        case .notFound(let response):
+            switch response.body {
+            case .json(let error):
+                error.message
+            case .plainText:
+                "Container not found."
+            }
+        case .conflict(let response):
+            switch response.body {
+            case .json(let error):
+                error.message
+            case .plainText:
+                "Docker could not remove the container due to a conflict."
+            }
+        case .internalServerError(let response):
+            switch response.body {
+            case .json(let error):
+                error.message
+            case .plainText:
+                "Docker failed to remove the container."
+            }
+        case .undocumented(let statusCode, _):
+            "Unexpected response status \(statusCode)."
+        }
+    }
 }

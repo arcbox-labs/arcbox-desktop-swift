@@ -16,12 +16,19 @@ struct ImagesListView: View {
                 StartupProgressView(orchestrator: orchestrator)
             } else if !daemonManager.state.isRunning {
                 DaemonLoadingView(state: daemonManager.state)
+            } else if !daemonManager.setupPhase.isDockerReady {
+                ProgressView("Starting Docker engine…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if docker == nil {
+                ContentUnavailableView {
+                    Label("Docker Client Unavailable", systemImage: "shippingbox")
+                } description: {
+                    Text("ArcBox is running, but no Docker client is available.")
+                }
             } else {
                 ImagesListControllerView(
                     viewModel: vm,
-                    loadingTitle: daemonManager.setupPhase.isDockerReady
-                        ? "Loading images…"
-                        : "Starting Docker engine…",
+                    loadingTitle: "Loading images…",
                     onRetry: {
                         Task { await vm.loadImages(docker: docker, iconClient: client) }
                     },
@@ -41,7 +48,7 @@ struct ImagesListView: View {
             }
         }
         .navigationTitle("Images")
-        .navigationSubtitle(vm.totalSize)
+        .navigationSubtitle(listSubtitle)
         .searchable(text: Bindable(vm).searchText, isPresented: Bindable(vm).isSearching)
         .onChange(of: vm.isSearching) { _, newValue in
             if !newValue { vm.searchText = "" }
@@ -49,6 +56,7 @@ struct ImagesListView: View {
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 SortMenuButton(sortBy: Bindable(vm).sortBy, ascending: Bindable(vm).sortAscending)
+                    .disabled(!dockerActionsAvailable)
                 Button(
                     action: { vm.showPullImageSheet = true },
                     label: {
@@ -57,6 +65,7 @@ struct ImagesListView: View {
                 )
                 .accessibilityLabel("Pull image")
                 .keyboardShortcut("n", modifiers: .command)
+                .disabled(!dockerActionsAvailable)
             }
         }
         .sheet(isPresented: Bindable(vm).showPullImageSheet) {
@@ -78,6 +87,36 @@ struct ImagesListView: View {
         .onReceive(NotificationCenter.default.publisher(for: .dockerDataChanged)) { _ in
             guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             Task { await vm.loadImages(docker: docker, iconClient: client) }
+        }
+    }
+
+    private var dockerActionsAvailable: Bool {
+        (orchestrator?.isReady ?? true)
+            && daemonManager.state.isRunning
+            && daemonManager.setupPhase.isDockerReady
+            && docker != nil
+    }
+
+    private var listSubtitle: String {
+        if let orchestrator, !orchestrator.isReady {
+            return "Starting…"
+        }
+        guard daemonManager.state.isRunning else {
+            return "Unavailable"
+        }
+        guard daemonManager.setupPhase.isDockerReady else {
+            return "Starting…"
+        }
+        guard docker != nil else {
+            return "Unavailable"
+        }
+        return switch vm.loadState {
+        case .waiting, .loading:
+            "Loading…"
+        case .failed:
+            "Unavailable"
+        case .loaded:
+            vm.totalSize
         }
     }
 }

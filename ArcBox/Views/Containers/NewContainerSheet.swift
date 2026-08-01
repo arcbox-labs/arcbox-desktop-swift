@@ -27,6 +27,7 @@ struct NewContainerSheet: View {
     @Environment(\.dockerClient) private var docker
 
     @State private var isCreating = false
+    @State private var pendingStartID: String?
     /// Copied out of the view model rather than observed: the list behind this sheet has an
     /// `.errorToast` on the same `lastError`, and the toast clears it after four seconds even
     /// though it is hidden — which would wipe this message while the form is still open.
@@ -47,7 +48,6 @@ struct NewContainerSheet: View {
     // Advanced
     @State private var privileged = false
     @State private var readOnly = false
-    @State private var useDockerInit = false
 
     private var imageIsEmpty: Bool {
         image.trimmingCharacters(in: .whitespaces).isEmpty
@@ -65,7 +65,7 @@ struct NewContainerSheet: View {
             restartPolicy: restartPolicy.rawValue,
             privileged: privileged,
             readOnlyRootfs: readOnly,
-            dockerInit: useDockerInit
+            dockerInit: false
         )
     }
 
@@ -86,6 +86,7 @@ struct NewContainerSheet: View {
                     }
                 )
                 .buttonStyle(.plain)
+                .disabled(isCreating)
             }
             .padding(.horizontal, 16)
             .frame(height: AppMetrics.sheetTitleBarHeight)
@@ -135,20 +136,10 @@ struct NewContainerSheet: View {
                                 .foregroundStyle(AppColors.textSecondary)
                         }
                     }
-                    Toggle(isOn: $useDockerInit) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Use docker-init")
-                            Text(
-                                "Run the container payload under a docker-init process. (--init) — currently unavailable"
-                            )
-                            .font(.system(size: 11))
-                            .foregroundStyle(AppColors.textSecondary)
-                        }
-                    }
-                    .disabled(true)
                 }
             }
             .formStyle(.grouped)
+            .disabled(isCreating || pendingStartID != nil)
 
             // Footer buttons
             HStack {
@@ -160,8 +151,10 @@ struct NewContainerSheet: View {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
+                .disabled(isCreating)
 
                 Button("Create") {
+                    errorMessage = nil
                     isCreating = true
                     Task {
                         let id = await vm.createContainer(
@@ -172,31 +165,48 @@ struct NewContainerSheet: View {
                         if id != nil { dismiss() } else { errorMessage = vm.lastError }
                     }
                 }
-                .disabled(isCreating || imageIsEmpty)
+                .disabled(isCreating || imageIsEmpty || pendingStartID != nil)
 
-                Button("Create & Start") {
+                Button(pendingStartID == nil ? "Create & Start" : "Retry Start") {
+                    errorMessage = nil
                     isCreating = true
                     Task {
-                        if let id = await vm.createContainer(
-                            options: createOptions,
-                            docker: docker
-                        ) {
-                            await vm.startContainerDocker(id, docker: docker)
-                            isCreating = false
-                            dismiss()
-                        } else {
-                            isCreating = false
-                            errorMessage = vm.lastError
-                        }
+                        await createAndStart()
                     }
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(isCreating || imageIsEmpty)
+                .disabled(isCreating || (pendingStartID == nil && imageIsEmpty))
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .overlay(alignment: .top) { Divider() }
         }
         .frame(width: AppMetrics.sheetWidth, height: 560)
+        .interactiveDismissDisabled(isCreating)
+    }
+
+    private func createAndStart() async {
+        let id: String
+        if let pendingStartID {
+            id = pendingStartID
+        } else if let createdID = await vm.createContainer(
+            options: createOptions,
+            docker: docker
+        ) {
+            pendingStartID = createdID
+            id = createdID
+        } else {
+            isCreating = false
+            errorMessage = vm.lastError
+            return
+        }
+
+        let started = await vm.startContainerDocker(id, docker: docker)
+        isCreating = false
+        if started {
+            dismiss()
+        } else {
+            errorMessage = vm.lastError
+        }
     }
 }

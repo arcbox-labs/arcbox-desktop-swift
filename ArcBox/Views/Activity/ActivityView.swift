@@ -11,6 +11,7 @@ struct ActivityView: View {
     @Environment(ActivityViewModel.self) private var vm
     @Environment(ContainersViewModel.self) private var containersVM
     @Environment(DaemonManager.self) private var daemonManager
+    @Environment(\.startupOrchestrator) private var orchestrator
     @Environment(\.arcboxClient) private var arcboxClient
     @Environment(\.dockerClient) private var docker
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -19,6 +20,35 @@ struct ActivityView: View {
     @State private var isSearching = false
 
     var body: some View {
+        Group {
+            if let orchestrator, !orchestrator.isReady {
+                StartupProgressView(orchestrator: orchestrator)
+            } else if !daemonManager.state.isRunning {
+                DaemonLoadingView(state: daemonManager.state)
+            } else if !daemonManager.setupPhase.isDockerReady {
+                ProgressView("Starting ArcBox runtime…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if arcboxClient == nil {
+                ContentUnavailableView {
+                    Label("Activity Unavailable", systemImage: "waveform.path.ecg")
+                } description: {
+                    Text("ArcBox is running, but no daemon client is available.")
+                } actions: {
+                    if let orchestrator {
+                        Button("Retry") {
+                            Task { await orchestrator.retry() }
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+            } else {
+                activityContent
+            }
+        }
+        .navigationTitle("Activity")
+    }
+
+    private var activityContent: some View {
         content
             .searchable(text: $searchText, isPresented: $isSearching, prompt: "Filter Containers")
             // Dismissing the field has to drop the query with it, or the table
@@ -32,7 +62,6 @@ struct ActivityView: View {
             // materialises once, and the 1 Hz samples inside it do not drag the
             // whole hierarchy through a transition every second.
             .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: vm.current == nil)
-            .navigationTitle("Activity")
             .navigationSubtitle(subtitle)
             .toolbar {
                 ToolbarItem(placement: .status) {

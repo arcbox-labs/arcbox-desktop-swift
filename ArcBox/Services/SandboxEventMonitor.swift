@@ -43,6 +43,9 @@ final class SandboxEventMonitor {
                         Sandbox_V1_SandboxEventsRequest(),
                         metadata: metadata
                     ) { response in
+                        await MainActor.run {
+                            NotificationCenter.default.post(name: .sandboxChanged, object: nil)
+                        }
                         for try await event in response.messages {
                             guard !Task.isCancelled else { break }
                             await MainActor.run { [weak self] in

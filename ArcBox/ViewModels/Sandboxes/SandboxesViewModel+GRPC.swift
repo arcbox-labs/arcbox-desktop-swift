@@ -8,7 +8,18 @@ extension SandboxesViewModel {
 
     /// Load sandboxes from the daemon via gRPC List.
     func loadSandboxes(client: ArcBoxClient?) async {
-        guard let client else { return }
+        guard let client else {
+            Log.sandbox.debug("No ArcBox client available")
+            return
+        }
+
+        await listLoadGate.run {
+            await self.performLoadSandboxes(client: client)
+        }
+    }
+
+    private func performLoadSandboxes(client: ArcBoxClient) async {
+        let isRefresh = loadState.beginLoading()
         let transitioning = transitioningIDs
         let existingByID = Dictionary(uniqueKeysWithValues: sandboxes.map { ($0.id, $0) })
         let metadata = SandboxMetadata.forMachine(activeMachineID)
@@ -31,10 +42,17 @@ extension SandboxesViewModel {
                 viewModels[i].isTransitioning = true
             }
             sandboxes = viewModels
-            lastError = nil
-            updateMonitoringMetrics()
+            loadState = .loaded
+            refreshError = nil
         } catch {
-            reportError(error, operation: "list")
+            if loadState.cancelLoading(for: error, retainingLoadedContent: isRefresh) {
+                return
+            }
+            let message = reportError(error, operation: "list", surface: false)
+            refreshError = loadState.fail(
+                message,
+                retainingLoadedContent: isRefresh
+            )
         }
     }
 
@@ -65,7 +83,15 @@ extension SandboxesViewModel {
         client: ArcBoxClient?,
         docker: DockerClient? = nil
     ) async -> String? {
-        guard let client else { return nil }
+        lastError = nil
+        guard let client else {
+            lastError = "ArcBox daemon is unavailable."
+            return nil
+        }
+        if !spec.image.isEmpty, docker == nil {
+            lastError = "Docker client unavailable. The selected image cannot be resolved."
+            return nil
+        }
         let metadata = SandboxMetadata.forMachine(activeMachineID)
         var request = Sandbox_V1_CreateSandboxRequest()
         request.labels = spec.labels
@@ -113,7 +139,6 @@ extension SandboxesViewModel {
                 options: ArcBoxClient.defaultCallOptions
             )
             Log.sandbox.info("Created sandbox \(response.id, privacy: .public)")
-            recordSandboxStart()
             await loadSandboxes(client: client)
             return response.id
         } catch {

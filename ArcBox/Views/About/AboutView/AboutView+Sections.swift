@@ -116,7 +116,7 @@ extension AboutViewController {
                 linkButton(
                     icon: "chevron.left.forwardslash.chevron.right",
                     title: "Source Code",
-                    url: "https://git.new/orbstack"
+                    url: "https://github.com/arcboxlabs/arcbox-desktop"
                 ),
             ],
         ])
@@ -140,11 +140,7 @@ extension AboutViewController {
             color: .tertiaryLabelColor,
             alignment: .center
         )
-        let acknowledgements = NSButton(title: "Acknowledgements", target: nil, action: nil)
-        acknowledgements.isBordered = false
-        acknowledgements.isEnabled = false
-        acknowledgements.font = .systemFont(ofSize: 11)
-        let stack = verticalStack([copyright, acknowledgements], spacing: 6)
+        let stack = verticalStack([copyright], spacing: 6)
         stack.alignment = .centerX
         return stack
     }

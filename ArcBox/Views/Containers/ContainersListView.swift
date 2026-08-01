@@ -16,12 +16,19 @@ struct ContainersListView: View {
                 StartupProgressView(orchestrator: orchestrator)
             } else if !daemonManager.state.isRunning {
                 DaemonLoadingView(state: daemonManager.state)
+            } else if !daemonManager.setupPhase.isDockerReady {
+                ProgressView("Starting Docker engine…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if docker == nil {
+                ContentUnavailableView {
+                    Label("Docker Client Unavailable", systemImage: "shippingbox")
+                } description: {
+                    Text("ArcBox is running, but no Docker client is available.")
+                }
             } else {
                 ContainersListControllerView(
                     viewModel: vm,
-                    loadingTitle: daemonManager.setupPhase.isDockerReady
-                        ? "Loading containers…"
-                        : "Starting Docker engine…",
+                    loadingTitle: "Loading containers…",
                     useDNS: daemonManager.dnsResolverInstalled
                         && daemonManager.routeInstalled,
                     onRetry: {
@@ -104,7 +111,7 @@ struct ContainersListView: View {
             }
         }
         .navigationTitle("Containers")
-        .navigationSubtitle("\(vm.runningCount) running")
+        .navigationSubtitle(listSubtitle)
         .searchable(text: Bindable(vm).searchText, isPresented: Bindable(vm).isSearching)
         .onChange(of: vm.isSearching) { _, newValue in
             if !newValue { vm.searchText = "" }
@@ -112,6 +119,7 @@ struct ContainersListView: View {
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 SortMenuButton(sortBy: Bindable(vm).sortBy, ascending: Bindable(vm).sortAscending)
+                    .disabled(!dockerActionsAvailable)
                 Button(
                     action: { vm.showNewContainerSheet = true },
                     label: {
@@ -120,6 +128,7 @@ struct ContainersListView: View {
                 )
                 .accessibilityLabel("New container")
                 .keyboardShortcut("n", modifiers: .command)
+                .disabled(!dockerActionsAvailable)
             }
         }
         .task(id: daemonManager.setupPhase.isDockerReady && docker != nil) {
@@ -138,6 +147,36 @@ struct ContainersListView: View {
             refreshError: Bindable(vm).refreshError,
             resourceName: "containers"
         )
+    }
+
+    private var dockerActionsAvailable: Bool {
+        (orchestrator?.isReady ?? true)
+            && daemonManager.state.isRunning
+            && daemonManager.setupPhase.isDockerReady
+            && docker != nil
+    }
+
+    private var listSubtitle: String {
+        if let orchestrator, !orchestrator.isReady {
+            return "Starting…"
+        }
+        guard daemonManager.state.isRunning else {
+            return "Unavailable"
+        }
+        guard daemonManager.setupPhase.isDockerReady else {
+            return "Starting…"
+        }
+        guard docker != nil else {
+            return "Unavailable"
+        }
+        return switch vm.loadState {
+        case .waiting, .loading:
+            "Loading…"
+        case .failed:
+            "Unavailable"
+        case .loaded:
+            "\(vm.runningCount) running"
+        }
     }
 }
 

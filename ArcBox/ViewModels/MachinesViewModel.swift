@@ -6,9 +6,7 @@ import Observation
 /// Detail tab options for machines (matches container pattern)
 enum MachineDetailTab: String, @MainActor DetailTab {
     case info = "Info"
-    case logs = "Logs"
     case terminal = "Terminal"
-    case files = "Files"
 
     var id: String { rawValue }
 }

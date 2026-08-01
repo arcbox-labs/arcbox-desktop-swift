@@ -4,23 +4,14 @@ import SwiftUI
 struct StorageSettingsView: View {
     @Environment(\.dockerClient) private var docker
 
-    @State private var storageLocation = "default"
     @AppStorage("includeTimeMachine") private var includeTimeMachine = false
     /// Tracks whether the Time Machine exclusion has been applied this session, to avoid
     /// spawning tmutil on every onAppear.
     @State private var timeMachineExclusionApplied = false
-    @State private var hideArcBoxVolume = false
-
     // Reset state
     @State private var showResetDockerAlert = false
-    @State private var showResetAllAlert = false
     @State private var isResetting = false
     @State private var resetResultMessage: String?
-
-    private let locationOptions = [
-        ("default", "Default"),
-        ("custom", "Custom..."),
-    ]
 
     private static var arcboxDataPath: String {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
@@ -32,17 +23,6 @@ struct StorageSettingsView: View {
     var body: some View {
         Form {
             Section("Data") {
-                LabeledContent("Location") {
-                    Picker("", selection: $storageLocation) {
-                        ForEach(locationOptions, id: \.0) { option in
-                            Text(option.1).tag(option.0)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 120)
-                    .disabled(true)  // Requires backend support for data migration
-                }
-
                 Toggle("Include data in Time Machine backups", isOn: $includeTimeMachine)
                     .onChange(of: includeTimeMachine) { _, include in
                         updateTimeMachineExclusion(include: include)
@@ -54,32 +34,9 @@ struct StorageSettingsView: View {
                     }
             }
 
-            Section("Integration") {
-                LabeledContent {
-                    Toggle("", isOn: $hideArcBoxVolume)
-                        .labelsHidden()
-                        .disabled(true)  // Requires backend support
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Hide ArcBox volume from Finder & Desktop")
-                        Text("This volume makes it easy to access files in containers and machines.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
             Section("Danger Zone") {
                 Button("Reset Docker Data") {
                     showResetDockerAlert = true
-                }
-                .disabled(isResetting || docker == nil)
-
-                Button("Reset Kubernetes Cluster") {}
-                    .disabled(true)  // Requires K8s backend
-
-                Button("Reset All Data") {
-                    showResetAllAlert = true
                 }
                 .disabled(isResetting || docker == nil)
 
@@ -109,16 +66,6 @@ struct StorageSettingsView: View {
             }
         } message: {
             Text("This will remove all containers, images, volumes, and networks. This action cannot be undone.")
-        }
-        .alert("Reset All Data", isPresented: $showResetAllAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Reset Everything", role: .destructive) {
-                Task { await resetAllData() }
-            }
-        } message: {
-            Text(
-                "This will stop all containers and remove all Docker data including images, volumes, and networks. This action cannot be undone."
-            )
         }
     }
 
@@ -166,7 +113,10 @@ struct StorageSettingsView: View {
             for container in running {
                 guard let id = container.Id else { continue }
                 do {
-                    _ = try await docker.api.ContainerStop(path: .init(id: id))
+                    let response = try await docker.api.ContainerStop(path: .init(id: id))
+                    if response.stopFailureMessage != nil {
+                        stopFailures.append(String(id.prefix(12)))
+                    }
                 } catch {
                     stopFailures.append(String(id.prefix(12)))
                 }
@@ -174,10 +124,30 @@ struct StorageSettingsView: View {
 
             // Prune everything: containers, images, volumes, networks
             var errors: [String] = []
-            do { _ = try await docker.api.ContainerPrune() } catch { errors.append("containers") }
-            do { _ = try await docker.api.ImagePrune() } catch { errors.append("images") }
-            do { _ = try await docker.api.NetworkPrune() } catch { errors.append("networks") }
-            do { _ = try await docker.api.VolumePrune() } catch { errors.append("volumes") }
+            do {
+                _ = try await docker.api.ContainerPrune().ok
+            } catch {
+                errors.append("containers")
+            }
+            do {
+                _ = try await docker.api.ImagePrune(
+                    query: .init(filters: #"{"dangling":["false"]}"#)
+                ).ok
+            } catch {
+                errors.append("images")
+            }
+            do {
+                _ = try await docker.api.NetworkPrune().ok
+            } catch {
+                errors.append("networks")
+            }
+            do {
+                _ = try await docker.api.VolumePrune(
+                    query: .init(filters: #"{"all":["true"]}"#)
+                ).ok
+            } catch {
+                errors.append("volumes")
+            }
 
             if stopFailures.isEmpty && errors.isEmpty {
                 resetResultMessage = "Docker data has been reset successfully."
@@ -197,11 +167,5 @@ struct StorageSettingsView: View {
         }
 
         isResetting = false
-    }
-
-    private func resetAllData() async {
-        // Reset Docker data first
-        await resetDockerData()
-        // Additional cleanup could be done here in the future (K8s, machines, etc.)
     }
 }

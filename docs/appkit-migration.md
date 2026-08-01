@@ -1,56 +1,50 @@
-# ArcBox Desktop：SwiftUI → AppKit 迁移档案
+# ArcBox Desktop：SwiftUI / AppKit 混合架构与迁移档案
 
-> 快照日期：2026-08-01
-> 状态：迁移进行中；AppKit 生命周期壳、原生窗口／菜单／主侧栏、认证桥接、About、Coming Soon、
-> 共享 `LoadPhase`、terminal／command empty state、Containers／Volumes／Networks／Images／
-> Machines 原生列表、Networks 原生详情与 Templates dead UI 清场已落地
-> 目标：第一方运行时代码最终不再依赖 SwiftUI、Swift Charts、`NSHostingView` 或
-> `NSViewRepresentable` 或 `NSViewControllerRepresentable`
+> 更新日期：2026-08-02
+> 当前决策：停止追求「零 SwiftUI」。SwiftUI 负责主布局、Sidebar、toolbar、sheet、状态呈现与
+> Liquid Glass；AppKit 负责应用生命周期、窗口／菜单，以及确实受益于原生实现的复杂表格和 terminal。
 
-当前过渡边界：AppKit window 暂时承载唯一的 SwiftUI 三栏 `NavigationSplitView`，其中 sidebar
-通过 representable 嵌入原生 AppKit controller。Containers／Volumes／Networks／Images／Machines
-的列表行、分组、选择及 loading／empty／error 已由 AppKit 接管，其中 Containers 使用原生 Compose
-outline，Networks 的 Info／Connected Containers 详情亦已原生化。其 toolbar、创建 sheet 与其他
-详情仍在过渡 host。其他内容／详情、设置与菜单栏中尚未迁移的 feature 临时使用
-`NSHostingController`。这一边界只用于保持每个迁移提交可运行，最终静态门槛仍要求全部删除。
+主窗口的耐久边界为：
 
-## 1. 范围、假设与完成定义
+```text
+AppDelegate
+  → ApplicationCoordinator
+    → MainWindowController
+      → NSHostingController
+        → ContentView / NavigationSplitView
+          → SwiftUI Sidebar
+          → SwiftUI feature shell
+            → selected AppKit list/detail controllers
+```
+
+这不是临时兼容层。SwiftUI 能更准确地提供 macOS 26 的系统材质、Sidebar 行为、toolbar 布局和
+动态状态流转；AppKit 继续保留在 Containers／Volumes／Images／Networks／Machines／Kubernetes
+原生列表、Networks 详情和 SwiftTerm 等已有价值的边界。后续迁移以用户体验和功能完整性为准，
+不再以删除框架引用数量为目标。
+
+## 1. 当前范围、决策与完成定义
 
 ### 1.1 范围
 
-- 包含当前工作树中的 `ArcBox/` app target，以及
-  `Packages/ArcBoxAuth/Sources/ArcBoxAuth/Session/AuthSession+SignIn.swift`。
-- `Packages/ArcBoxClient`、`DockerClient`、`K8sClient` 的业务与状态 API 保留；只调整 AppKit
-  集成所需的边界。
-- 不包含第三方 checkout、`.build`、其他 worktree、Rust daemon UI 或构建缓存。
-- 测试只纳入与真实窗口布局、状态机和深链有关的部分；不为每个原生控件增加低价值镜像测试。
+- 包含 `ArcBox/` app target 及其本地 package 的 UI 集成边界。
+- 保留现有 `@Observable` domain model 和 client API；不引入第二套全局状态系统。
+- 不增加第三方 UI 依赖；优先 SwiftUI、AppKit 和已安装的 SwiftTerm／Sparkle。
+- 继续支持 `macOS 15`；`macOS 26` 使用系统可用的 Liquid Glass 行为，不自绘仿制材质。
+- 测试覆盖真实状态逻辑和回归；纯视觉常量通过签名开发包的窗口验收验证。
 
 ### 1.2 已采用的决策
 
-| 决策 | 结论 |
+| 边界 | 所有权 |
 |---|---|
-| 「全部迁移」的含义 | 最终第一方运行时为纯 AppKit；不可达 SwiftUI 直接删除，不逐行翻译 |
-| 最低系统 | 继续支持 `macOS 15`；架构不依赖 `macOS 26` API |
-| 状态模型 | 保留现有 `@Observable` domain model；不用 Redux、Combine 或巨型 `AppState` |
-| 依赖 | 不增加 UI 依赖；优先 AppKit、Observation、Core Animation 和现有 SwiftTerm／Sparkle |
-| 窗口 | 主窗口、设置、关于、Coming Soon 都保持单例 controller |
-| 迁移过程 | 中间提交可暂时托管尚未迁移的 SwiftUI feature，以保持每个提交可运行；最终门槛为零 host |
-| 死功能 | Templates 的真实页面、`NetworkSettingsView` 和已确认无调用组件直接删除 |
-| 行为兼容 | 保留深链、菜单栏、关闭后继续运行、强制退出、终端常驻、文件操作和 Sparkle 行为 |
-
-`NSSplitViewItemAccessoryViewController` 和自动 AppKit Observation 是新工具链可简化的能力，
-但都不是当前迁移的结构前提。只有在最低系统与当前 SDK 上做过运行证明后才启用。
+| 应用生命周期、单例窗口、原生菜单 | AppKit |
+| 主三栏、Sidebar、toolbar、sheet、empty／error／loading | SwiftUI |
+| 原生 table／outline 与 SwiftTerm | AppKit，通过窄 representable 边界接入 |
+| 状态与异步任务 | 现有 `@Observable` ViewModel／service |
+| macOS 26 视觉 | 系统 toolbar、Sidebar、material 与 glass API |
+| Sandbox Monitoring | 源码保留但禁用；ABXD-133 接入真实 metrics 前不显示假 `LIVE` |
+| Templates 等未实现功能 | 明确 Coming Soon 或隐藏，不展示可点击的死 UI |
 
 ### 1.3 完成定义
-
-静态门槛：
-
-```bash
-rg -n '^(import SwiftUI|import Charts)|\b(NSHostingView|NSHostingController|NSViewRepresentable|NSViewControllerRepresentable|WebAuthenticationSession)\b|#Preview' \
-  ArcBox ArcBoxTests Packages/ArcBoxAuth -g '*.swift'
-```
-
-最终应无输出。之后：
 
 ```bash
 make generate-xcodeproj
@@ -58,9 +52,18 @@ make format
 make lint
 make build
 make test
+./script/build_and_run.sh --verify
 ```
 
-还必须完成第 10 节的真实窗口与状态验收；仅仅编译通过不算迁移完成。
+签名开发包还必须验证：
+
+- 默认窗口、最小窗口及拖动分栏后，188 pt Sidebar 与 280–320 pt 内容栏布局稳定；
+- 所有导航、toolbar、tab、搜索、创建和删除入口可用，没有可点击的占位功能；
+- startup、daemon、Docker、Kubernetes 与 Sandbox 均有真实 loading／empty／failed／retry 状态；
+- Activity 能进入 `Live` 并持续刷新；开发资源缺失或 runtime 故障时验证命令必须失败。
+
+以下第 2 节起保留最初「全量 AppKit」工作的盘点与历史记录；其中纯 AppKit 目标、零 host
+静态门槛和旧控制器树不再是当前架构要求。
 
 ## 2. SwiftUI 基线盘点
 
@@ -239,16 +242,16 @@ Kubernetes、Machines、Sandboxes stores 由 `MainWindowController` 持有。Tem
 
 | 栏 | 当前 | AppKit |
 |---|---|---|
-| Sidebar | 固定宽 180 | `NSSplitViewItem(sidebarWithViewController:)` + source-list `NSOutlineView` |
-| Content list | min 280／ideal 320／max 600 | `NSSplitViewItem(contentListWithViewController:)` |
-| Detail | 剩余空间 | 普通 `NSSplitViewItem` |
+| Sidebar | 固定宽 180 | SwiftUI `List(.sidebar)` |
+| Content list | min 280／ideal 320／max 600 | SwiftUI feature shell + 选定的 AppKit controller |
+| Detail | 剩余空间 | SwiftUI feature shell + 选定的 AppKit controller |
 
-迁移期由一个 `NavigationSplitView` 继续统一管理三栏几何与 toolbar，AppKit sidebar 通过
-`NSViewControllerRepresentable` 嵌入。不要在外面再套 `NSSplitViewController`；「外层两栏 +
-内层两栏」会产生重复 divider、错误的 sidebar toggle 和不同的窗口布局。等 content、detail 与
-toolbar 全部迁成原生 controller 后，再一次性替换这唯一的 split owner。
+`NavigationSplitView` 统一管理 split 几何与 toolbar。资源页面使用三栏；Activity 等全宽页面
+使用真正的双栏，不能在三栏中把 content 压成 0，否则两条内部 divider 会叠在 Sidebar 旁并在
+Liquid Glass 背景上形成白边。不要在外面再套 `NSSplitViewController`；「外层两栏 + 内层两栏」
+同样会产生重复 divider、错误的 Sidebar toggle 和不同的窗口布局。
 
-Activity 选中时折叠 content list。底部账户区使用 sidebar 内「滚动内容 + 固定 footer」容器，
+Activity 选中时切换到双栏 split。底部账户区使用 Sidebar 内「滚动内容 + 固定 footer」容器，
 不为 `macOS 26` accessory API 增加两套结构。
 
 Sidebar IA：
@@ -259,22 +262,22 @@ Sidebar IA：
 | Docker | Containers、Volumes、Images、Networks |
 | Kubernetes | Pods、Services |
 | Linux | Machines |
-| Sandbox | Sandboxes、Templates（仅 Coming Soon） |
+| Sandbox | Sandboxes；Templates 在功能可用前隐藏 |
 
 Feature IA：
 
 | Destination | Content list | Detail／页签 | Store owner |
 |---|---|---|---|
-| Activity | 折叠 | 全宽 metrics + container outline | 主窗口 |
+| Activity | 不建立列表 | 全宽 metrics + container outline | 主窗口 |
 | Containers | Compose 分组列表 | Info／Logs／Terminal／Files | app 共享 |
 | Volumes | In Use／Unused | Info／Files | app 共享 |
 | Images | In Use／Unused | Info／Terminal／Files | app 共享 |
 | Networks | In Use／Unused | Info + Connected Containers | app 共享 |
-| Pods | 列表 | Info／Logs／Terminal；后两项当前为 placeholder | 主窗口 Kubernetes owner |
+| Pods | 列表 | Info | 主窗口 Kubernetes owner |
 | Services | 列表 | Info | 主窗口 Kubernetes owner |
-| Machines | Running／Stopped | Info／Logs／Terminal／Files | 主窗口 |
-| Sandboxes | List／Monitoring | Info／Terminal／Files／Ports／Snapshots／Events | 主窗口 |
-| Templates | 不建立列表 | 只显示 Coming Soon panel 并恢复旧导航 | 无 store |
+| Machines | Running／Stopped | Info／Terminal | 主窗口 |
+| Sandboxes | List | Info／Terminal／Files／Ports／Snapshots／Events | 主窗口 |
+| Templates | 隐藏 | 后端与产品流程完成后再接入 | 无 store |
 
 Image Terminal 当前切换 tab 时只改变可见性、不销毁 terminal。AppKit child controller 必须同样常驻。
 
@@ -309,13 +312,8 @@ Machines／Sandboxes ID 深链，应作为独立产品改动，不夹在迁移�
 
 ### 4.5 Menu、toolbar 与 responder chain
 
-主 `NSToolbar` 由 `MainWindowController` 单点持有：
-
-- `NSSearchToolbarItem`：当前 feature 的搜索。
-- `NSMenuToolbarItem`：排序。
-- `NSToolbarItem`：新增、Kubernetes toggle、status。
-- `NSToolbarItemGroup` + `NSSegmentedControl`：详情 tabs。
-- 两个 `NSTrackingSeparatorToolbarItem`：对应 split dividers。
+主 toolbar 由 SwiftUI split shell 单点声明，搜索、排序、新增、状态与详情 tabs 按当前 feature
+组成。split tracking separator 交给系统从真实的双栏／三栏结构生成，不手动遮盖或叠加 divider。
 
 `⌘N` 只在 main menu 注册一次，target 为 nil；当前 content controller 响应
 `newResource(_:)`，并通过 menu validation 控制可用性。`⌘,`、About、Check for Updates、Quit
@@ -802,10 +800,8 @@ hover／selection 时参与 layout，隐藏后不保留宽度。
 
 - 保留 `DeepLinkTests`。
 - `MainWindowControllerTests` 验证默认外框、full-size titlebar、最小内容尺寸、旧 `main`
-  frame 恢复；`ContentViewColumnLayoutTests` 验证迁移期只有一个三栏 split、content list
-  最小 280 且 toolbar item 不越栏。
-- `SidebarViewControllerTests` 验证 source-list 行、selection 同步，以及账户 footer 的
-  `24 pt` avatar、左右 `12 pt`、无额外 separator。
+  frame 恢复；手工验证资源页三栏与全宽页双栏切换、content list 最小 280 且 toolbar item 不越栏。
+- Sidebar 使用系统 `List(.sidebar)`；selection 与账户 footer 由集成验收覆盖，不复制测试系统布局。
 - 为新 `LoadPhase` 派生逻辑、preferences 默认值和 task key 增加最小有意义测试；
   `KubernetesStateTests` 已覆盖 lifecycle、client 注入后的 supersede／cancel 与数据保留。
 - `ContainersListViewControllerTests` 验证状态页、Compose outline、搜索可见批量范围、折叠／
@@ -823,7 +819,7 @@ hover／selection 时参与 layout，隐藏后不保留宽度。
 
 #### Window 与生命周期
 
-- 冷启动主窗口尺寸、最小尺寸、三栏 divider、frame 恢复。
+- 冷启动主窗口尺寸、最小尺寸、资源页三栏／全宽页双栏 divider、frame 恢复。
 - `⌘,`、About、Check for Updates、`⌘N` responder chain。
 - 关闭主窗口后从 Dock、menu bar、deep link 重开。
 - `keepRunning + showInMenuBar` 时关闭窗口不退出。
@@ -862,7 +858,7 @@ hover／selection 时参与 layout，隐藏后不保留宽度。
 #### 平台与辅助功能
 
 - `macOS 15`：无 `macOS 26` API crash，visual effect fallback 正常。
-- `macOS 26`：Liquid Glass 只用于原有 Activity 指标条。
+- `macOS 26`：系统 Sidebar、toolbar、详情 tabs 与 Activity 指标条使用原生 Liquid Glass。
 - Reduce Motion。
 - VoiceOver 可读 sidebar、tables、badge、chart、icon-only buttons。
 - Dark／Light appearance。

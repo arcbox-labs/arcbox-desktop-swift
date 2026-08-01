@@ -27,7 +27,7 @@ final class KubernetesListViewControllerTests: XCTestCase {
                 visibleView(identifier: "StatePlaceholderProgress", in: rootView)
                     as? NSProgressIndicator
             ).controlSize,
-            .regular
+            .small
         )
 
         viewModel.streamPhase = .live

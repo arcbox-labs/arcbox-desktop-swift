@@ -14,12 +14,8 @@ struct MachineDetailView: View {
                 switch vm.activeTab {
                 case .info:
                     MachineInfoTab(machine: machine)
-                case .logs:
-                    MachineLogsTab(machine: machine)
                 case .terminal:
                     MachineTerminalTab(machine: machine)
-                case .files:
-                    MachineFilesTab(machine: machine)
                 }
             } else {
                 Spacer()

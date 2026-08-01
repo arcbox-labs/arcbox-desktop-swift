@@ -7,7 +7,10 @@ extension ContainersViewModel {
 
     func startContainersDocker(_ ids: [String], docker: DockerClient?) async {
         lastError = nil
-        guard let docker else { return }
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return
+        }
         let stoppedIDs = ids.filter { id in
             containers.first(where: { $0.id == id })?.isRunning == false
         }
@@ -17,7 +20,10 @@ extension ContainersViewModel {
             for id in stoppedIDs {
                 group.addTask {
                     do {
-                        _ = try await docker.api.ContainerStart(path: .init(id: id))
+                        let response = try await docker.api.ContainerStart(path: .init(id: id))
+                        if let message = response.startFailureMessage {
+                            return message
+                        }
                         await self.setContainerRunningState(id, isRunning: true)
                         return nil
                     } catch {
@@ -42,7 +48,10 @@ extension ContainersViewModel {
 
     func stopContainersDocker(_ ids: [String], docker: DockerClient?) async {
         lastError = nil
-        guard let docker else { return }
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return
+        }
         let runningIDs = ids.filter { id in
             containers.first(where: { $0.id == id })?.isRunning == true
         }
@@ -52,7 +61,10 @@ extension ContainersViewModel {
             for id in runningIDs {
                 group.addTask {
                     do {
-                        _ = try await docker.api.ContainerStop(path: .init(id: id))
+                        let response = try await docker.api.ContainerStop(path: .init(id: id))
+                        if let message = response.stopFailureMessage {
+                            return message
+                        }
                         await self.setContainerRunningState(id, isRunning: false)
                         return nil
                     } catch {
@@ -77,14 +89,23 @@ extension ContainersViewModel {
 
     func removeContainersDocker(_ ids: [String], docker: DockerClient?) async {
         lastError = nil
-        guard let docker else { return }
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return
+        }
         for id in ids { setTransitioning(id, true) }
         let errors = await withTaskGroup(of: String?.self, returning: [String].self) {
             group in
             for id in ids {
                 group.addTask {
                     do {
-                        _ = try await docker.api.ContainerDelete(path: .init(id: id), query: .init(force: true))
+                        let response = try await docker.api.ContainerDelete(
+                            path: .init(id: id),
+                            query: .init(force: true)
+                        )
+                        if let message = response.deleteFailureMessage {
+                            return message
+                        }
                         await self.removeContainerLocally(id)
                         return nil
                     } catch {
