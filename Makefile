@@ -18,10 +18,21 @@ SIGN_IDENTITY ?= $(shell security find-identity -v -p codesigning 2>/dev/null \
 	| grep -o '"Developer ID Application: ArcBox, Inc\.[^"]*"' \
 	| head -1 | tr -d '"')
 SKIP_BUILD ?= 0
+SKIP_RUST_BUILD ?= 1
 # CI sets these after a separate `make prefetch` so dmg packaging does not
 # re-download boot assets / re-run the Xcode embed phase.
 SKIP_RESOURCES ?= 0
 SKIP_XCODE_EMBED ?= 0
+ARCBOX_STAGE_RESOURCES ?= 0
+XCODE_AD_HOC_SIGN ?= 1
+ARCBOX_PROFILE ?=
+ARCBOX_PRODUCT_BUNDLE_IDENTIFIER ?=
+ARCBOX_PRODUCT_NAME ?=
+ARCBOX_APP_DISPLAY_NAME ?=
+DAEMON_SIGN_IDENTITY ?=
+REQUIRE_GUEST_AGENTS ?= 0
+ARCBOX_HOST_TARGET_DIR ?= $(abspath .build/ArcBoxHost)
+ARCBOX_HOST_BIN_DIR ?= $(ARCBOX_HOST_TARGET_DIR)/release
 NOTARIZE ?= 0
 VERSION ?=
 SPARKLE_FEED_URL ?=
@@ -29,12 +40,13 @@ PROVISIONING_PROFILE ?=
 
 ABCTL := $(ARCBOX_DIR)/target/release/abctl
 
-.PHONY: build test resolve format lint lint-xtask test-xtask generate-xcodeproj bump-arcbox verify-arcbox-protobuf build-rust prefetch dmg dmg-signed dmg-release clean help
+.PHONY: build build-runnable build-runnable-rust test resolve format lint lint-xtask test-xtask generate-xcodeproj bump-arcbox verify-arcbox-protobuf build-rust prefetch dmg dmg-signed dmg-release clean help
 
 help:
 	@echo "ArcBox build targets:"
 	@echo ""
 	@echo "  make build          Build the Swift app (Debug, no Rust binaries)"
+	@echo "  make build-runnable Build a complete signed ArcBox Dev app for debugging"
 	@echo "  make test           Build and run the test suite"
 	@echo "  make resolve        Update Package.resolved after a Package.swift change"
 	@echo "  make format         Apply swift-format in place"
@@ -75,6 +87,9 @@ help:
 # specific Xcode, pass XCODE_DEVELOPER_DIR=... (a separate name, so the
 # poisoned DEVELOPER_DIR cannot leak in through it).
 XCODE_DEVELOPER_DIR ?=
+CARGO_BIN_DIR ?= $(dir $(shell command -v cargo 2>/dev/null))
+SYSTEM_DEVELOPER_DIR = $(shell /usr/bin/env -i PATH=/usr/bin:/bin /usr/bin/xcode-select -p)
+SYSTEM_SDKROOT = $(shell /usr/bin/env -i PATH=/usr/bin:/bin DEVELOPER_DIR="$(SYSTEM_DEVELOPER_DIR)" /usr/bin/xcrun --sdk macosx --show-sdk-path)
 XCODE_ENV = /usr/bin/env -i \
 	HOME="$$HOME" \
 	PATH="/usr/bin:/bin:/usr/sbin:/sbin" \
@@ -82,9 +97,23 @@ XCODE_ENV = /usr/bin/env -i \
 	$(if $(USER),USER="$(USER)") \
 	$(if $(LANG),LANG="$(LANG)") \
 	$(if $(XCODE_DEVELOPER_DIR),DEVELOPER_DIR="$(XCODE_DEVELOPER_DIR)")
+HOST_RUST_ENV = /usr/bin/env -i \
+	HOME="$$HOME" \
+	PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:$(CARGO_BIN_DIR):$(CURDIR)/.devenv/profile/bin" \
+	$(if $(TMPDIR),TMPDIR="$(TMPDIR)") \
+	$(if $(USER),USER="$(USER)") \
+	DEVELOPER_DIR="$(SYSTEM_DEVELOPER_DIR)" \
+	SDKROOT="$(SYSTEM_SDKROOT)" \
+	MACOSX_DEPLOYMENT_TARGET=15.0 \
+	CC=/usr/bin/cc \
+	CXX=/usr/bin/c++ \
+	AR=/usr/bin/ar \
+	RANLIB=/usr/bin/ranlib \
+	CARGO_TARGET_DIR="$(ARCBOX_HOST_TARGET_DIR)"
 
 CONFIGURATION ?= Debug
 DESTINATION ?= platform=macOS
+DERIVED_DATA_PATH ?= .build/DerivedData
 
 # `-skipPackagePluginValidation`/`-skipMacroValidation`: Xcode requires each
 # SwiftPM plugin to be trusted interactively before it will run it. That
@@ -106,18 +135,49 @@ XCODEBUILD_FLAGS = \
 	-scheme ArcBox \
 	-configuration $(CONFIGURATION) \
 	-destination '$(DESTINATION)' \
-	-derivedDataPath .build/DerivedData \
+	-derivedDataPath $(DERIVED_DATA_PATH) \
 	-clonedSourcePackagesDirPath .build/SourcePackages \
 	-onlyUsePackageVersionsFromResolvedFile \
 	-skipPackagePluginValidation \
 	-skipMacroValidation \
 	$(XCODEBUILD_EXTRA) \
-	CODE_SIGN_IDENTITY=- \
-	SKIP_RUST_BUILD=1 \
+	$(if $(filter 1,$(XCODE_AD_HOC_SIGN)),CODE_SIGN_IDENTITY=-) \
+	SKIP_RUST_BUILD=$(SKIP_RUST_BUILD) \
+	ARCBOX_STAGE_RESOURCES=$(ARCBOX_STAGE_RESOURCES) \
+	ARCBOX_CARGO_BIN_DIR='$(CARGO_BIN_DIR)' \
+	$(if $(ARCBOX_HOST_BIN_DIR),ARCBOX_HOST_BIN_DIR='$(ARCBOX_HOST_BIN_DIR)') \
+	$(if $(ARCBOX_DIR),ARCBOX_DIR='$(ARCBOX_DIR)') \
+	$(if $(ARCBOX_PROFILE),ARCBOX_PROFILE='$(ARCBOX_PROFILE)') \
+	$(if $(ARCBOX_PRODUCT_BUNDLE_IDENTIFIER),ARCBOX_PRODUCT_BUNDLE_IDENTIFIER='$(ARCBOX_PRODUCT_BUNDLE_IDENTIFIER)') \
+	$(if $(ARCBOX_PRODUCT_NAME),ARCBOX_PRODUCT_NAME='$(ARCBOX_PRODUCT_NAME)') \
+	$(if $(ARCBOX_APP_DISPLAY_NAME),ARCBOX_APP_DISPLAY_NAME='$(ARCBOX_APP_DISPLAY_NAME)') \
+	$(if $(DAEMON_SIGN_IDENTITY),DAEMON_SIGN_IDENTITY='$(DAEMON_SIGN_IDENTITY)') \
 	$(if $(ARCHS),ARCHS=$(ARCHS))
 
 build:
 	$(XCODE_ENV) xcodebuild build $(XCODEBUILD_FLAGS)
+
+build-runnable:
+	@if [ -z "$(SIGN_IDENTITY)" ]; then \
+		echo "ERROR: No ArcBox Developer ID signing identity found." >&2; \
+		exit 1; \
+	fi
+	@if [ -z "$(CARGO_BIN_DIR)" ]; then \
+		echo "ERROR: cargo is unavailable. Enter 'devenv shell' first." >&2; \
+		exit 1; \
+	fi
+	$(MAKE) build \
+		CONFIGURATION=Debug \
+		DERIVED_DATA_PATH=.build/DerivedData-Runnable \
+		SKIP_RUST_BUILD=0 \
+		ARCBOX_STAGE_RESOURCES=1 \
+		XCODE_AD_HOC_SIGN=0 \
+		ARCBOX_PROFILE=development \
+		ARCBOX_PRODUCT_BUNDLE_IDENTIFIER=com.arcboxlabs.desktop.dev \
+		ARCBOX_PRODUCT_NAME=ArcBox \
+		ARCBOX_APP_DISPLAY_NAME='ArcBox Dev' \
+		ARCBOX_HOST_BIN_DIR='$(ARCBOX_HOST_BIN_DIR)' \
+		DAEMON_SIGN_IDENTITY='$(SIGN_IDENTITY)'
 
 test:
 	$(XCODE_ENV) xcodebuild test $(XCODEBUILD_FLAGS)
@@ -179,15 +239,45 @@ verify-arcbox-protobuf:
 
 ## ── Prerequisites ─────────────────────────────────────
 
+build-runnable-rust:
+	@if [ -z "$(ARCBOX_DIR)" ]; then \
+		echo "ERROR: arcbox repo not found at ../arcbox" >&2; \
+		echo "  Set ARCBOX_DIR=/path/to/arcbox" >&2; \
+		exit 1; \
+	fi
+	@if [ -z "$(SIGN_IDENTITY)" ]; then \
+		echo "ERROR: No ArcBox Developer ID signing identity found." >&2; \
+		exit 1; \
+	fi
+	@if [ -z "$(CARGO_BIN_DIR)" ]; then \
+		echo "ERROR: cargo is unavailable. Enter 'devenv shell' first." >&2; \
+		exit 1; \
+	fi
+	$(HOST_RUST_ENV) cargo build \
+		--manifest-path "$(ARCBOX_DIR)/Cargo.toml" \
+		-p arcbox-cli -p arcbox-helper -p arcbox-daemon \
+		--release
+	@for binary in abctl arcbox-helper arcbox-daemon; do \
+		if /usr/bin/otool -L "$(ARCBOX_HOST_BIN_DIR)/$$binary" | /usr/bin/grep -q /nix/store/; then \
+			echo "ERROR: $$binary has a non-portable Nix dylib dependency." >&2; \
+			exit 1; \
+		fi; \
+	done
+	$(MAKE) -C "$(ARCBOX_DIR)" build-agent
+
 build-rust:
 	@if [ -z "$(ARCBOX_DIR)" ]; then \
 		echo "ERROR: arcbox repo not found at ../arcbox" >&2; \
 		echo "  Set ARCBOX_DIR=/path/to/arcbox" >&2; \
 		exit 1; \
 	fi
+	@if [ -z "$(CARGO_BIN_DIR)" ]; then \
+		echo "ERROR: cargo is unavailable. Enter 'devenv shell' first." >&2; \
+		exit 1; \
+	fi
 	$(MAKE) -C "$(ARCBOX_DIR)" build-cli build-helper PROFILE=release
 	$(MAKE) -C "$(ARCBOX_DIR)" sign-daemon PROFILE=release
-	-$(MAKE) -C "$(ARCBOX_DIR)" build-agent
+	$(if $(filter 1,$(REQUIRE_GUEST_AGENTS)),,-)$(MAKE) -C "$(ARCBOX_DIR)" build-agent
 
 prefetch:
 	@if [ "$(SKIP_BUILD)" != "1" ]; then \
@@ -247,7 +337,7 @@ dmg-release: $(DMG_PREREQS)
 ## ── Cleanup ───────────────────────────────────────────
 
 clean:
-	rm -rf .build/DerivedData
+	rm -rf .build/ArcBoxHost .build/DerivedData .build/DerivedData-Runnable
 	@if [ -n "$(ARCBOX_DIR)" ] && [ -d "$(ARCBOX_DIR)" ]; then \
 		cd "$(ARCBOX_DIR)" && rm -rf target/dmg-build target/ArcBox*.dmg; \
 	fi

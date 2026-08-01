@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
 {
   # nixpkgs lags the Homebrew bottles CI installs, and for xcodegen /
@@ -13,11 +13,12 @@
     swiftlint
     prek
     protobuf
-  ];
+  ] ++ lib.optionals pkgs.stdenv.isDarwin [ pkgs.apple-sdk_26 ];
 
   languages.rust = {
     enable = true;
     channel = "stable";
+    targets = [ "aarch64-unknown-linux-musl" ];
   };
 
   enterShell = ''

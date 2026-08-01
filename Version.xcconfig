@@ -6,6 +6,7 @@ CURRENT_PROJECT_VERSION = 1
 ARCBOX_PRODUCT_BUNDLE_IDENTIFIER = com.arcboxlabs.desktop
 ARCBOX_PRODUCT_NAME = ArcBox
 ARCBOX_APP_DISPLAY_NAME = ArcBox
+ARCBOX_PROFILE = production
 
 // Local development identity presets.
 ARCBOX_DEV_PRODUCT_BUNDLE_IDENTIFIER = com.arcboxlabs.desktop.dev

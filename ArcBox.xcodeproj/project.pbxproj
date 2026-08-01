@@ -1171,6 +1171,7 @@
 				8CE6C2226BB8F4DA38B0BF9E /* Resources */,
 				D1DC7ED1B941CAA195DDFD76 /* CopyFiles */,
 				DAEE0A47038CFBD52070A866 /* Frameworks */,
+				BA0B764F8309095AEF7955E2 /* Stage Development Resources */,
 			);
 			buildRules = (
 			);
@@ -1274,6 +1275,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		BA0B764F8309095AEF7955E2 /* Stage Development Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Stage Development Resources";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "if [ \"$ARCBOX_STAGE_RESOURCES\" != \"1\" ]; then echo 'note: ARCBOX_STAGE_RESOURCES is disabled'; exit 0; fi\nidentity=\"${EXPANDED_CODE_SIGN_IDENTITY:-${CODE_SIGN_IDENTITY:-}}\"\nif [ -z \"$identity\" ] || [ \"$identity\" = \"-\" ]; then\n  echo 'error: a development signing identity is required to stage runnable resources'\n  exit 1\nfi\nexport PATH=\"${PROJECT_DIR}/.devenv/profile/bin:${ARCBOX_CARGO_BIN_DIR:+${ARCBOX_CARGO_BIN_DIR}:}$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\ncd \"${PROJECT_DIR}\"\nprofile=()\nif [ \"$ARCBOX_PROFILE\" = \"development\" ] || [ \"$ARCBOX_PROFILE\" = \"dev\" ]; then profile=(--dev); fi\nexec cargo xtask macos stage-resources \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\" \"${profile[@]}\" --sign \"$identity\"\n";
+		};
 		FEF8974E31AE2208909EA170 /* Embed Arcbox Binaries */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -1291,7 +1311,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "if [ \"$SKIP_RUST_BUILD\" = \"1\" ]; then echo 'note: SKIP_RUST_BUILD=1, skipping binary embedding'; exit 0; fi\nexport PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\ncd \"${PROJECT_DIR}\"\nexec cargo xtask macos embed\n";
+			shellScript = "if [ \"$SKIP_RUST_BUILD\" = \"1\" ]; then echo 'note: SKIP_RUST_BUILD=1, skipping binary embedding'; exit 0; fi\nexport PATH=\"${PROJECT_DIR}/.devenv/profile/bin:${ARCBOX_CARGO_BIN_DIR:+${ARCBOX_CARGO_BIN_DIR}:}$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\ncd \"${PROJECT_DIR}\"\nif [ \"$ARCBOX_STAGE_RESOURCES\" = \"1\" ]; then\n  export ARCBOX_HOST_BIN_DIR=\"${ARCBOX_HOST_BIN_DIR:-${PROJECT_DIR}/.build/ArcBoxHost/release}\"\n  make build-runnable-rust\nfi\nexec cargo xtask macos embed\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
