@@ -1,7 +1,8 @@
 import ArcBoxClient
 import DockerClient
-import SwiftUI
-import os
+import Foundation
+import OSLog
+import Observation
 
 /// Container list state, selection, tabs, grouping
 @MainActor
@@ -50,16 +51,21 @@ class ContainersViewModel {
 
     func sortedContainers(_ list: [ContainerViewModel]) -> [ContainerViewModel] {
         list.sorted { a, b in
-            let result: Bool
+            let comparison: ComparisonResult
             switch sortBy {
             case .name:
-                result = a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+                comparison = a.name.localizedCaseInsensitiveCompare(b.name)
             case .dateCreated:
-                result = a.createdAt < b.createdAt
+                comparison = a.createdAt.compare(b.createdAt)
             case .status:
-                result = a.state.rawValue < b.state.rawValue
+                comparison = a.state.rawValue.compare(b.state.rawValue)
             }
-            return sortAscending ? result : !result
+            if comparison == .orderedSame {
+                return sortAscending ? a.id < b.id : a.id > b.id
+            }
+            return sortAscending
+                ? comparison == .orderedAscending
+                : comparison == .orderedDescending
         }
     }
 

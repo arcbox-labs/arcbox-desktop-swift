@@ -240,6 +240,15 @@ final class ContainersViewModelTests: XCTestCase {
         XCTAssertEqual(vm.composeGroups.count, 1)
     }
 
+    func testDescendingSortUsesStableIDTieBreak() {
+        vm.sortAscending = false
+
+        for ids in [["a", "b"], ["b", "a"]] {
+            let containers = ids.map { makeContainer(id: $0, name: "same") }
+            XCTAssertEqual(vm.sortedContainers(containers).map(\.id), ["b", "a"])
+        }
+    }
+
     // MARK: - DNS Domains
 
     func testHostDomainPlainContainer() {
