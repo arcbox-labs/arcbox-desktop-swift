@@ -1,5 +1,58 @@
 # Changelog
 
+## [1.32.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.31.3...v1.32.0) (2026-08-01)
+
+
+### Features
+
+* **activity:** group by Compose project, and filter the table ([e1b259b](https://github.com/arcboxlabs/arcbox-desktop/commit/e1b259b1fa6911714e0a060da55ce16adc42fe56))
+* **activity:** report the System VM's uptime ([69a97bf](https://github.com/arcboxlabs/arcbox-desktop/commit/69a97bf237107e829a5b2834a2e20888f6c1e65f))
+* **activity:** scrub the sparklines, keep the column layout ([36eb584](https://github.com/arcboxlabs/arcbox-desktop/commit/36eb5845ef5c98309229d8933ed67acf8f7c3ae2))
+
+
+### Bug Fixes
+
+* **activity:** clear the filter when its field is dismissed ([0a6a2f4](https://github.com/arcboxlabs/arcbox-desktop/commit/0a6a2f4491b5344debc2e06238ad2e7863938fcc))
+* **activity:** honour Reduce Motion, and hold legibility on glass ([25dfa87](https://github.com/arcboxlabs/arcbox-desktop/commit/25dfa873f1cfeb72f642e03912a634161e01e34c))
+* **activity:** load Docker metadata while Activity is showing ([27756cb](https://github.com/arcboxlabs/arcbox-desktop/commit/27756cbdefc323b6eef161d4a0d2cb2c3074c424))
+* **activity:** replace the loading screen with the screen itself ([e918c64](https://github.com/arcboxlabs/arcbox-desktop/commit/e918c6419237800742728327e75b317b4ca47a95))
+* **ui:** stop spelling zero out in byte counts ([3abfa3e](https://github.com/arcboxlabs/arcbox-desktop/commit/3abfa3e54aef9c19c84919b851746a6017897ff8))
+
+
+### Refactoring
+
+* **activity:** rebuild the monitor on standard components ([37601da](https://github.com/arcboxlabs/arcbox-desktop/commit/37601da72f3ba879fca466a4fe2b86df53f43a35))
+
+
+### CI
+
+* run the local packages' tests ([000c673](https://github.com/arcboxlabs/arcbox-desktop/commit/000c673536eafde2e0e83176e4e211b355f86f5e))
+
+## [1.31.3](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.31.2...v1.31.3) (2026-07-31)
+
+
+### Bug Fixes
+
+* **ui:** keep the toolbar separator on every column ([bbb8d6d](https://github.com/arcboxlabs/arcbox-desktop/commit/bbb8d6dc19942f11810422d50e1e94db0f5c4a8e))
+
+
+### Miscellaneous
+
+* **xtask:** drop dead ArcBoxHelper signing step ([1b9ee33](https://github.com/arcboxlabs/arcbox-desktop/commit/1b9ee3350599b8507b112c360175f88d5199b093))
+
+
+### Documentation
+
+* add CONTRIBUTING, SECURITY, and issue templates ([596cb66](https://github.com/arcboxlabs/arcbox-desktop/commit/596cb6625a1fb2662b1f5ac51c13461e01b48dda))
+* correct stale claims in AGENTS.md and xtask/README ([32b14e5](https://github.com/arcboxlabs/arcbox-desktop/commit/32b14e58cd683c1c4aca75f4cae427006b9f7b98))
+* distinguish `make dmg` from `make dmg-signed` ([b25950e](https://github.com/arcboxlabs/arcbox-desktop/commit/b25950e62c6eeff699a51d55d2a089edb13e099b))
+* rewrite README around the product, move dev setup to docs/ ([06cd1f5](https://github.com/arcboxlabs/arcbox-desktop/commit/06cd1f5b86fb72b02d6666f4a14ae98b1e091b84))
+
+
+### CI
+
+* gate the xtask crate ([5062a83](https://github.com/arcboxlabs/arcbox-desktop/commit/5062a832c585a194a4c718a43cc8a3d6e425d990))
+
 ## [1.31.2](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.31.1...v1.31.2) (2026-07-31)
 
 

@@ -191,6 +191,6 @@ struct SandboxFilesTab: View {
     }
 
     private func byteCount(_ count: Int) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(count), countStyle: .file)
+        formattedBytes(Int64(count))
     }
 }

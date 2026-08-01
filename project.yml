@@ -205,6 +205,12 @@ targets:
     deploymentTarget: "15.0"
     sources:
       - path: ArcBoxTests
+      # The local packages' own tests. xcodegen cannot put a SwiftPM test
+      # target into the scheme, so compiling their sources into this bundle is
+      # what puts them behind `make test` instead of leaving them to a
+      # `swift test` nobody runs.
+      - path: Packages/ArcBoxClient/Tests/ArcBoxClientTests
+      - path: Packages/ArcBoxAuth/Tests/ArcBoxAuthTests
     dependencies:
       - target: ArcBox
       - package: K8sClient

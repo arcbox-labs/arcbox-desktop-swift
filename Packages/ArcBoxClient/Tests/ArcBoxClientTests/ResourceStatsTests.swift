@@ -132,4 +132,14 @@ import Testing
         let stats = ResourceStatsCalculator.compute(previous: prev, current: cur)!
         #expect(stats.hasMemoryPressure == false)
     }
+
+    /// Uptime is the newer sample's own clock, not the span between the two —
+    /// reading it off the delta would report the sampling interval.
+    @Test func uptimeIsTheCurrentSamplesGuestClock() {
+        let prev = machine(monotonicMs: 10_000, busy: 100, total: 1000)
+        let cur = machine(monotonicMs: 3_600_000, busy: 150, total: 1200)
+
+        let stats = ResourceStatsCalculator.compute(previous: prev, current: cur)!
+        #expect(stats.uptime == .seconds(3600))
+    }
 }
