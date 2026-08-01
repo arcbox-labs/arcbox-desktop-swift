@@ -118,18 +118,6 @@ struct ContainerViewModel: Identifiable, Hashable {
         return ports.map { "\($0.hostPort):\($0.containerPort)" }.joined(separator: ", ")
     }
 
-    var createdAgo: String {
-        let interval = Date().timeIntervalSince(createdAt)
-        let days = Int(interval / 86400)
-        let hours = Int(interval / 3600)
-        let minutes = Int(interval / 60)
-
-        if days > 0 { return "\(days)d ago" }
-        if hours > 0 { return "\(hours)h ago" }
-        if minutes > 0 { return "\(minutes)m ago" }
-        return "just now"
-    }
-
     var uptimeDisplay: String {
         let interval = max(0, Date().timeIntervalSince(createdAt))
         let days = Int(interval / 86400)
