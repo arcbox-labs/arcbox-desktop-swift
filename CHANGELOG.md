@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.32.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.31.3...v1.32.0) (2026-08-01)
+
+
+### Features
+
+* **activity:** group by Compose project, and filter the table ([e1b259b](https://github.com/arcboxlabs/arcbox-desktop/commit/e1b259b1fa6911714e0a060da55ce16adc42fe56))
+* **activity:** report the System VM's uptime ([69a97bf](https://github.com/arcboxlabs/arcbox-desktop/commit/69a97bf237107e829a5b2834a2e20888f6c1e65f))
+* **activity:** scrub the sparklines, keep the column layout ([36eb584](https://github.com/arcboxlabs/arcbox-desktop/commit/36eb5845ef5c98309229d8933ed67acf8f7c3ae2))
+
+
+### Bug Fixes
+
+* **activity:** clear the filter when its field is dismissed ([0a6a2f4](https://github.com/arcboxlabs/arcbox-desktop/commit/0a6a2f4491b5344debc2e06238ad2e7863938fcc))
+* **activity:** honour Reduce Motion, and hold legibility on glass ([25dfa87](https://github.com/arcboxlabs/arcbox-desktop/commit/25dfa873f1cfeb72f642e03912a634161e01e34c))
+* **activity:** load Docker metadata while Activity is showing ([27756cb](https://github.com/arcboxlabs/arcbox-desktop/commit/27756cbdefc323b6eef161d4a0d2cb2c3074c424))
+* **activity:** replace the loading screen with the screen itself ([e918c64](https://github.com/arcboxlabs/arcbox-desktop/commit/e918c6419237800742728327e75b317b4ca47a95))
+* **ui:** stop spelling zero out in byte counts ([3abfa3e](https://github.com/arcboxlabs/arcbox-desktop/commit/3abfa3e54aef9c19c84919b851746a6017897ff8))
+
+
+### Refactoring
+
+* **activity:** rebuild the monitor on standard components ([37601da](https://github.com/arcboxlabs/arcbox-desktop/commit/37601da72f3ba879fca466a4fe2b86df53f43a35))
+
+
+### CI
+
+* run the local packages' tests ([000c673](https://github.com/arcboxlabs/arcbox-desktop/commit/000c673536eafde2e0e83176e4e211b355f86f5e))
+
 ## [1.31.3](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.31.2...v1.31.3) (2026-07-31)
 
 
