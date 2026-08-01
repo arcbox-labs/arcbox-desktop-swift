@@ -24,12 +24,19 @@ final class SidebarViewControllerTests: XCTestCase {
         XCTAssertEqual(rows.compactMap { $0 as? NavItem }.count, 10)
         XCTAssertEqual(outlineView.item(atRow: outlineView.selectedRow) as? NavItem, .containers)
         XCTAssertEqual(outlineView.style, .sourceList)
-        let nativeSourceList = NSOutlineView()
-        nativeSourceList.style = .sourceList
-        XCTAssertEqual(outlineView.rowHeight, nativeSourceList.rowHeight)
+        XCTAssertEqual(outlineView.rowSizeStyle, .medium)
+        let firstItemRow = try XCTUnwrap(rows.firstIndex { $0 is NavItem })
+        XCTAssertEqual(outlineView.rect(ofRow: firstItemRow).height, 32)
 
         let firstSection = try XCTUnwrap(outlineView.view(atColumn: 0, row: 0, makeIfNecessary: true))
-        XCTAssertEqual(findTextField(in: firstSection)?.stringValue, "System")
+        let firstSectionLabel = try XCTUnwrap(findTextField(in: firstSection))
+        firstSection.layoutSubtreeIfNeeded()
+        XCTAssertEqual(firstSectionLabel.stringValue, "System")
+        XCTAssertEqual(
+            firstSectionLabel.alignmentRect(forFrame: firstSectionLabel.frame).minX,
+            0,
+            accuracy: 0.5
+        )
 
         let accountButton = try XCTUnwrap(
             findView(identifier: "SidebarAccountButton", in: controller.view)
