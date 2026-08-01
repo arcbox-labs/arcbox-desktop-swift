@@ -43,7 +43,7 @@ struct ContainersListView: View {
             } else if !daemonManager.state.isRunning {
                 DaemonLoadingView(state: daemonManager.state)
             } else if case .failed(let message) = vm.loadState {
-                ContainerLoadErrorView(message: message) {
+                ListLoadErrorView(title: "Failed to load containers", message: message) {
                     Task { await vm.loadContainersFromDocker(docker: docker, iconClient: client) }
                 }
             } else if vm.loadState != .loaded {
@@ -100,12 +100,17 @@ struct ContainersListView: View {
             await vm.loadContainersFromDocker(docker: docker, iconClient: client)
         }
         .onReceive(NotificationCenter.default.publisher(for: .dockerContainerChanged)) { _ in
+            guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             Task { await vm.loadContainersFromDocker(docker: docker, iconClient: client) }
         }
         .sheet(isPresented: Bindable(vm).showNewContainerSheet) {
             NewContainerSheet()
         }
-        .errorToast(message: Bindable(vm).lastError)
+        .listErrorToast(
+            operationError: Bindable(vm).lastError,
+            refreshError: Bindable(vm).refreshError,
+            resourceName: "containers"
+        )
     }
 
     @ViewBuilder

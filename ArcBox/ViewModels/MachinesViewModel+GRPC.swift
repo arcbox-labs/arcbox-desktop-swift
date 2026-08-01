@@ -21,12 +21,19 @@ extension MachinesViewModel {
     /// lifecycle belongs to the app, not this tab, so it is hidden here.
     func loadMachines(client: ArcBoxClient?) async {
         guard let client else {
-            loadState = .waiting
+            if loadState != .loaded {
+                loadState = .waiting
+            }
             return
         }
-        if loadState == .waiting {
-            loadState = .loading
+
+        await listLoadGate.run {
+            await self.performLoadMachines(client: client)
         }
+    }
+
+    private func performLoadMachines(client: ArcBoxClient) async {
+        let isRefresh = loadState.beginLoading()
         let transitioning = transitioningIDs
         let existingByID = Dictionary(uniqueKeysWithValues: machines.map { ($0.id, $0) })
         var request = Arcbox_V1_ListMachinesRequest()
@@ -53,9 +60,13 @@ extension MachinesViewModel {
             }
             machines = viewModels
             loadState = .loaded
+            refreshError = nil
         } catch {
+            if loadState.cancelLoading(for: error, retainingLoadedContent: isRefresh) {
+                return
+            }
             let message = reportError(error, operation: "list", surface: false)
-            loadState = .failed(message)
+            refreshError = loadState.fail(message, retainingLoadedContent: isRefresh)
         }
     }
 

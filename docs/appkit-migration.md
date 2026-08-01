@@ -1,12 +1,14 @@
 # ArcBox Desktop：SwiftUI → AppKit 迁移档案
 
 > 快照日期：2026-08-01
-> 状态：迁移进行中；AppKit 生命周期壳、原生窗口／菜单、认证桥接、About 与 Coming Soon 已落地
+> 状态：迁移进行中；AppKit 生命周期壳、原生窗口／菜单／主侧栏、认证桥接、About、Coming Soon、
+> 共享 `LoadPhase` 与 terminal controller 已落地
 > 目标：第一方运行时代码最终不再依赖 SwiftUI、Swift Charts、`NSHostingView` 或
 > `NSViewRepresentable`
 
-当前过渡边界：主窗口、设置与菜单栏由 AppKit controller 持有，尚未迁移的 feature 临时使用
-`NSHostingController`。这一边界只用于保持每个迁移提交可运行，最终静态门槛仍要求全部删除。
+当前过渡边界：主窗口外层为 AppKit 固定侧栏与内容容器；内容／详情、设置与菜单栏中尚未迁移的
+feature 临时使用 `NSHostingController`。这一边界只用于保持每个迁移提交可运行，最终静态门槛
+仍要求全部删除。
 
 ## 1. 范围、假设与完成定义
 
@@ -787,7 +789,8 @@ Task 归属：
 ### 10.2 自动验证
 
 - 保留 `DeepLinkTests`。
-- 把 `ContentViewColumnLayoutTests` 改写为 AppKit 窗口测试，验证：
+- 当前 `MainSplitViewControllerTests` 验证迁移期原生外层两栏、180 pt sidebar floor 与 content
+  controller replacement。内容／详情迁出 host 后扩展为最终 AppKit 窗口测试，验证：
   - 3 个 split items；
   - content list 最小 280；
   - 2 个 tracking separators；

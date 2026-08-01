@@ -61,6 +61,7 @@ struct ActivityView: View {
                 await containersVM.loadContainersFromDocker(docker: docker, iconClient: arcboxClient)
             }
             .onReceive(NotificationCenter.default.publisher(for: .dockerContainerChanged)) { _ in
+                guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
                 Task {
                     await containersVM.loadContainersFromDocker(
                         docker: docker, iconClient: arcboxClient)

@@ -72,7 +72,11 @@ struct MachinesView: View {
         } message: {
             Text("This permanently deletes the machine and its data disk.")
         }
-        .errorToast(message: Bindable(vm).lastError)
+        .listErrorToast(
+            operationError: Bindable(vm).lastError,
+            refreshError: Bindable(vm).refreshError,
+            resourceName: "machines"
+        )
     }
 
     @ViewBuilder

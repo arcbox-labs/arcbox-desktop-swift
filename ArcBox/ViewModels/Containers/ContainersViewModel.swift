@@ -15,7 +15,9 @@ class ContainersViewModel {
     }
 
     var containers: [ContainerViewModel] = []
-    var loadState: ContainerLoadState = .waiting
+    var loadState: LoadPhase = .waiting
+    var refreshError: String?
+    let listLoadGate = SingleFlightLoadGate()
     var selectedID: String?
     var activeTab: ContainerDetailTab = .info
     var expandedGroups: Set<String> = []

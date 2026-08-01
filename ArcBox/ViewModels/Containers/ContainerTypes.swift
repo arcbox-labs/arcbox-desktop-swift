@@ -22,14 +22,6 @@ enum ContainerSortField: String, CaseIterable {
     case status = "Status"
 }
 
-/// Container list loading state
-enum ContainerLoadState: Equatable {
-    case waiting  // Waiting for docker client
-    case loading  // Fetching from Docker API
-    case loaded  // Fetch completed (containers may be empty)
-    case failed(String)  // Fetch failed with error message
-}
-
 struct ContainerCreateOptions {
     let image: String
     let name: String

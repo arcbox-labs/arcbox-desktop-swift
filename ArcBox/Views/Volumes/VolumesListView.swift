@@ -15,8 +15,17 @@ struct VolumesListView: View {
                 StartupProgressView(orchestrator: orchestrator)
             } else if !daemonManager.state.isRunning {
                 DaemonLoadingView(state: daemonManager.state)
+            } else if case .failed(let message) = vm.loadState {
+                ListLoadErrorView(title: "Failed to load volumes", message: message) {
+                    Task { await vm.loadVolumes(docker: docker) }
+                }
+            } else if vm.loadState != .loaded {
+                ProgressView(daemonManager.setupPhase.isDockerReady ? "Loading volumes…" : "Starting Docker engine…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if vm.volumes.isEmpty {
                 VolumeEmptyState()
+            } else if vm.sortedVolumes.isEmpty {
+                ContentUnavailableView.search(text: vm.searchText)
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -58,15 +67,21 @@ struct VolumesListView: View {
         .sheet(isPresented: Bindable(vm).showNewVolumeSheet) {
             NewVolumeSheet()
         }
-        .errorToast(message: Bindable(vm).lastError)
+        .listErrorToast(
+            operationError: Bindable(vm).lastError,
+            refreshError: Bindable(vm).refreshError,
+            resourceName: "volumes"
+        )
         .task(id: daemonManager.setupPhase.isDockerReady && docker != nil) {
             guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             await vm.loadVolumes(docker: docker)
         }
         .onReceive(NotificationCenter.default.publisher(for: .dockerVolumeChanged)) { _ in
+            guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             Task { await vm.loadVolumes(docker: docker) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .dockerDataChanged)) { _ in
+            guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             Task { await vm.loadVolumes(docker: docker) }
         }
     }

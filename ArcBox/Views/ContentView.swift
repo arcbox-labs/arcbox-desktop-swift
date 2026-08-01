@@ -1,9 +1,8 @@
-import ArcBoxClient
 import SwiftUI
 
-/// Column geometry for the main window's three-column layout.
+/// Column geometry for the hosted content/detail split during migration.
 ///
-/// The window toolbar reserves one section for the content column — its
+/// The toolbar reserves one section for the content column — its
 /// navigation title and subtitle plus its `.primaryAction` items — ending at
 /// the split-view tracking separator. AppKit will not compress that section
 /// below its intrinsic width. If the column is allowed to be narrower, the
@@ -16,10 +15,10 @@ import SwiftUI
 /// `contentMin` clears the two-item case the widest list columns ship today.
 ///
 /// Adding a third `.primaryAction` item to any list column would exceed
-/// `contentMin` — raise it alongside, and let
-/// `ContentViewColumnLayoutTests` confirm the new value.
+/// `contentMin` — raise it alongside. The native outer split owns the sidebar
+/// while this view preserves each feature's existing toolbar and sheet
+/// behavior.
 enum ColumnWidth {
-    static let sidebar: CGFloat = 180
     static let contentMin: CGFloat = 280
     static let contentIdeal: CGFloat = 320
     static let contentMax: CGFloat = 600
@@ -42,14 +41,8 @@ struct ContentView: View {
     @State private var sandboxesVM = SandboxesViewModel()
     @State private var templatesVM = TemplatesViewModel()
 
-    @State private var lastValidNav: NavItem? = .containers
-
     var body: some View {
-        @Bindable var vm = appVM
-
         NavigationSplitView {
-            sidebar
-        } content: {
             // Always render `contentColumn` and vary only the numeric width
             // through the SAME flexible overload. Mixing the fixed
             // `navigationSplitViewColumnWidth(0)` overload with the flexible
@@ -73,59 +66,6 @@ struct ContentView: View {
                 .background(AppColors.sidebar)
                 .toolbarSeparator()
         }
-        .onChange(of: appVM.currentNav) { _, newNav in
-            guard let newNav else { return }
-            if newNav.isComingSoon {
-                showComingSoonPanel()
-                appVM.currentNav = lastValidNav
-            } else {
-                lastValidNav = newNav
-            }
-        }
-    }
-
-    // MARK: - Sidebar
-
-    private var sidebar: some View {
-        @Bindable var vm = appVM
-
-        return List(selection: $vm.currentNav) {
-            Section("System") {
-                ForEach(NavItem.Section.system.items) { item in
-                    Label(item.label, systemImage: item.sfSymbol)
-                        .tag(item)
-                }
-            }
-            Section("Docker") {
-                ForEach(NavItem.Section.docker.items) { item in
-                    Label(item.label, systemImage: item.sfSymbol)
-                        .tag(item)
-                }
-            }
-            Section("Kubernetes") {
-                ForEach(NavItem.Section.kubernetes.items) { item in
-                    Label(item.label, systemImage: item.sfSymbol)
-                        .tag(item)
-                }
-            }
-            Section("Linux") {
-                ForEach(NavItem.Section.linux.items) { item in
-                    Label(item.label, systemImage: item.sfSymbol)
-                        .tag(item)
-                }
-            }
-            Section("Sandbox") {
-                ForEach(NavItem.Section.sandbox.items) { item in
-                    Label(item.label, systemImage: item.sfSymbol)
-                        .tag(item)
-                }
-            }
-        }
-        .listStyle(.sidebar)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            SidebarAccountButton()
-        }
-        .navigationSplitViewColumnWidth(ColumnWidth.sidebar)
     }
 
     /// Sections rendered full-width in the detail column collapse the content
@@ -223,29 +163,4 @@ struct ContentView: View {
         }
     }
 
-}
-
-/// Placeholder shown when no detail is available (e.g. Machines)
-struct DetailPlaceholderView: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "square.dashed")
-                .font(.system(size: 32))
-                .foregroundStyle(AppColors.textMuted)
-            Text("No Selection")
-                .foregroundStyle(AppColors.textSecondary)
-                .font(.system(size: 15))
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(AppColors.background)
-    }
-}
-
-#Preview {
-    ContentView()
-        .environment(AppViewModel())
-        .environment(ContainersViewModel())
-        .environment(ImagesViewModel())
-        .environment(NetworksViewModel())
-        .environment(VolumesViewModel())
 }

@@ -12,14 +12,30 @@ extension VolumesViewModel {
             return
         }
 
+        await listLoadGate.run {
+            await self.performLoadVolumes(docker: docker)
+        }
+    }
+
+    private func performLoadVolumes(docker: DockerClient) async {
+        let isRefresh = loadState.beginLoading()
         do {
             let response = try await docker.api.SystemDataUsage(query: .init(_type: [.volume]))
             let dfResponse = try response.ok.body.json
             volumes = (dfResponse.Volumes ?? []).map { VolumeViewModel(fromDocker: $0) }
             Log.volume.info("Loaded \(self.volumes.count, privacy: .public) volumes")
+            loadState = .loaded
+            refreshError = nil
         } catch {
+            if loadState.cancelLoading(for: error, retainingLoadedContent: isRefresh) {
+                return
+            }
             Log.volume.error("Error loading volumes: \(error.localizedDescription, privacy: .private)")
             ErrorReporting.capture(error, domain: .volume, operation: "list")
+            refreshError = loadState.fail(
+                error.localizedDescription,
+                retainingLoadedContent: isRefresh
+            )
         }
     }
 

@@ -19,7 +19,90 @@ final class ContainersViewModelTests: XCTestCase {
         XCTAssertNil(vm.selectedID)
         XCTAssertEqual(vm.runningCount, 0)
         XCTAssertEqual(vm.loadState, .waiting)
+        XCTAssertNil(vm.refreshError)
         XCTAssertNil(vm.lastError)
+    }
+
+    // MARK: - Load Phase
+
+    func testInitialLoadFailureBecomesBlockingError() {
+        var phase = LoadPhase.waiting
+
+        let retainingLoadedContent = phase.beginLoading()
+        let refreshError = phase.fail(
+            "connection refused",
+            retainingLoadedContent: retainingLoadedContent
+        )
+
+        XCTAssertEqual(phase, .failed("connection refused"))
+        XCTAssertNil(refreshError)
+    }
+
+    func testRefreshFailureKeepsLoadedContentAndReturnsWarning() {
+        var phase = LoadPhase.loaded
+
+        let retainingLoadedContent = phase.beginLoading()
+        let refreshError = phase.fail(
+            "connection reset",
+            retainingLoadedContent: retainingLoadedContent
+        )
+
+        XCTAssertEqual(phase, .loaded)
+        XCTAssertEqual(refreshError, "connection reset")
+    }
+
+    func testSingleFlightLoadGateCoalescesPendingWorkAndWaitsForRound() async {
+        let gate = SingleFlightLoadGate()
+        var events: [String] = []
+        var releaseFirst = false
+
+        let first = Task {
+            await gate.run {
+                events.append("first ran")
+                while !releaseFirst {
+                    await Task.yield()
+                }
+            }
+            events.append("first returned")
+        }
+        while !events.contains("first ran") {
+            await Task.yield()
+        }
+
+        let middle = Task {
+            events.append("middle called")
+            await gate.run {
+                events.append("middle ran")
+            }
+            events.append("middle returned")
+        }
+        while !events.contains("middle called") {
+            await Task.yield()
+        }
+
+        let latest = Task {
+            events.append("latest called")
+            await gate.run {
+                events.append("latest ran")
+            }
+            events.append("latest returned")
+        }
+        while !events.contains("latest called") {
+            await Task.yield()
+        }
+
+        XCTAssertFalse(events.contains("middle returned"))
+        XCTAssertFalse(events.contains("latest returned"))
+        releaseFirst = true
+
+        await first.value
+        await middle.value
+        await latest.value
+
+        XCTAssertFalse(events.contains("middle ran"))
+        XCTAssertTrue(events.contains("latest ran"))
+        XCTAssertTrue(events.contains("middle returned"))
+        XCTAssertTrue(events.contains("latest returned"))
     }
 
     // MARK: - Selection

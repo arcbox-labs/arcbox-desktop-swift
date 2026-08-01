@@ -12,14 +12,6 @@ enum MachineDetailTab: String, @MainActor DetailTab {
     var id: String { rawValue }
 }
 
-/// Machine list loading state
-enum MachineLoadState: Equatable {
-    case waiting  // Waiting for the gRPC client
-    case loading  // Fetching from the daemon
-    case loaded  // Fetch completed (machines may be empty)
-    case failed(String)  // Fetch failed with error message
-}
-
 /// Machine list state backed by the arcbox.v1 MachineService.
 @MainActor
 @Observable
@@ -29,7 +21,9 @@ class MachinesViewModel {
     var activeTab: MachineDetailTab = .info
     var searchText: String = ""
     var isSearching: Bool = false
-    var loadState: MachineLoadState = .waiting
+    var loadState: LoadPhase = .waiting
+    var refreshError: String?
+    let listLoadGate = SingleFlightLoadGate()
     var showCreateSheet: Bool = false
 
     /// User-visible error from the last failed operation.

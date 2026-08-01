@@ -6,6 +6,9 @@ import SwiftUI
 @Observable
 class VolumesViewModel {
     var volumes: [VolumeViewModel] = []
+    var loadState: LoadPhase = .waiting
+    var refreshError: String?
+    let listLoadGate = SingleFlightLoadGate()
     var selectedID: String?
     var activeTab: VolumeDetailTab = .info
     var listWidth: CGFloat = 320
