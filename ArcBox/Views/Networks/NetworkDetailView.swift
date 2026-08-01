@@ -18,11 +18,7 @@ struct NetworkDetailView: View {
             runningContainerIDs: runningContainerIDs
         )
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Info")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(AppColors.textSecondary)
-            }
+            DetailTabPicker(selection: .constant(NetworkDetailTab.info))
         }
     }
 
@@ -49,6 +45,12 @@ struct NetworkDetailView: View {
                 }
         }
     }
+}
+
+private enum NetworkDetailTab: String, @MainActor DetailTab {
+    case info = "Info"
+
+    var id: String { rawValue }
 }
 
 private struct NetworkDetailControllerView: NSViewControllerRepresentable {
