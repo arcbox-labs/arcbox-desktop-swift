@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import XCTest
 
 @testable import ArcBox
@@ -9,14 +10,31 @@ final class MainWindowControllerTests: XCTestCase {
         let autosaveName = "ArcBoxTests.MainWindow.\(UUID().uuidString)"
         defer { removeSavedFrame(named: autosaveName) }
 
+        let host = NSHostingController(
+            rootView: Color.clear
+                .frame(minWidth: 900, minHeight: 600)
+                .toolbar {
+                    ToolbarItem {
+                        Button("Action") {}
+                    }
+                }
+        )
+        host.sceneBridgingOptions = .all
+
         let controller = MainWindowController(
-            contentViewController: NSViewController(),
+            contentViewController: host,
             frameAutosaveName: autosaveName
         )
+        controller.showWindow(nil)
+        defer { controller.close() }
+
         let window = try XCTUnwrap(controller.window)
+        waitForToolbarLayout(in: window)
+        let chromeHeight = window.frame.height - window.contentLayoutRect.height
 
         XCTAssertEqual(window.frame.size, NSSize(width: 1_200, height: 800))
-        XCTAssertEqual(window.contentMinSize, NSSize(width: 900, height: 600))
+        XCTAssertEqual(window.minSize.width, 900, accuracy: 1)
+        XCTAssertEqual(window.minSize.height, 600 + chromeHeight, accuracy: 1)
         XCTAssertTrue(window.styleMask.contains(.fullSizeContentView))
         XCTAssertTrue(window.titlebarAppearsTransparent)
         XCTAssertEqual(window.titleVisibility, .visible)
@@ -52,5 +70,28 @@ final class MainWindowControllerTests: XCTestCase {
 
     private func removeSavedFrame(named name: String) {
         UserDefaults.standard.removeObject(forKey: "NSWindow Frame \(name)")
+    }
+
+    private func waitForToolbarLayout(in window: NSWindow) {
+        var lastContentLayoutRect = NSRect.zero
+        var stablePasses = 0
+
+        for _ in 0..<20 {
+            window.contentView?.layoutSubtreeIfNeeded()
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+
+            let contentLayoutRect = window.contentLayoutRect
+            if window.toolbar != nil, contentLayoutRect == lastContentLayoutRect {
+                stablePasses += 1
+                if stablePasses == 2 {
+                    return
+                }
+            } else {
+                stablePasses = 0
+            }
+            lastContentLayoutRect = contentLayoutRect
+        }
+
+        XCTFail("SwiftUI toolbar did not settle")
     }
 }
