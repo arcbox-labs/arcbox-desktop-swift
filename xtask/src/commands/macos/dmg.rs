@@ -150,6 +150,10 @@ fn build_swift_app(
         .arg("-clonedSourcePackagesDirPath")
         .arg(&spm_clones)
         .arg("-skipPackagePluginValidation")
+        // A release must ship the dependency versions that were reviewed. Without
+        // this, a stale Package.resolved re-resolves silently and the shipped
+        // binary links something nobody approved.
+        .arg("-onlyUsePackageVersionsFromResolvedFile")
         .arg("ARCHS=arm64")
         .arg(format!("ARCBOX_DIR={}", arcbox_dir.display()))
         .arg(format!("CURRENT_PROJECT_VERSION={build_number}"));

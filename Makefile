@@ -29,13 +29,14 @@ PROVISIONING_PROFILE ?=
 
 ABCTL := $(ARCBOX_DIR)/target/release/abctl
 
-.PHONY: build test format lint lint-xtask test-xtask generate-xcodeproj bump-arcbox verify-arcbox-protobuf build-rust prefetch dmg dmg-signed dmg-release clean help
+.PHONY: build test resolve format lint lint-xtask test-xtask generate-xcodeproj bump-arcbox verify-arcbox-protobuf build-rust prefetch dmg dmg-signed dmg-release clean help
 
 help:
 	@echo "ArcBox build targets:"
 	@echo ""
 	@echo "  make build          Build the Swift app (Debug, no Rust binaries)"
 	@echo "  make test           Build and run the test suite"
+	@echo "  make resolve        Update Package.resolved after a Package.swift change"
 	@echo "  make format         Apply swift-format in place"
 	@echo "  make lint           Run swift-format --strict and swiftlint (as CI does)"
 	@echo "  make lint-xtask     Run cargo fmt --check and clippy -D warnings on xtask/"
@@ -95,6 +96,11 @@ DESTINATION ?= platform=macOS
 # SKIP_RUST_BUILD=1: the embed phase pulls prebuilt binaries from ../arcbox.
 # These targets compile and test Swift; use `make dmg-signed` for a bundle whose
 # daemon survives launch (`make dmg` ad-hoc signs it and drops its entitlements).
+#
+# `-onlyUsePackageVersionsFromResolvedFile`: build the versions in
+# Package.resolved or fail. Without it a manifest edit silently re-resolves and
+# the build runs against dependencies nobody reviewed, leaving the committed
+# lockfile stale. Run `make resolve` after changing any Package.swift.
 XCODEBUILD_FLAGS = \
 	-project ArcBox.xcodeproj \
 	-scheme ArcBox \
@@ -102,6 +108,7 @@ XCODEBUILD_FLAGS = \
 	-destination '$(DESTINATION)' \
 	-derivedDataPath .build/DerivedData \
 	-clonedSourcePackagesDirPath .build/SourcePackages \
+	-onlyUsePackageVersionsFromResolvedFile \
 	-skipPackagePluginValidation \
 	-skipMacroValidation \
 	$(XCODEBUILD_EXTRA) \
@@ -114,6 +121,14 @@ build:
 
 test:
 	$(XCODE_ENV) xcodebuild test $(XCODEBUILD_FLAGS)
+
+# The one command allowed to move Package.resolved. Commit the result with the
+# manifest change that motivated it.
+resolve:
+	$(XCODE_ENV) xcodebuild -resolvePackageDependencies \
+		-project ArcBox.xcodeproj \
+		-scheme ArcBox \
+		-clonedSourcePackagesDirPath .build/SourcePackages
 
 # Feed swift-format the tracked sources rather than walking directories: a
 # local `Packages/*/.build/checkouts` holds vendored third-party code that is
