@@ -28,12 +28,11 @@ class KubernetesState {
     let servicesModel = ServicesViewModel()
 
     private var k8sClient: K8sClient?
-    private var sessionTask: Task<Void, Never>?
+    /// One supervisor per resource, so a failure on one does not take the other's list down.
+    private var podsTask: Task<Void, Never>?
+    private var servicesTask: Task<Void, Never>?
     /// Bumped on every teardown; in-flight work compares against it before writing back.
     private var generation: Int = 0
-    /// Whether the current connection attempt delivered data, so backoff resets on a
-    /// connection that worked and then dropped rather than growing forever.
-    private var receivedSnapshot = false
 
     /// Check current K8s cluster status via gRPC.
     func checkStatus(client: ArcBoxClient?) async {
@@ -123,17 +122,31 @@ class KubernetesState {
     }
 
     private func startSession(client: ArcBoxClient) {
-        sessionTask?.cancel()
+        cancelStreams()
         let generation = self.generation
-        sessionTask = Task { [weak self] in
-            await self?.runSession(generation: generation, client: client)
+        podsTask = Task { [weak self] in
+            await self?.supervise(
+                self?.podsModel, operation: "watch_pods", generation: generation, client: client
+            ) { $0.podStream() }
         }
+        servicesTask = Task { [weak self] in
+            await self?.supervise(
+                self?.servicesModel, operation: "watch_services", generation: generation,
+                client: client
+            ) { $0.serviceStream() }
+        }
+    }
+
+    private func cancelStreams() {
+        podsTask?.cancel()
+        podsTask = nil
+        servicesTask?.cancel()
+        servicesTask = nil
     }
 
     private func endSession() {
         generation &+= 1
-        sessionTask?.cancel()
-        sessionTask = nil
+        cancelStreams()
         // Releasing the client invalidates its URLSessions and frees the TLS delegates.
         k8sClient = nil
         podsModel.clear()
@@ -142,73 +155,72 @@ class KubernetesState {
 
     // MARK: - Watch
 
-    /// Hold watches on pods and services open, reconnecting with backoff when they fail.
+    /// Hold one resource's watch open, reconnecting with backoff when it fails.
+    ///
+    /// Runs per resource rather than as a pair: pods and services fail for their own reasons
+    /// (an RBAC denial reaches one endpoint, not both), and coupling them would take a healthy
+    /// list down with a broken one.
     ///
     /// Routine interruptions — the server closing an idle watch, or expiring the
-    /// `resourceVersion` — are handled inside the streams and never reach here.
-    private func runSession(generation: Int, client: ArcBoxClient) async {
+    /// `resourceVersion` — are handled inside the stream and never reach here.
+    private func supervise<Model: K8sListModel>(
+        _ model: Model?,
+        operation: String,
+        generation: Int,
+        client: ArcBoxClient,
+        stream: @escaping @Sendable (K8sClient) -> AsyncThrowingStream<[Model.Resource], any Error>
+    ) async {
+        guard let model else { return }
         var failures = 0
 
         while !Task.isCancelled, generation == self.generation {
-            markBothLoading()
-            receivedSnapshot = false
+            model.isLoading = true
+            var delivered = false
+            var used: K8sClient?
 
             do {
                 let k8s = try await resolveClient(client, generation: generation)
                 guard generation == self.generation else { return }
+                used = k8s
 
-                try await withThrowingTaskGroup(of: Void.self) { group in
-                    group.addTask { try await self.streamPods(k8s, generation: generation) }
-                    group.addTask { try await self.streamServices(k8s, generation: generation) }
-                    try await group.waitForAll()
+                for try await items in stream(k8s) {
+                    guard generation == self.generation else { return }
+                    model.apply(items)
+                    model.isLoading = false
+                    delivered = true
                 }
             } catch is CancellationError {
                 return
             } catch {
                 guard generation == self.generation else { return }
                 Log.pods.error(
-                    "Kubernetes watch failed: \(error.localizedDescription, privacy: .private)")
-                ErrorReporting.capture(error, domain: .kubernetes, operation: "watch")
-                // Keep the last known lists on screen. A dropped watch is routine — the idle
+                    "Kubernetes \(operation, privacy: .public) failed: \(error.localizedDescription, privacy: .private)"
+                )
+                ErrorReporting.capture(error, domain: .kubernetes, operation: operation)
+                // Keep the last known list on screen. A dropped watch is routine — the idle
                 // timeout alone will end a quiet one — and blanking the UI for every reconnect
                 // is worse than briefly showing data that is a few seconds stale. Only an
-                // actual teardown clears them.
+                // actual teardown clears it.
                 //
                 // Drop the client so the next attempt re-fetches the kubeconfig and reconnects.
-                k8sClient = nil
+                if let used { invalidateClient(ifCurrent: used) }
             }
 
             guard !Task.isCancelled, generation == self.generation else { return }
-            failures = receivedSnapshot ? 1 : failures + 1
+            failures = delivered ? 1 : failures + 1
             try? await Task.sleep(for: Self.backoff(afterFailures: failures))
-        }
-    }
-
-    // Each stream clears only its own loading flag: the two initial LISTs land independently,
-    // and clearing both on the first would show the slower list an empty state instead of a
-    // spinner.
-
-    private func streamPods(_ k8s: K8sClient, generation: Int) async throws {
-        for try await pods in k8s.podStream() {
-            guard generation == self.generation else { return }
-            podsModel.apply(pods)
-            podsModel.isLoading = false
-            receivedSnapshot = true
-        }
-    }
-
-    private func streamServices(_ k8s: K8sClient, generation: Int) async throws {
-        for try await services in k8s.serviceStream() {
-            guard generation == self.generation else { return }
-            servicesModel.apply(services)
-            servicesModel.isLoading = false
-            receivedSnapshot = true
         }
     }
 
     private static func backoff(afterFailures failures: Int) -> Duration {
         let doubled = minBackoff * Double(1 << min(failures - 1, 3))
         return min(doubled, maxBackoff)
+    }
+
+    /// Both supervisors share one client. Only the supervisor that actually saw it fail may
+    /// discard it, or a healthy stream's client would be thrown away underneath it.
+    private func invalidateClient(ifCurrent client: K8sClient) {
+        if k8sClient === client { k8sClient = nil }
     }
 
     private func resolveClient(_ client: ArcBoxClient, generation: Int) async throws -> K8sClient {
@@ -220,11 +232,17 @@ class KubernetesState {
         k8sClient = created
         return created
     }
-
-    /// Both lists are waiting whenever a connection attempt starts; they stop independently as
-    /// their own first snapshot lands.
-    private func markBothLoading() {
-        podsModel.isLoading = true
-        servicesModel.isLoading = true
-    }
 }
+
+/// A list fed by ``KubernetesState``'s watch supervisor. Lets one supervisor serve both
+/// resources without the two loops being written out twice.
+@MainActor
+protocol K8sListModel: AnyObject {
+    associatedtype Resource: K8sResource
+    var isLoading: Bool { get set }
+    func apply(_ items: [Resource])
+    func clear()
+}
+
+extension PodsViewModel: K8sListModel {}
+extension ServicesViewModel: K8sListModel {}
