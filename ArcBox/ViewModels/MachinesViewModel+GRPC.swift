@@ -54,7 +54,6 @@ extension MachinesViewModel {
                     }
                     return vm
                 }
-                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             for i in viewModels.indices where transitioning.contains(viewModels[i].id) {
                 viewModels[i].isTransitioning = true
             }
