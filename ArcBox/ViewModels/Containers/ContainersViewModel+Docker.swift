@@ -13,9 +13,16 @@ extension ContainersViewModel {
             return
         }
 
-        if loadState != .loaded {
-            loadState = .loading
+        await listLoadGate.run {
+            await self.performLoadContainersFromDocker(docker: docker, iconClient: iconClient)
         }
+    }
+
+    private func performLoadContainersFromDocker(
+        docker: DockerClient,
+        iconClient: ArcBoxClient?
+    ) async {
+        let isRefresh = loadState.beginLoading()
 
         let currentTransitioning = transitioningIDs
         let cachedDetails = containerDetailsCache()
@@ -38,15 +45,17 @@ extension ContainersViewModel {
                 await loadContainerDetailsFromDocker(selectedID, docker: docker)
             }
             loadState = .loaded
+            refreshError = nil
         } catch {
+            if loadState.cancelLoading(for: error, retainingLoadedContent: isRefresh) {
+                return
+            }
             Log.container.error("Error loading containers: \(error.localizedDescription, privacy: .private)")
             ErrorReporting.capture(error, domain: .container, operation: "list_docker")
-            if containers.isEmpty {
-                loadState = .failed(error.localizedDescription)
-            } else {
-                loadState = .loaded
-                lastError = error.localizedDescription
-            }
+            refreshError = loadState.fail(
+                error.localizedDescription,
+                retainingLoadedContent: isRefresh
+            )
         }
     }
 

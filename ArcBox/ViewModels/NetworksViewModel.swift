@@ -13,6 +13,9 @@ enum NetworkSortField: String, CaseIterable {
 @Observable
 class NetworksViewModel {
     var networks: [NetworkViewModel] = []
+    var loadState: LoadPhase = .waiting
+    var refreshError: String?
+    private let listLoadGate = SingleFlightLoadGate()
     var selectedID: String?
     var listWidth: CGFloat = 320
     var showNewNetworkSheet: Bool = false
@@ -66,14 +69,30 @@ class NetworksViewModel {
             return
         }
 
+        await listLoadGate.run {
+            await self.performLoadNetworks(docker: docker)
+        }
+    }
+
+    private func performLoadNetworks(docker: DockerClient) async {
+        let isRefresh = loadState.beginLoading()
         do {
             let response = try await docker.api.NetworkList(.init())
             let networkList = try response.ok.body.json
             networks = networkList.compactMap(NetworkViewModel.init(fromDocker:))
             Log.network.info("Loaded \(self.networks.count, privacy: .public) networks")
+            loadState = .loaded
+            refreshError = nil
         } catch {
+            if loadState.cancelLoading(for: error, retainingLoadedContent: isRefresh) {
+                return
+            }
             Log.network.error("Error loading networks: \(error.localizedDescription, privacy: .private)")
             ErrorReporting.capture(error, domain: .network, operation: "list")
+            refreshError = loadState.fail(
+                error.localizedDescription,
+                retainingLoadedContent: isRefresh
+            )
         }
     }
 

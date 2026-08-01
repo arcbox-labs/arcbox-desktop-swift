@@ -2,7 +2,7 @@ import AppKit
 import SwiftTerm
 
 /// Shared terminal appearance configuration for light/dark mode.
-/// Used by ContainerTerminalTab and ImageTerminalTab.
+/// Used by the AppKit terminal controller.
 enum TerminalAppearance {
     /// Configure terminal colors based on the given theme preference.
     /// - Parameters:

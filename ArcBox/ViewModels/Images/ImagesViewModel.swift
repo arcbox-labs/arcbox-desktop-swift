@@ -6,6 +6,9 @@ import SwiftUI
 @Observable
 class ImagesViewModel {
     var images: [ImageViewModel] = []
+    var loadState: LoadPhase = .waiting
+    var refreshError: String?
+    let listLoadGate = SingleFlightLoadGate()
     var selectedID: String?
     var activeTab: ImageDetailTab = .info
     var listWidth: CGFloat = 320

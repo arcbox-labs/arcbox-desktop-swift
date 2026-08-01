@@ -56,7 +56,7 @@ struct ToastModifier: ViewModifier {
                         message = nil
                     }
                 }
-                .task {
+                .task(id: msg) {
                     try? await Task.sleep(for: .seconds(4))
                     if !Task.isCancelled {
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -75,5 +75,27 @@ extension View {
     /// Show an error toast that auto-dismisses after 4 seconds.
     func errorToast(message: Binding<String?>) -> some View {
         modifier(ToastModifier(message: message))
+    }
+
+    /// Keep operation failures separate from non-blocking list refresh failures.
+    func listErrorToast(
+        operationError: Binding<String?>,
+        refreshError: Binding<String?>,
+        resourceName: String
+    ) -> some View {
+        let message = Binding<String?> {
+            operationError.wrappedValue
+                ?? refreshError.wrappedValue.map {
+                    "Couldn’t refresh \(resourceName). Showing cached results. \($0)"
+                }
+        } set: { newValue in
+            guard newValue == nil else { return }
+            if operationError.wrappedValue != nil {
+                operationError.wrappedValue = nil
+            } else {
+                refreshError.wrappedValue = nil
+            }
+        }
+        return errorToast(message: message)
     }
 }

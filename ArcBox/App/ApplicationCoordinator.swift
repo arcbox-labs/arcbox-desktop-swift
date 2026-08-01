@@ -33,6 +33,7 @@ final class ApplicationCoordinator: NSObject {
     private(set) var startupOrchestrator: StartupOrchestrator?
 
     private var mainWindowController: MainWindowController?
+    private var sidebarViewController: SidebarViewController?
     private var settingsWindowController: SettingsWindowController?
     private var statusItemController: StatusItemController?
     private var mainHost: NSHostingController<AnyView>?
@@ -41,6 +42,7 @@ final class ApplicationCoordinator: NSObject {
     private var startupTask: Task<Void, Never>?
     private var connectionTask: Task<Void, Never>?
     private var lastDaemonState: DaemonState?
+    private var lastValidNavigation: NavItem = .containers
     private var lastShowInMenuBar: Bool
     private var lastUpdateChannel: String
     private var started = false
@@ -74,6 +76,8 @@ final class ApplicationCoordinator: NSObject {
         installWindows()
         configureDeepLinks()
         observeDaemonState()
+        observeNavigation()
+        observeAuthState()
         _ = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
             object: UserDefaults.standard,
@@ -155,13 +159,30 @@ final class ApplicationCoordinator: NSObject {
 
     private func installWindows() {
         let mainHost = NSHostingController(rootView: makeMainRoot())
+        mainHost.sceneBridgingOptions = .all
         let settingsHost = NSHostingController(rootView: makeSettingsRoot())
         let menuBarHost = NSHostingController(rootView: makeMenuBarRoot())
+        let sidebarViewController = SidebarViewController(
+            selection: appVM.currentNav,
+            onSelect: { [weak self] item in
+                self?.appVM.navigate(to: item)
+            },
+            onAccount: { [weak self] in
+                self?.accountButtonPressed()
+            }
+        )
+        let mainSplitViewController = MainSplitViewController(
+            sidebarViewController: sidebarViewController,
+            contentViewController: mainHost
+        )
 
         self.mainHost = mainHost
+        self.sidebarViewController = sidebarViewController
         self.settingsHost = settingsHost
         self.menuBarHost = menuBarHost
-        mainWindowController = MainWindowController(contentViewController: mainHost)
+        mainWindowController = MainWindowController(
+            contentViewController: mainSplitViewController
+        )
         settingsWindowController = SettingsWindowController(contentViewController: settingsHost)
         statusItemController = StatusItemController(contentViewController: menuBarHost)
         statusItemController?.setVisible(lastShowInMenuBar)
@@ -187,6 +208,56 @@ final class ApplicationCoordinator: NSObject {
     private func observeDaemonState() {
         lastDaemonState = daemonManager.state
         trackDaemonState()
+    }
+
+    private func observeNavigation() {
+        if let navigation = appVM.currentNav, !navigation.isComingSoon {
+            lastValidNavigation = navigation
+        }
+        trackNavigation()
+    }
+
+    private func trackNavigation() {
+        withObservationTracking {
+            _ = appVM.currentNav
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.navigationDidChange()
+            }
+        }
+    }
+
+    private func navigationDidChange() {
+        trackNavigation()
+        guard let navigation = appVM.currentNav else { return }
+        guard !navigation.isComingSoon else {
+            showComingSoonPanel()
+            appVM.currentNav = lastValidNavigation
+            return
+        }
+        lastValidNavigation = navigation
+        sidebarViewController?.select(navigation)
+    }
+
+    private func observeAuthState() {
+        updateAccountButton()
+        trackAuthState()
+    }
+
+    private func trackAuthState() {
+        withObservationTracking {
+            _ = authSession.status
+            _ = authSession.identity
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.authStateDidChange()
+            }
+        }
+    }
+
+    private func authStateDidChange() {
+        trackAuthState()
+        updateAccountButton()
     }
 
     private func trackDaemonState() {
@@ -273,7 +344,6 @@ final class ApplicationCoordinator: NSObject {
                 .environment(\.dockerClient, dockerClient)
                 .environment(\.startupOrchestrator, startupOrchestrator)
                 .environment(\.accessTokenProvider, authSession)
-                .frame(minWidth: 900, minHeight: 600)
         )
     }
 
@@ -308,6 +378,59 @@ final class ApplicationCoordinator: NSObject {
                 .environment(\.startupOrchestrator, startupOrchestrator)
                 .environment(\.accessTokenProvider, authSession)
         )
+    }
+
+    private func updateAccountButton() {
+        let title: String
+        let isBusy: Bool
+        let isEnabled: Bool
+        let help: String
+
+        switch authSession.status {
+        case .signedOut:
+            title = "Sign In"
+            isBusy = false
+            isEnabled = !authSession.configuration.isPlaceholder
+            help =
+                isEnabled
+                ? "Sign in to ArcBox"
+                : "No OIDC provider is configured"
+        case .signingIn:
+            title = "Signing In…"
+            isBusy = true
+            isEnabled = false
+            help = "Signing in to ArcBox"
+        case .signedIn:
+            title = authSession.identity?.displayName ?? "Account"
+            isBusy = false
+            isEnabled = true
+            help = "Open account settings"
+        case .error(let message):
+            title = "Sign In"
+            isBusy = false
+            isEnabled = !authSession.configuration.isPlaceholder
+            help = "Sign-in failed: \(message)"
+        }
+
+        sidebarViewController?.updateAccount(
+            title: title,
+            isBusy: isBusy,
+            isEnabled: isEnabled,
+            help: help
+        )
+    }
+
+    private func accountButtonPressed() {
+        if authSession.status == .signedIn {
+            showSettings(tab: .account)
+            return
+        }
+        guard authSession.status != .signingIn, !authSession.configuration.isPlaceholder else {
+            return
+        }
+        Task {
+            await authSession.signIn(using: WebAuthenticationController.shared.authenticate)
+        }
     }
 
     private func activate() {

@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// Error state shown when the initial container list fetch fails.
-struct ContainerLoadErrorView: View {
+/// Error state shown when an initial list fetch fails.
+struct ListLoadErrorView: View {
+    let title: String
     let message: String
     let onRetry: () -> Void
 
     var body: some View {
-        EmptyStateView(icon: "exclamationmark.triangle", title: "Failed to load containers") {
+        EmptyStateView(icon: "exclamationmark.triangle", title: title) {
             VStack(spacing: 12) {
                 Text(message)
                     .font(.system(size: 11))

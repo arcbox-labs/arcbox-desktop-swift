@@ -17,6 +17,8 @@ final class ImagesViewModelTests: XCTestCase {
     func testInitialState() {
         XCTAssertTrue(vm.images.isEmpty)
         XCTAssertNil(vm.selectedID)
+        XCTAssertEqual(vm.loadState, .waiting)
+        XCTAssertNil(vm.refreshError)
         XCTAssertNil(vm.lastError)
     }
 

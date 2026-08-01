@@ -52,6 +52,16 @@ extension ImagesViewModel {
             return
         }
 
+        await listLoadGate.run {
+            await self.performLoadImages(docker: docker, iconClient: iconClient)
+        }
+    }
+
+    private func performLoadImages(
+        docker: DockerClient,
+        iconClient: ArcBoxClient?
+    ) async {
+        let isRefresh = loadState.beginLoading()
         do {
             let imageList = try await Perf.measure("image.list") {
                 let response = try await docker.api.ImageList(.init())
@@ -62,9 +72,18 @@ extension ImagesViewModel {
             images = viewModels
             Log.image.info("Loaded \(self.images.count, privacy: .public) images")
             await fetchIcons(client: iconClient)
+            loadState = .loaded
+            refreshError = nil
         } catch {
+            if loadState.cancelLoading(for: error, retainingLoadedContent: isRefresh) {
+                return
+            }
             Log.image.error("Error loading images: \(error.localizedDescription, privacy: .private)")
             ErrorReporting.capture(error, domain: .image, operation: "list")
+            refreshError = loadState.fail(
+                error.localizedDescription,
+                retainingLoadedContent: isRefresh
+            )
         }
     }
 

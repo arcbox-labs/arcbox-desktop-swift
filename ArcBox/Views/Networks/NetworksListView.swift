@@ -15,8 +15,17 @@ struct NetworksListView: View {
                 StartupProgressView(orchestrator: orchestrator)
             } else if !daemonManager.state.isRunning {
                 DaemonLoadingView(state: daemonManager.state)
+            } else if case .failed(let message) = vm.loadState {
+                ListLoadErrorView(title: "Failed to load networks", message: message) {
+                    Task { await vm.loadNetworks(docker: docker) }
+                }
+            } else if vm.loadState != .loaded {
+                ProgressView(daemonManager.setupPhase.isDockerReady ? "Loading networks…" : "Starting Docker engine…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if vm.networks.isEmpty {
                 NetworkEmptyState()
+            } else if vm.sortedNetworks.isEmpty {
+                ContentUnavailableView.search(text: vm.searchText)
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -58,15 +67,21 @@ struct NetworksListView: View {
         .sheet(isPresented: Bindable(vm).showNewNetworkSheet) {
             NewNetworkSheet()
         }
-        .errorToast(message: Bindable(vm).lastError)
+        .listErrorToast(
+            operationError: Bindable(vm).lastError,
+            refreshError: Bindable(vm).refreshError,
+            resourceName: "networks"
+        )
         .task(id: daemonManager.setupPhase.isDockerReady && docker != nil) {
             guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             await vm.loadNetworks(docker: docker)
         }
         .onReceive(NotificationCenter.default.publisher(for: .dockerNetworkChanged)) { _ in
+            guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             Task { await vm.loadNetworks(docker: docker) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .dockerDataChanged)) { _ in
+            guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             Task { await vm.loadNetworks(docker: docker) }
         }
     }
