@@ -1,3 +1,4 @@
+import AuthenticationServices
 import Foundation
 import Testing
 
@@ -182,6 +183,15 @@ struct AuthSessionTests {
         #expect(provider.userInfoCalls == 1)
         #expect(session.identity?.name == "April")
         #expect(session.identity?.avatarURL != nil)
+    }
+
+    @Test func cancelledSignInKeepsPendingAuthorizationForDeepLink() async {
+        let session = makeSession()
+        await session.signIn { _, _ in
+            throw ASWebAuthenticationSessionError(.canceledLogin)
+        }
+        #expect(session.status == .signedOut)
+        #expect(session.pendingAuthorization != nil)
     }
 
     // MARK: - Deep-link callback

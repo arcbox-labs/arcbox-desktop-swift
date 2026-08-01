@@ -1,3 +1,4 @@
+import AppKit
 import ArcBoxAuth
 import SwiftUI
 
@@ -7,10 +8,7 @@ import SwiftUI
 /// browser flow directly; signed in it shows the avatar and display name
 /// and opens Settings > Account.
 struct SidebarAccountButton: View {
-    @Environment(AppViewModel.self) private var appVM
     @Environment(AuthSession.self) private var authSession
-    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
-    @Environment(\.openWindow) private var openWindow
     @State private var isHovered = false
 
     var body: some View {
@@ -67,10 +65,11 @@ struct SidebarAccountButton: View {
 
     private func primaryAction() {
         if authSession.status == .signedIn {
-            appVM.settingsTab = .account
-            openWindow(id: "settings")
+            (NSApp.delegate as? AppDelegate)?.coordinator?.showSettings(tab: .account)
         } else {
-            Task { await authSession.signIn(using: webAuthenticationSession) }
+            Task {
+                await authSession.signIn(using: WebAuthenticationController.shared.authenticate)
+            }
         }
     }
 }

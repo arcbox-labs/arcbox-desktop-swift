@@ -1,6 +1,5 @@
 import AuthenticationServices
 import Foundation
-import SwiftUI
 
 extension AuthSession {
     /// Everything needed to finish the code exchange once the browser
@@ -14,16 +13,17 @@ extension AuthSession {
 
     /// Runs the full browser-based Authorization Code + PKCE flow.
     ///
-    /// `WebAuthenticationSession` exists only as a SwiftUI environment value,
-    /// so the calling view passes it in; both are MainActor-bound. Failures
-    /// land in `status` rather than being thrown; a user-cancelled browser
-    /// sheet quietly returns to `.signedOut`.
+    /// The caller supplies the platform-specific browser presentation. Failures
+    /// land in `status` rather than being thrown; a user-cancelled browser sheet
+    /// quietly returns to `.signedOut`.
     ///
     /// The redirect can come back two ways: the web session returns it
     /// directly, or — when sign-in finishes in an external browser — Launch
     /// Services delivers it as a deep link (`handleAuthorizationCallback`).
     /// Both funnel into `finishAuthorization`; whichever arrives first wins.
-    public func signIn(using webSession: WebAuthenticationSession) async {
+    public func signIn(
+        using authenticate: @MainActor (URL, String) async throws -> URL
+    ) async {
         guard status != .signingIn else { return }
         status = .signingIn
         do {
@@ -31,10 +31,7 @@ extension AuthSession {
             guard let scheme = OIDCClientConfiguration.redirectURI.scheme else {
                 throw OIDCError.invalidCallbackURL
             }
-            let callbackURL = try await webSession.authenticate(
-                using: authorizationURL,
-                callback: .customScheme(scheme),
-                additionalHeaderFields: [:])
+            let callbackURL = try await authenticate(authorizationURL, scheme)
             await finishAuthorization(callbackURL: callbackURL)
         } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
             // The user may have dismissed the sheet to finish in an external
@@ -76,8 +73,8 @@ extension AuthSession {
     }
 
     /// Builds the authorization request and records the context needed to
-    /// finish it. Split from `signIn(using:)` so tests can drive the flow
-    /// without a `WebAuthenticationSession`.
+    /// finish it. Split from `signIn(using:)` so tests can drive each leg
+    /// independently.
     func beginAuthorization() async throws -> URL {
         let endpoints = try await resolvedEndpoints()
         let pkce = PKCE.generateCodePair()
@@ -118,8 +115,7 @@ extension AuthSession {
 
     /// Security-critical completion: validates `state` (CSRF) and `nonce`,
     /// exchanges the code, persists, and publishes the session. Split from
-    /// `signIn(using:)` so it is unit-testable — `WebAuthenticationSession`
-    /// cannot be constructed in tests.
+    /// `signIn(using:)` so it is unit-testable.
     func completeSignIn(
         callbackURL: URL,
         expectedState: String,

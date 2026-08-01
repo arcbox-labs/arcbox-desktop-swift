@@ -10,8 +10,8 @@ extension DaemonManager {
     public func enableDaemon() async {
         // ABXD-22: Prevent concurrent enable operations.  Even though we
         // are @MainActor, the `await` suspension points (unregister/register)
-        // allow a second SwiftUI .task call to interleave and start a
-        // duplicate enable cycle.
+        // allow a second startup call to interleave and start a duplicate
+        // enable cycle.
         guard !isEnabling else {
             ClientLog.daemon.info("enableDaemon() already in progress, skipping duplicate call")
             return
@@ -42,9 +42,8 @@ extension DaemonManager {
             // and refuses to spawn with EX_CONFIG (78).  Force re-register ensures
             // the registered CDHash always matches the current binary.
             //
-            // This is safe because enableDaemon() is only called once per app launch
-            // (guarded by StartupOrchestrator.isStarting + the `.task` nil check in
-            // ArcBoxApp), so the SwiftUI .task re-entrancy concern does not apply.
+            // This is safe because StartupOrchestrator guards startup re-entry,
+            // while this method independently rejects concurrent enable cycles.
             ClientLog.daemon.info("DEBUG: force re-registering daemon to sync CDHash")
             do {
                 try? await daemonService.unregister()
@@ -59,7 +58,7 @@ extension DaemonManager {
         #else
             // In production, skip the destructive unregister+register cycle if the
             // daemon is already enabled.  This avoids killing a healthy daemon when
-            // enableDaemon() is called redundantly (e.g. SwiftUI .task re-entrancy).
+            // enableDaemon() is called redundantly.
             if status == .enabled {
                 ClientLog.daemon.info("Daemon already registered, skipping re-register")
                 if state != .running {

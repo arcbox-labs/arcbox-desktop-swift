@@ -3,7 +3,7 @@ import OSLog
 import PostHog
 @preconcurrency import Sentry
 
-extension ArcBoxDesktopApp {
+extension AppDelegate {
     /// Initialize Sentry crash reporting if a DSN is configured.
     /// DSN is read from Info.plist (injected via SENTRY_DSN build setting).
     /// No-ops gracefully when DSN is empty or placeholder.
@@ -53,11 +53,6 @@ extension ArcBoxDesktopApp {
             Log.startup.info("PostHog API key not configured, telemetry disabled")
             return
         }
-
-        // Ensure UserDefaults default matches @AppStorage default (true).
-        // Without this, bool(forKey:) returns false on first launch before
-        // the Settings view has ever appeared.
-        UserDefaults.standard.register(defaults: ["telemetryEnabled": true])
 
         let config = PostHogConfig(apiKey: apiKey, host: "https://us.i.posthog.com")
         config.captureApplicationLifecycleEvents = true

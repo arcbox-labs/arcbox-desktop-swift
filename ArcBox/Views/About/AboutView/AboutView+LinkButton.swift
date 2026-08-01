@@ -1,32 +1,28 @@
 import AppKit
-import SwiftUI
 
-extension AboutView {
-    func linkButton(icon: String, title: String, url: String) -> some View {
-        Button {
-            guard let destination = URL(string: url) else { return }
-            NSWorkspace.shared.open(destination)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .frame(width: 20)
-                Text(title)
-                    .font(.system(size: 12))
-                Spacer()
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 9))
-                    .foregroundStyle(AppColors.textMuted)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(AppColors.surfaceCard)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(AppColors.border, lineWidth: 0.5)
-            )
+extension AboutViewController {
+    func linkButton(icon: String, title: String, url: String) -> NSButton {
+        let button = NSButton(title: title, target: self, action: #selector(openLink(_:)))
+        button.alignment = .left
+        button.bezelStyle = .rounded
+        button.controlSize = .large
+        button.font = .systemFont(ofSize: 12)
+        button.identifier = NSUserInterfaceItemIdentifier(url)
+        button.image = NSImage(systemSymbolName: icon, accessibilityDescription: nil)
+        button.imagePosition = .imageLeading
+        button.toolTip = "Open \(title) in your browser"
+        button.setAccessibilityHelp(button.toolTip)
+        button.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        return button
+    }
+
+    @objc func openLink(_ sender: NSButton) {
+        guard
+            let address = sender.identifier?.rawValue,
+            let destination = URL(string: address)
+        else {
+            preconditionFailure("About link button is missing a valid URL")
         }
-        .buttonStyle(.plain)
+        NSWorkspace.shared.open(destination)
     }
 }

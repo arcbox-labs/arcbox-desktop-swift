@@ -1,37 +1,5 @@
 import SwiftUI
 
-// MARK: - Settings Tab Enum
-
-enum SettingsTab: String, CaseIterable, Identifiable {
-    case general = "General"
-    case account = "Account"
-    case system = "System"
-    // TODO: Implement network settings (ABXD-88)
-    // case network = "Network"
-    case storage = "Storage"
-    // TODO: Implement machines/docker/kubernetes tabs (ABXD-86)
-    // case machines = "Machines"
-    // case docker = "Docker"
-    // case kubernetes = "Kubernetes"
-
-    var id: String { rawValue }
-
-    var sfSymbol: String {
-        switch self {
-        case .general: return "gearshape"
-        case .account: return "person.circle"
-        case .system: return "square.grid.2x2"
-        // case .network: return "globe"
-        case .storage: return "externaldrive"
-        // case .machines: return "desktopcomputer"
-        // case .docker: return "shippingbox"
-        // case .kubernetes: return "helm"
-        }
-    }
-}
-
-// MARK: - Settings View
-
 struct SettingsView: View {
     @Environment(AppViewModel.self) private var appVM
 

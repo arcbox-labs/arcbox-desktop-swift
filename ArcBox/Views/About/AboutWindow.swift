@@ -1,5 +1,4 @@
 import AppKit
-import SwiftUI
 
 /// Tracks the visible About panel to prevent duplicates.
 /// Strong ref: lifecycle is managed manually since isReleasedWhenClosed is off.
@@ -25,8 +24,7 @@ func showAboutWindow() {
     panel.isReleasedWhenClosed = false
     panel.center()
 
-    let hostingView = NSHostingView(rootView: AboutView())
-    panel.contentView = hostingView
+    panel.contentViewController = AboutViewController()
     panel.makeKeyAndOrderFront(nil)
     NSApp.activate(ignoringOtherApps: true)
 

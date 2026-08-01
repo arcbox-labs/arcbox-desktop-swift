@@ -23,8 +23,7 @@ extension MenuBarView {
                 .padding(.vertical, 4)
 
             MenuBarHoverButton {
-                (NSApp.delegate as? AppDelegate)?.forceQuit = true
-                NSApp.terminate(nil)
+                (NSApp.delegate as? AppDelegate)?.coordinator?.requestQuit()
             } label: {
                 Label("Quit", systemImage: "power")
                     .padding(.horizontal, 6)
@@ -101,42 +100,10 @@ extension MenuBarView {
     }
 
     func showSettingsWindow() {
-        if bringWindowToFront(matching: { $0.title == "Settings" }) {
-            return
-        }
-
-        openWindow(id: "settings")
+        (NSApp.delegate as? AppDelegate)?.coordinator?.showSettings()
     }
 
     func showArcBoxWindow() {
-        if bringWindowToFront(matching: isMainArcBoxWindow) {
-            return
-        }
-
-        openWindow(id: "main")
-    }
-
-    @discardableResult
-    func bringWindowToFront(matching predicate: (NSWindow) -> Bool) -> Bool {
-        guard let window = NSApp.windows.first(where: predicate) else {
-            return false
-        }
-
-        NSApp.unhide(nil)
-        NSApp.activate(ignoringOtherApps: true)
-
-        if window.isMiniaturized {
-            window.deminiaturize(nil)
-        }
-        window.makeKeyAndOrderFront(nil)
-        return true
-    }
-
-    func isMainArcBoxWindow(_ window: NSWindow) -> Bool {
-        guard window.styleMask.contains(.titled), !(window is NSPanel) else {
-            return false
-        }
-
-        return window.title == "ArcBox"
+        (NSApp.delegate as? AppDelegate)?.coordinator?.showMainWindow()
     }
 }
