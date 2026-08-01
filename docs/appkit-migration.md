@@ -2,16 +2,16 @@
 
 > 快照日期：2026-08-01
 > 状态：迁移进行中；AppKit 生命周期壳、原生窗口／菜单／主侧栏、认证桥接、About、Coming Soon、
-> 共享 `LoadPhase`、terminal／command empty state、Volumes／Networks 原生列表与 Networks
-> 原生详情已落地
+> 共享 `LoadPhase`、terminal／command empty state、Volumes／Networks／Images 原生列表与
+> Networks 原生详情已落地
 > 目标：第一方运行时代码最终不再依赖 SwiftUI、Swift Charts、`NSHostingView` 或
 > `NSViewRepresentable` 或 `NSViewControllerRepresentable`
 
-当前过渡边界：主窗口外层为 AppKit 固定侧栏与内容容器；Volumes／Networks 的列表行、分组、
-选择及 loading／empty／error 已由 AppKit 接管，Networks 的 Info／Connected Containers 详情
-亦已原生化。其 toolbar、创建 sheet 与 Volumes 详情仍在过渡 host。其他内容／详情、设置与
-菜单栏中尚未迁移的 feature 临时使用 `NSHostingController`。这一边界只用于保持每个迁移提交
-可运行，最终静态门槛仍要求全部删除。
+当前过渡边界：主窗口外层为 AppKit 固定侧栏与内容容器；Volumes／Networks／Images 的列表行、
+分组、选择及 loading／empty／error 已由 AppKit 接管，Networks 的 Info／Connected Containers
+详情亦已原生化。其 toolbar、创建 sheet 与其他详情仍在过渡 host。其他内容／详情、设置与菜单栏
+中尚未迁移的 feature 临时使用 `NSHostingController`。这一边界只用于保持每个迁移提交可运行，
+最终静态门槛仍要求全部删除。
 
 ## 1. 范围、假设与完成定义
 
@@ -417,7 +417,7 @@ enum LoadPhase: Equatable {
 |---|---|---|---|---|---|
 | Startup | step progress | 不适用 | Retry／fatal Quit | 不适用 | 保留；补 degraded message |
 | Containers | 明确 | 明确 | 首次 Retry | list + toast | 作为资源列表基准 |
-| Images | 明确 | 明确 | 首次 Retry | list + toast | 状态契约已完成；AppKit UI 待迁移 |
+| Images | 明确 | 明确 | 首次 Retry | list + toast | AppKit 列表已完成；startup／toolbar／detail 待迁移 |
 | Volumes | 明确 | 明确 | 首次 Retry | list + toast | AppKit 列表已完成；startup／toolbar／detail 待迁移 |
 | Networks | 明确 | 明确 | 首次 Retry | list + toast | AppKit 列表与详情已完成；startup／toolbar 待迁移 |
 | Network inspect | 明确 | 明确 | 明确 + Retry | 无 | AppKit 详情已完成 |
@@ -730,7 +730,7 @@ Task 归属：
 | Shared states | `StatePlaceholderView` | runtime availability、load phase | startup enums | 不得合并 daemon／Docker ready |
 | Activity | full-width controller + outline + metric strip | shared stats source、stream health | Activity VM | chart、scrub |
 | Containers | outline + 4 detail children | 已是 load phase 基准 | terminal、files | Compose hierarchy、logs |
-| Images | table + 3 detail children | 加 load phase／search empty | terminal、files | terminal 常驻 |
+| Images | table + 3 detail children | 原生 table／load／empty／error 已完成 | terminal、files | toolbar／detail／pull sheet／terminal 常驻 |
 | Volumes | table + 2 detail children | 原生 table／load／empty／error 已完成 | files | toolbar／detail／import sheet 待迁移 |
 | Networks | table + detail | 原生 table／detail／inspect load phase 已完成 | Docker store | toolbar／创建 sheet 待迁移 |
 | Pods／Services | tables + detail | Kubernetes lifecycle／watch health | K8s clients | reconnect、client injection |
@@ -801,8 +801,9 @@ Task 归属：
   - toolbar item 不越栏；
   - Activity 时 content list 折叠。
 - 为新 `LoadPhase` 派生逻辑、Kubernetes lifecycle、preferences 默认值和 task key 增加最小有意义测试。
-- `VolumesListViewControllerTests` 与 `NetworksListViewControllerTests` 验证空态到分组 table、
-  连续 Observation 重注册、搜索、选择同步与 controller 释放。
+- `VolumesListViewControllerTests`、`NetworksListViewControllerTests` 与
+  `ImagesListViewControllerTests` 验证空态到分组 table、连续 Observation 重注册、搜索、
+  选择同步与 controller 释放。
 - `NetworkDetailViewControllerTests` 验证无选择、inspect error／Retry／真实空态与 controller
   释放。
 - 不测试 `NSTextField` 是否能显示文本、`NSButton` 是否会发 action 等框架保证。

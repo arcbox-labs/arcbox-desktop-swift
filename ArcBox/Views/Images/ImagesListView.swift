@@ -16,34 +16,28 @@ struct ImagesListView: View {
                 StartupProgressView(orchestrator: orchestrator)
             } else if !daemonManager.state.isRunning {
                 DaemonLoadingView(state: daemonManager.state)
-            } else if case .failed(let message) = vm.loadState {
-                ListLoadErrorView(title: "Failed to load images", message: message) {
-                    Task { await vm.loadImages(docker: docker, iconClient: client) }
-                }
-            } else if vm.loadState != .loaded {
-                ProgressView(daemonManager.setupPhase.isDockerReady ? "Loading images…" : "Starting Docker engine…")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if vm.images.isEmpty {
-                ImageEmptyState()
-            } else if vm.sortedImages.isEmpty {
-                ContentUnavailableView.search(text: vm.searchText)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        if !inUseImages.isEmpty {
-                            sectionHeader("In Use")
-                            ForEach(inUseImages) { image in
-                                imageRow(image)
-                            }
+                ImagesListControllerView(
+                    viewModel: vm,
+                    loadingTitle: daemonManager.setupPhase.isDockerReady
+                        ? "Loading images…"
+                        : "Starting Docker engine…",
+                    onRetry: {
+                        Task { await vm.loadImages(docker: docker, iconClient: client) }
+                    },
+                    onDelete: { id in
+                        guard let image = vm.images.first(where: { $0.id == id }) else {
+                            return
                         }
-                        if !unusedImages.isEmpty {
-                            sectionHeader("Unused")
-                            ForEach(unusedImages) { image in
-                                imageRow(image)
-                            }
+                        Task {
+                            await vm.removeImage(
+                                image.id,
+                                dockerId: image.dockerId,
+                                docker: docker
+                            )
                         }
                     }
-                }
+                )
             }
         }
         .navigationTitle("Images")
@@ -86,37 +80,31 @@ struct ImagesListView: View {
             Task { await vm.loadImages(docker: docker, iconClient: client) }
         }
     }
+}
 
-    private var inUseImages: [ImageViewModel] {
-        vm.sortedImages.filter(\.inUse)
+private struct ImagesListControllerView: NSViewControllerRepresentable {
+    let viewModel: ImagesViewModel
+    let loadingTitle: String
+    let onRetry: @MainActor () -> Void
+    let onDelete: @MainActor (String) -> Void
+
+    func makeNSViewController(context _: Context) -> ImagesListViewController {
+        ImagesListViewController(
+            viewModel: viewModel,
+            loadingTitle: loadingTitle,
+            onRetry: onRetry,
+            onDelete: onDelete
+        )
     }
 
-    private var unusedImages: [ImageViewModel] {
-        vm.sortedImages.filter { !$0.inUse }
-    }
-
-    @ViewBuilder
-    private func sectionHeader(_ title: String) -> some View {
-        HStack {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(AppColors.textSecondary)
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
-    }
-
-    @ViewBuilder
-    private func imageRow(_ image: ImageViewModel) -> some View {
-        ImageRowView(
-            image: image,
-            isSelected: vm.selectedID == image.id,
-            onSelect: { vm.selectImage(image.id) },
-            onDelete: {
-                Task { await vm.removeImage(image.id, dockerId: image.dockerId, docker: docker) }
-            }
+    func updateNSViewController(
+        _ controller: ImagesListViewController,
+        context _: Context
+    ) {
+        controller.update(
+            loadingTitle: loadingTitle,
+            onRetry: onRetry,
+            onDelete: onDelete
         )
     }
 }
