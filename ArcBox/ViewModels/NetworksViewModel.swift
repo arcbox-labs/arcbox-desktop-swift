@@ -1,6 +1,7 @@
 import DockerClient
+import Foundation
 import OSLog
-import SwiftUI
+import Observation
 
 /// Sort field for networks
 enum NetworkSortField: String, CaseIterable {
@@ -40,14 +41,22 @@ class NetworksViewModel {
         }
 
         return filtered.sorted { a, b in
-            let result: Bool
+            let comparison: ComparisonResult
             switch sortBy {
             case .name:
-                result = a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+                comparison = a.name.localizedCaseInsensitiveCompare(b.name)
             case .dateCreated:
-                result = a.createdAt < b.createdAt
+                comparison = a.createdAt.compare(b.createdAt)
             }
-            return sortAscending ? result : !result
+            if comparison == .orderedSame {
+                let idComparison = a.id.localizedCaseInsensitiveCompare(b.id)
+                return sortAscending
+                    ? idComparison == .orderedAscending
+                    : idComparison == .orderedDescending
+            }
+            return sortAscending
+                ? comparison == .orderedAscending
+                : comparison == .orderedDescending
         }
     }
 
@@ -98,15 +107,19 @@ class NetworksViewModel {
 
     func removeNetwork(_ id: String, docker: DockerClient?) async {
         lastError = nil
+        guard let network = networks.first(where: { $0.id == id }), !network.isSystem else {
+            return
+        }
         guard let docker else { return }
-        if selectedID == id { selectedID = nil }
+        if selectedID == network.id { selectedID = nil }
         do {
-            let response = try await docker.api.NetworkDelete(path: .init(id: id))
+            let response = try await docker.api.NetworkDelete(path: .init(id: network.id))
             _ = try response.noContent
-            Log.network.info("Removed network \(id, privacy: .private)")
+            Log.network.info("Removed network \(network.id, privacy: .private)")
         } catch {
             Log.network.error(
-                "Error removing network \(id, privacy: .private): \(error.localizedDescription, privacy: .private)")
+                "Error removing network \(network.id, privacy: .private): \(error.localizedDescription, privacy: .private)"
+            )
             ErrorReporting.capture(error, domain: .network, operation: "remove")
             lastError = error.localizedDescription
         }

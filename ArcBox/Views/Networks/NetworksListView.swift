@@ -15,34 +15,19 @@ struct NetworksListView: View {
                 StartupProgressView(orchestrator: orchestrator)
             } else if !daemonManager.state.isRunning {
                 DaemonLoadingView(state: daemonManager.state)
-            } else if case .failed(let message) = vm.loadState {
-                ListLoadErrorView(title: "Failed to load networks", message: message) {
-                    Task { await vm.loadNetworks(docker: docker) }
-                }
-            } else if vm.loadState != .loaded {
-                ProgressView(daemonManager.setupPhase.isDockerReady ? "Loading networks…" : "Starting Docker engine…")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if vm.networks.isEmpty {
-                NetworkEmptyState()
-            } else if vm.sortedNetworks.isEmpty {
-                ContentUnavailableView.search(text: vm.searchText)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        if !inUseNetworks.isEmpty {
-                            sectionHeader("In Use")
-                            ForEach(inUseNetworks) { network in
-                                networkRow(network)
-                            }
-                        }
-                        if !unusedNetworks.isEmpty {
-                            sectionHeader("Unused")
-                            ForEach(unusedNetworks) { network in
-                                networkRow(network)
-                            }
-                        }
+                NetworksListControllerView(
+                    viewModel: vm,
+                    loadingTitle: daemonManager.setupPhase.isDockerReady
+                        ? "Loading networks…"
+                        : "Starting Docker engine…",
+                    onRetry: {
+                        Task { await vm.loadNetworks(docker: docker) }
+                    },
+                    onDelete: { id in
+                        Task { await vm.removeNetwork(id, docker: docker) }
                     }
-                }
+                )
             }
         }
         .navigationTitle("Networks")
@@ -85,37 +70,31 @@ struct NetworksListView: View {
             Task { await vm.loadNetworks(docker: docker) }
         }
     }
+}
 
-    private var inUseNetworks: [NetworkViewModel] {
-        vm.sortedNetworks.filter { $0.containerCount > 0 }
+private struct NetworksListControllerView: NSViewControllerRepresentable {
+    let viewModel: NetworksViewModel
+    let loadingTitle: String
+    let onRetry: @MainActor () -> Void
+    let onDelete: @MainActor (String) -> Void
+
+    func makeNSViewController(context _: Context) -> NetworksListViewController {
+        NetworksListViewController(
+            viewModel: viewModel,
+            loadingTitle: loadingTitle,
+            onRetry: onRetry,
+            onDelete: onDelete
+        )
     }
 
-    private var unusedNetworks: [NetworkViewModel] {
-        vm.sortedNetworks.filter { $0.containerCount == 0 }
-    }
-
-    @ViewBuilder
-    private func sectionHeader(_ title: String) -> some View {
-        HStack {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(AppColors.textSecondary)
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
-    }
-
-    @ViewBuilder
-    private func networkRow(_ network: NetworkViewModel) -> some View {
-        NetworkRowView(
-            network: network,
-            isSelected: vm.selectedID == network.id,
-            onSelect: { vm.selectNetwork(network.id) },
-            onDelete: {
-                Task { await vm.removeNetwork(network.id, docker: docker) }
-            }
+    func updateNSViewController(
+        _ controller: NetworksListViewController,
+        context _: Context
+    ) {
+        controller.update(
+            loadingTitle: loadingTitle,
+            onRetry: onRetry,
+            onDelete: onDelete
         )
     }
 }
