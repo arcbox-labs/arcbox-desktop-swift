@@ -27,7 +27,7 @@ struct SandboxRowView: View {
             // Sandbox icon
             RoundedRectangle(cornerRadius: 6)
                 .fill(AppColors.iconBackground)
-                .frame(width: 32, height: 32)
+                .frame(width: AppMetrics.rowIcon, height: AppMetrics.rowIcon)
                 .overlay {
                     Image(systemName: "square.stack.3d.up")
                         .font(.system(size: 14))
@@ -71,7 +71,7 @@ struct SandboxRowView: View {
             }
         }
         .padding(.horizontal, 8)
-        .frame(height: 44)
+        .frame(height: AppMetrics.rowHeight)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(

@@ -6,7 +6,7 @@ extension Notification.Name {
 }
 
 /// Detail panel tab for containers
-enum ContainerDetailTab: String, CaseIterable, Identifiable {
+enum ContainerDetailTab: String, @MainActor DetailTab {
     case info = "Info"
     case logs = "Logs"
     case terminal = "Terminal"

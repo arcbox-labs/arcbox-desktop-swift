@@ -44,13 +44,13 @@ struct MachineCreateSheet: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 12))
                             .foregroundStyle(AppColors.textSecondary)
-                            .frame(width: 24, height: 24)
+                            .frame(width: AppMetrics.sheetCloseButton, height: AppMetrics.sheetCloseButton)
                     }
                 )
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 16)
-            .frame(height: 44)
+            .frame(height: AppMetrics.sheetTitleBarHeight)
             .overlay(alignment: .bottom) { Divider() }
 
             Form {

@@ -2,7 +2,7 @@ import K8sClient
 import SwiftUI
 
 /// Detail tab for services
-enum ServiceDetailTab: String, CaseIterable, Identifiable {
+enum ServiceDetailTab: String, @MainActor DetailTab {
     case info = "Info"
 
     var id: String { rawValue }

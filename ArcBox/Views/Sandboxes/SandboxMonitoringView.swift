@@ -103,7 +103,7 @@ struct MonitoringChart: View {
                     // End dot
                     Circle()
                         .fill(AppColors.running)
-                        .frame(width: 8, height: 8)
+                        .frame(width: AppMetrics.statusDot, height: AppMetrics.statusDot)
                         .position(x: geo.size.width - 4, y: geo.size.height - 2)
                 }
             }

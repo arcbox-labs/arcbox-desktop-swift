@@ -98,5 +98,5 @@ struct NetworkSettingsView: View {
 
 #Preview {
     NetworkSettingsView()
-        .frame(width: 500, height: 600)
+        .frame(width: AppMetrics.settingsPaneWidth, height: AppMetrics.settingsPaneHeight)
 }

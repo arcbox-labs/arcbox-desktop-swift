@@ -67,7 +67,7 @@ struct ContainerGroupView: View {
                         if isAnyTransitioning {
                             ProgressView()
                                 .controlSize(.small)
-                                .frame(width: 26, height: 26)
+                                .frame(width: AppMetrics.rowActionButton, height: AppMetrics.rowActionButton)
                         } else {
                             IconButton(
                                 symbol: hasAnyRunning ? "stop.fill" : "play.fill",
@@ -83,7 +83,7 @@ struct ContainerGroupView: View {
                     }
                 }
             }
-            .frame(height: 44)
+            .frame(height: AppMetrics.rowHeight)
             .padding(.horizontal, 12)
             .background(
                 RoundedRectangle(cornerRadius: 6)

@@ -64,7 +64,7 @@ struct PullImageSheet: View {
             HStack {
                 Button("?") {}
                     .buttonStyle(.plain)
-                    .frame(width: 24, height: 24)
+                    .frame(width: AppMetrics.sheetCloseButton, height: AppMetrics.sheetCloseButton)
 
                 Button("Import...") {
                     let panel = NSOpenPanel()
@@ -108,6 +108,6 @@ struct PullImageSheet: View {
             .padding(.vertical, 12)
             .overlay(alignment: .top) { Divider() }
         }
-        .frame(width: 480, height: 270)
+        .frame(width: AppMetrics.sheetWidth, height: 270)
     }
 }

@@ -128,7 +128,7 @@ struct NetworkContainerRow: View {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(entry.isRunning ? Color.green : Color.gray)
-                        .frame(width: 8, height: 8)
+                        .frame(width: AppMetrics.statusDot, height: AppMetrics.statusDot)
                     Text(entry.isRunning ? "Running" : "Stopped")
                         .font(.system(size: 12))
                         .foregroundStyle(AppColors.textSecondary)

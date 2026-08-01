@@ -260,5 +260,5 @@ struct GeneralSettingsView: View {
         .environment(ContainersViewModel())
         .environment(ImagesViewModel())
         .environment(UpdaterSettingsModel(updater: updater))
-        .frame(width: 500, height: 400)
+        .frame(width: AppMetrics.settingsPaneWidth, height: 400)
 }

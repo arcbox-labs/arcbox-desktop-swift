@@ -3,7 +3,7 @@ import SwiftUI
 import os
 
 /// Detail tab options for machines (matches container pattern)
-enum MachineDetailTab: String, CaseIterable, Identifiable {
+enum MachineDetailTab: String, @MainActor DetailTab {
     case info = "Info"
     case logs = "Logs"
     case terminal = "Terminal"
