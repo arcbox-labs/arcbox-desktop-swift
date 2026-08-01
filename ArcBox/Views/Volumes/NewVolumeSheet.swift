@@ -10,6 +10,10 @@ struct NewVolumeSheet: View {
     @Environment(\.dockerClient) private var docker
 
     @State private var isCreating = false
+    /// Copied out of the view model rather than observed: the list behind this sheet has an
+    /// `.errorToast` on the same `lastError`, and the toast clears it after four seconds even
+    /// though it is hidden — which would wipe this message while the form is still open.
+    @State private var errorMessage: String?
     @State private var name = ""
 
     var body: some View {
@@ -25,6 +29,7 @@ struct NewVolumeSheet: View {
                 .font(.system(size: 11))
                 .foregroundStyle(AppColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+                SheetErrorMessage(message: errorMessage)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -57,7 +62,7 @@ struct NewVolumeSheet: View {
                     Task {
                         let ok = await vm.importVolume(name: name, tarURL: url, docker: docker)
                         isCreating = false
-                        if ok { dismiss() }
+                        if ok { dismiss() } else { errorMessage = vm.lastError }
                     }
                 }
                 .disabled(isCreating)
@@ -74,7 +79,7 @@ struct NewVolumeSheet: View {
                     Task {
                         let ok = await vm.createVolume(name: name, docker: docker)
                         isCreating = false
-                        if ok { dismiss() }
+                        if ok { dismiss() } else { errorMessage = vm.lastError }
                     }
                 }
                 .keyboardShortcut(.defaultAction)

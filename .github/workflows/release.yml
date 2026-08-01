@@ -118,8 +118,10 @@ jobs:
           NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
           NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER }}
         run: |
-          mkdir -p "$RUNNER_TEMP/private_keys"
-          echo "$NOTARY_KEY" > "$RUNNER_TEMP/private_keys/AuthKey.p8"
+          # printf, not echo: echo appends a newline, which invalidates the key.
+          mkdir -p -m 700 "$RUNNER_TEMP/private_keys"
+          printf '%s' "$NOTARY_KEY" > "$RUNNER_TEMP/private_keys/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/private_keys/AuthKey.p8"
           xcrun notarytool store-credentials "arcbox-notarize" \
             --key "$RUNNER_TEMP/private_keys/AuthKey.p8" \
             --key-id "$NOTARY_KEY_ID" \

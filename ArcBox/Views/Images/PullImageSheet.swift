@@ -19,6 +19,10 @@ struct PullImageSheet: View {
     @Environment(\.dockerClient) private var docker
 
     @State private var isPulling = false
+    /// Copied out of the view model rather than observed: the list behind this sheet has an
+    /// `.errorToast` on the same `lastError`, and the toast clears it after four seconds even
+    /// though it is hidden — which would wipe this message while the form is still open.
+    @State private var errorMessage: String?
     @State private var image = ""
     @State private var platform: ImagePlatform = .auto
 
@@ -36,6 +40,7 @@ struct PullImageSheet: View {
                     .font(.system(size: 11))
                     .foregroundStyle(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+                SheetErrorMessage(message: errorMessage)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -73,7 +78,7 @@ struct PullImageSheet: View {
                     Task {
                         let ok = await vm.importImage(tarURL: url, docker: docker)
                         isPulling = false
-                        if ok { dismiss() }
+                        if ok { dismiss() } else { errorMessage = vm.lastError }
                     }
                 }
                 .disabled(isPulling)
@@ -93,7 +98,7 @@ struct PullImageSheet: View {
                             platform: platform == .auto ? nil : platform.rawValue,
                             docker: docker)
                         isPulling = false
-                        if ok { dismiss() }
+                        if ok { dismiss() } else { errorMessage = vm.lastError }
                     }
                 }
                 .keyboardShortcut(.defaultAction)

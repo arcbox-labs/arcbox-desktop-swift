@@ -25,7 +25,11 @@ extension VolumesViewModel {
 
     /// Create a volume. Returns true on success.
     func createVolume(name: String, docker: DockerClient?) async -> Bool {
-        guard let docker else { return false }
+        lastError = nil
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return false
+        }
         do {
             let response = try await docker.api.VolumeCreate(
                 body: .json(.init(Name: name.isEmpty ? nil : name))
@@ -37,6 +41,7 @@ extension VolumesViewModel {
         } catch {
             Log.volume.error("Error creating volume: \(String(describing: error), privacy: .private)")
             ErrorReporting.capture(error, domain: .volume, operation: "create")
+            lastError = error.localizedDescription
             return false
         }
     }
@@ -56,7 +61,11 @@ extension VolumesViewModel {
     /// Import a tar archive into a new volume. Returns true on success.
     /// Creates the volume, then uses a temporary container + PutContainerArchive to extract contents.
     func importVolume(name: String, tarURL: URL, docker: DockerClient?) async -> Bool {
-        guard let docker else { return false }
+        lastError = nil
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return false
+        }
 
         // 1. Create volume
         let volName: String
@@ -68,29 +77,37 @@ extension VolumesViewModel {
         } catch {
             Log.volume.error("Error creating volume for import: \(String(describing: error), privacy: .private)")
             ErrorReporting.capture(error, domain: .volume, operation: "import_create")
+            lastError = error.localizedDescription
             return false
         }
 
-        // Helper to clean up the volume on failure
-        var success = false
-        defer {
-            if !success {
-                Task {
-                    _ = try? await docker.api.VolumeDelete(path: .init(name: volName), query: .init(force: true))
-                }
-            }
+        // 2-4. Populate it. `defer` cannot await, so cleanup is sequenced explicitly here:
+        // a fire-and-forget Task can be discarded before it runs, orphaning the volume.
+        do {
+            try await fill(volume: volName, from: tarURL, docker: docker)
+        } catch {
+            _ = try? await docker.api.VolumeDelete(
+                path: .init(name: volName), query: .init(force: true))
+            lastError = error.localizedDescription
+            return false
         }
 
-        // 2. Ensure busybox image exists
+        Log.volume.info("Imported tar into volume \(volName, privacy: .private)")
+        await loadVolumes(docker: docker)
+        return true
+    }
+
+    /// Extract `tarURL` into `volume` through a temporary container, which is removed on both
+    /// the success and the failure path before this returns.
+    private func fill(volume: String, from tarURL: URL, docker: DockerClient) async throws {
         do {
             try await ensureImageExists("busybox:latest", docker: docker)
         } catch {
             Log.volume.error("Error pulling busybox for import: \(String(describing: error), privacy: .private)")
             ErrorReporting.capture(error, domain: .volume, operation: "import_pull_helper")
-            return false
+            throw error
         }
 
-        // 3. Create temp container with volume mounted
         var config = Components.Schemas.ContainerConfig()
         config.Image = "busybox:latest"
         config.Cmd = ["true"]
@@ -104,7 +121,7 @@ extension VolumesViewModel {
                         value2: .init(
                             HostConfig: .init(
                                 value1: .init(),
-                                value2: .init(Binds: ["\(volName):/data"])
+                                value2: .init(Binds: ["\(volume):/data"])
                             ))
                     ))
             )
@@ -113,34 +130,27 @@ extension VolumesViewModel {
             Log.volume.error(
                 "Error creating temp container for import: \(String(describing: error), privacy: .private)")
             ErrorReporting.capture(error, domain: .volume, operation: "import_container")
-            return false
+            throw error
         }
 
-        // 4. Upload tar into /data
-        defer {
-            Task {
-                _ = try? await docker.api.ContainerDelete(path: .init(id: tempID), query: .init(force: true))
-            }
-        }
+        let outcome: Result<Void, any Error>
         do {
             let data = try Data(contentsOf: tarURL, options: .mappedIfSafe)
-            let body = HTTPBody(data)
             let response = try await docker.api.PutContainerArchive(
                 path: .init(id: tempID),
                 query: .init(path: "/data"),
-                body: .application_x_hyphen_tar(body)
+                body: .application_x_hyphen_tar(HTTPBody(data))
             )
             _ = try response.ok
-            Log.volume.info("Imported tar into volume \(volName, privacy: .private)")
+            outcome = .success(())
         } catch {
             Log.volume.error("Error importing tar into volume: \(String(describing: error), privacy: .private)")
             ErrorReporting.capture(error, domain: .volume, operation: "import_upload")
-            return false
+            outcome = .failure(error)
         }
 
-        success = true
-        await loadVolumes(docker: docker)
-        return true
+        _ = try? await docker.api.ContainerDelete(path: .init(id: tempID), query: .init(force: true))
+        try outcome.get()
     }
 
     func removeVolume(_ name: String, docker: DockerClient?) async {

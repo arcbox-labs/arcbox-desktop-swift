@@ -76,6 +76,9 @@ public final class ArcBoxClient: Sendable {
                     config: .defaults { $0.http2.authority = "arcbox.local" }
                 )
                 _grpcClient.withLock { $0 = GRPCClient(transport: transport) }
+                // Without this the replaced client keeps its NIO EventLoopGroup alive,
+                // leaking one per reconnection.
+                client.beginGracefulShutdown()
             } catch {
                 // Transport creation shouldn't fail for Unix domain sockets.
                 try? await Task.sleep(for: .seconds(5))

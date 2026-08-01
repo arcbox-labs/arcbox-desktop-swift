@@ -85,7 +85,11 @@ extension ContainersViewModel {
         options: ContainerCreateOptions,
         docker: DockerClient?
     ) async -> String? {
-        guard let docker else { return nil }
+        lastError = nil
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return nil
+        }
         var config = Components.Schemas.ContainerConfig()
         config.Image = options.image
         let cmdParts = options.command.split(separator: " ").map(String.init)
@@ -129,18 +133,24 @@ extension ContainersViewModel {
                 }
             case .badRequest(let err):
                 Log.container.error("Bad request creating container: \(String(describing: err), privacy: .private)")
+                lastError = "Invalid container configuration."
             case .notFound(let err):
                 Log.container.error("Image not found: \(String(describing: err), privacy: .private)")
+                lastError = "Image not found. Pull it first."
             case .conflict(let err):
                 Log.container.error("Container name conflict: \(String(describing: err), privacy: .private)")
+                lastError = "A container with that name already exists."
             case .internalServerError(let err):
                 Log.container.error("Server error creating container: \(String(describing: err), privacy: .private)")
+                lastError = "Docker failed to create the container."
             case .undocumented(let statusCode, _):
                 Log.container.error("Unexpected status \(statusCode, privacy: .public) creating container")
+                lastError = "Unexpected response status \(statusCode)."
             }
         } catch {
             Log.container.error("Error creating container: \(String(describing: error), privacy: .private)")
             ErrorReporting.capture(error, domain: .container, operation: "create")
+            lastError = error.localizedDescription
         }
         return nil
     }

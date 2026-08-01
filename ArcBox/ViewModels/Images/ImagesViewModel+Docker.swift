@@ -93,7 +93,11 @@ extension ImagesViewModel {
 
     /// Pull an image from a registry. Returns true on success.
     func pullImage(_ reference: String, platform: String?, docker: DockerClient?) async -> Bool {
-        guard let docker else { return false }
+        lastError = nil
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return false
+        }
         let parsed = parseImageReference(reference)
 
         do {
@@ -108,13 +112,18 @@ extension ImagesViewModel {
             Log.image.error(
                 "Error pulling image \(reference, privacy: .private): \(String(describing: error), privacy: .private)")
             ErrorReporting.capture(error, domain: .image, operation: "pull")
+            lastError = error.localizedDescription
             return false
         }
     }
 
     /// Import an image from a local tar archive (equivalent to `docker load`). Returns true on success.
     func importImage(tarURL: URL, docker: DockerClient?) async -> Bool {
-        guard let docker else { return false }
+        lastError = nil
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return false
+        }
         do {
             let data = try Data(contentsOf: tarURL, options: .mappedIfSafe)
             let response = try await docker.api.ImageLoad(
@@ -127,6 +136,7 @@ extension ImagesViewModel {
         } catch {
             Log.image.error("Error importing image: \(String(describing: error), privacy: .private)")
             ErrorReporting.capture(error, domain: .image, operation: "import")
+            lastError = error.localizedDescription
             return false
         }
     }
