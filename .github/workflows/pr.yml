@@ -110,12 +110,17 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-xcode-${{ steps.build_environment.outputs.xcode_cache_key }}-swift-${{ hashFiles('ArcBox.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'Packages/**/Package.resolved', 'Packages/**/Package.swift') }}-${{ hashFiles('ArcBox.xcodeproj/project.pbxproj') }}-
             ${{ runner.os }}-${{ runner.arch }}-xcode-${{ steps.build_environment.outputs.xcode_cache_key }}-swift-${{ hashFiles('ArcBox.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'Packages/**/Package.resolved', 'Packages/**/Package.swift') }}-
 
+      # `-onlyUsePackageVersionsFromResolvedFile` is what makes this a gate
+      # rather than a cache warm-up: without it this step would quietly repair a
+      # stale Package.resolved, and the build that follows would never see the
+      # drift. A PR that edits a Package.swift must commit the lockfile too.
       - name: Resolve Swift packages
         run: |
           xcodebuild -resolvePackageDependencies \
             -project ArcBox.xcodeproj \
             -scheme ArcBox \
-            -clonedSourcePackagesDirPath .build/SourcePackages
+            -clonedSourcePackagesDirPath .build/SourcePackages \
+            -onlyUsePackageVersionsFromResolvedFile
 
       # `shell: bash` is load-bearing on every step that pipes into xcpretty:
       # the default shell is `bash -e`, whose pipeline status comes from
