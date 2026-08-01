@@ -35,6 +35,7 @@ final class ApplicationCoordinator: NSObject {
     private var mainWindowController: MainWindowController?
     private var settingsWindowController: SettingsWindowController?
     private var statusItemController: StatusItemController?
+    private var quitWindowController: QuitWindowController?
     private var mainHost: NSHostingController<AnyView>?
     private var settingsHost: NSHostingController<AnyView>?
     private var menuBarHost: NSHostingController<AnyView>?
@@ -45,6 +46,7 @@ final class ApplicationCoordinator: NSObject {
     private var lastShowInMenuBar: Bool
     private var lastUpdateChannel: String
     private var started = false
+    private(set) var isTerminating = false
 
     override init() {
         updaterController = SPUStandardUpdaterController(
@@ -99,10 +101,12 @@ final class ApplicationCoordinator: NSObject {
     }
 
     func handleDeepLink(_ url: URL) {
+        guard !isTerminating else { return }
         deepLinkRouter.handle(url)
     }
 
     func showMainWindow() {
+        guard !isTerminating else { return }
         activate()
         mainWindowController?.window?.deminiaturize(nil)
         mainWindowController?.showWindow(nil)
@@ -110,6 +114,7 @@ final class ApplicationCoordinator: NSObject {
     }
 
     func showSettings(tab: SettingsTab? = nil) {
+        guard !isTerminating else { return }
         if let tab {
             appVM.settingsTab = tab
         }
@@ -120,28 +125,51 @@ final class ApplicationCoordinator: NSObject {
     }
 
     func showAbout() {
+        guard !isTerminating else { return }
         activate()
         showAboutWindow()
     }
 
     func checkForUpdates() {
+        guard !isTerminating else { return }
         updaterController.updater.checkForUpdates()
     }
 
-    func closeVisibleWindows() {
+    @discardableResult
+    func beginTermination() -> Bool {
+        guard !isTerminating else { return false }
+        isTerminating = true
+
+        WebAuthenticationController.shared.cancelForTermination()
         statusItemController?.closePopover()
-        for window in NSApp.windows where window.isVisible {
-            window.close()
+        statusItemController?.setVisible(false)
+        let screen = NSApp.keyWindow?.screen ?? NSApp.mainWindow?.screen ?? NSScreen.main
+
+        if NSApp.modalWindow != nil {
+            NSApp.abortModal()
         }
+        for window in NSApp.windows {
+            window.orderOut(nil)
+        }
+
+        NSApp.setActivationPolicy(.accessory)
+        NSApp.mainMenu = nil
+        NSApp.windowsMenu = nil
+        let controller = QuitWindowController(screen: screen)
+        quitWindowController = controller
+        controller.show()
+        NSApp.activate(ignoringOtherApps: true)
+        return true
     }
 
     func requestQuit() {
-        (NSApp.delegate as? AppDelegate)?.forceQuit = true
         NSApp.terminate(nil)
     }
 
     func shutdown() async {
         startupTask?.cancel()
+        await startupOrchestrator?.cancelForTermination()
+        await startupTask?.value
         startupTask = nil
         eventMonitor.stop()
         sandboxEventMonitor.stop()
@@ -211,6 +239,7 @@ final class ApplicationCoordinator: NSObject {
     }
 
     private func navigationDidChange() {
+        guard !isTerminating else { return }
         trackNavigation()
         guard let navigation = appVM.currentNav else { return }
         guard !navigation.isComingSoon else {
@@ -232,6 +261,7 @@ final class ApplicationCoordinator: NSObject {
     }
 
     private func daemonStateDidChange() {
+        guard !isTerminating else { return }
         trackDaemonState()
         let state = daemonManager.state
         guard state != lastDaemonState else { return }
@@ -345,6 +375,7 @@ final class ApplicationCoordinator: NSObject {
     }
 
     private func accountButtonPressed() {
+        guard !isTerminating else { return }
         if authSession.status == .signedIn {
             showSettings(tab: .account)
             return
@@ -384,6 +415,7 @@ final class ApplicationCoordinator: NSObject {
     }
 
     private func defaultsDidChange() {
+        guard !isTerminating else { return }
         let defaults = UserDefaults.standard
         let showInMenuBar = defaults.bool(forKey: "showInMenuBar")
         if showInMenuBar != lastShowInMenuBar {

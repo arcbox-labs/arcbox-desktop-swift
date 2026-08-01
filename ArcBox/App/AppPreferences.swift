@@ -9,7 +9,6 @@ enum AppPreferences {
             "terminalTheme": "system",
             "externalTerminal": ExternalTerminalApp.terminalBundleIdentifier,
             "startAtLogin": false,
-            "keepRunning": false,
             "telemetryEnabled": true,
             "includeTimeMachine": false,
             "switchDockerContextAutomatically": true,

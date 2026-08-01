@@ -61,8 +61,10 @@ public final class StartupOrchestrator {
     private static let signposter = OSSignposter(
         subsystem: "com.arcboxlabs.desktop", category: "startup")
 
-    /// Prevents concurrent startup runs from interleaving.
-    private var isStarting = false
+    /// Owns the active run so app termination can cancel retries as well as
+    /// the initial startup task.
+    private var startupTask: Task<Void, Never>?
+    private var isTerminating = false
 
     public init(
         daemonManager: DaemonManager,
@@ -86,9 +88,33 @@ public final class StartupOrchestrator {
     /// Guarded against concurrent execution.
     @available(macOS 15.0, *)
     public func start() async {
-        guard !isStarting else { return }
-        isStarting = true
-        defer { isStarting = false }
+        guard !isTerminating else { return }
+        if let startupTask {
+            await startupTask.value
+            return
+        }
+
+        let task = Task {
+            await runStartup()
+            startupTask = nil
+        }
+        startupTask = task
+        await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    /// Permanently stops startup work before app shutdown continues.
+    public func cancelForTermination() async {
+        isTerminating = true
+        startupTask?.cancel()
+        await startupTask?.value
+    }
+
+    private func runStartup() async {
+        guard !isCancellationRequested else { return }
 
         for step in StartupStep.allCases {
             stepStatuses[step] = .pending
@@ -102,6 +128,7 @@ public final class StartupOrchestrator {
             try await self.daemonManager.installHelper()
         }
 
+        guard !isCancellationRequested else { return }
         guard helperOK else {
             stepStatuses[.enableDaemon] = .skipped
             stepStatuses[.connectAndWatch] = .skipped
@@ -123,7 +150,12 @@ public final class StartupOrchestrator {
         // Strict verification is intentional — if this blocks your local
         // build, ensure the daemon is signed with Developer ID:
         //   make -C ../arcbox sign-daemon
-        if let verifyError = await daemonManager.verifyDaemonBinary() {
+        let verifyError = await daemonManager.verifyDaemonBinary()
+        guard !isCancellationRequested else {
+            phase = .idle
+            return
+        }
+        if let verifyError {
             ClientLog.startup.error("Daemon binary verification failed: \(verifyError, privacy: .private)")
             phase = .fatalError(message: verifyError)
             stepStatuses[.enableDaemon] = .failed(verifyError)
@@ -139,80 +171,71 @@ public final class StartupOrchestrator {
             }
         }
 
+        guard !isCancellationRequested else { return }
         guard daemonOK else {
             stepStatuses[.connectAndWatch] = .skipped
             return
         }
 
         // Step 3: Connect gRPC and start watching setup status.
-        //
-        // Two-phase approach:
-        //   Phase 1 — normal poll (30 s): gives the daemon its full startup window.
-        //   Phase 2 — recovery:  force unregister+register, then poll again (30 s).
-        //
-        // Phase 2 exists because Xcode "Replace" sends SIGKILL, so
-        // `applicationShouldTerminate` / `disableDaemon()` never runs.  The
-        // daemon stays `.enabled` in launchd but the actual process may be
-        // dead or stuck in a throttled restart cycle.
-        //
-        // ⚠️ REGRESSION GUARD — the recovery MUST happen only AFTER the full
-        // phase-1 timeout.  Moving the force-reregister into `enableDaemon()`
-        // or running it earlier would regress a known bug where SwiftUI
-        // `.task` re-entrancy triggers multiple `enableDaemon()` calls that
-        // each kill the daemon before it finishes initializing.
         let connectOK = await runStep(.connectAndWatch) {
-            let client = try self.onClientsNeeded()
-            self.daemonManager.connectAndWatch(client: client)
-
-            // Phase 1: normal poll — daemon may be starting up; give it the
-            // full timeout before assuming it's dead.
-            for _ in 0..<StartupConstants.daemonPollMaxAttempts {
-                if self.daemonManager.state.isRunning { break }
-                // A fatal FAILED phase is terminal — fail fast with the daemon's
-                // reported cause instead of waiting out the poll window (or, in
-                // the recovery poll, mistaking a dead daemon for a live one).
-                if self.daemonManager.setupPhase == .failed {
-                    throw StartupError.stepFailed(self.daemonFailureMessage)
-                }
-                try await Task.sleep(for: StartupConstants.daemonPollInterval)
-            }
-
-            if self.daemonManager.state.isRunning { return }
-
-            // Phase 2: recovery — daemon is registered but confirmed
-            // unreachable after the full poll window.  Force re-register to
-            // get launchd to spawn a fresh daemon process, then poll again.
-            ClientLog.startup.warning(
-                "Daemon unreachable after \(Int(StartupConstants.daemonPollTimeout.components.seconds))s, attempting force re-register recovery"
-            )
-            await self.daemonManager.forceReregisterDaemon()
-
-            if case .error = self.daemonManager.state {
-                throw StartupError.stepFailed("Force re-register failed")
-            }
-
-            self.daemonManager.connectAndWatch(client: client)
-
-            for _ in 0..<StartupConstants.daemonPollMaxAttempts {
-                if self.daemonManager.state.isRunning { break }
-                // A fatal FAILED phase is terminal — fail fast with the daemon's
-                // reported cause instead of waiting out the poll window (or, in
-                // the recovery poll, mistaking a dead daemon for a live one).
-                if self.daemonManager.setupPhase == .failed {
-                    throw StartupError.stepFailed(self.daemonFailureMessage)
-                }
-                try await Task.sleep(for: StartupConstants.daemonPollInterval)
-            }
-
-            if !self.daemonManager.state.isRunning {
-                let totalSeconds = Int(StartupConstants.daemonPollTimeout.components.seconds) * 2
-                throw StartupError.stepFailed(
-                    "Daemon unreachable after force re-register recovery (\(totalSeconds)s total)")
-            }
+            try await self.connectAndWatchDaemon()
         }
 
+        guard !isCancellationRequested else { return }
         guard connectOK else { return }
         phase = .completed
+    }
+
+    /// Connects normally before trying one force re-registration recovery.
+    ///
+    /// Recovery must only happen after the full initial timeout. Xcode
+    /// replacement can leave a registered daemon process unreachable, while
+    /// recovering earlier can repeatedly kill a daemon that is still starting.
+    private func connectAndWatchDaemon() async throws {
+        let client = try onClientsNeeded()
+        try checkCancellation()
+        daemonManager.connectAndWatch(client: client)
+
+        for _ in 0..<StartupConstants.daemonPollMaxAttempts {
+            try checkCancellation()
+            if daemonManager.state.isRunning { break }
+            if daemonManager.setupPhase == .failed {
+                throw StartupError.stepFailed(daemonFailureMessage)
+            }
+            try await Task.sleep(for: StartupConstants.daemonPollInterval)
+        }
+
+        try checkCancellation()
+        if daemonManager.state.isRunning { return }
+
+        ClientLog.startup.warning(
+            "Daemon unreachable after \(Int(StartupConstants.daemonPollTimeout.components.seconds))s, attempting force re-register recovery"
+        )
+        await daemonManager.forceReregisterDaemon()
+        try checkCancellation()
+
+        if case .error = daemonManager.state {
+            throw StartupError.stepFailed("Force re-register failed")
+        }
+
+        daemonManager.connectAndWatch(client: client)
+
+        for _ in 0..<StartupConstants.daemonPollMaxAttempts {
+            try checkCancellation()
+            if daemonManager.state.isRunning { break }
+            if daemonManager.setupPhase == .failed {
+                throw StartupError.stepFailed(daemonFailureMessage)
+            }
+            try await Task.sleep(for: StartupConstants.daemonPollInterval)
+        }
+
+        try checkCancellation()
+        if !daemonManager.state.isRunning {
+            let totalSeconds = Int(StartupConstants.daemonPollTimeout.components.seconds) * 2
+            throw StartupError.stepFailed(
+                "Daemon unreachable after force re-register recovery (\(totalSeconds)s total)")
+        }
     }
 
     /// Retry the startup sequence after a failure.
@@ -228,6 +251,17 @@ public final class StartupOrchestrator {
         return reason.isEmpty ? "Daemon reported a fatal setup failure" : reason
     }
 
+    private var isCancellationRequested: Bool {
+        isTerminating || Task.isCancelled
+    }
+
+    private func checkCancellation() throws {
+        if isTerminating {
+            throw CancellationError()
+        }
+        try Task.checkCancellation()
+    }
+
     // MARK: - Step Runner
 
     @discardableResult
@@ -235,23 +269,34 @@ public final class StartupOrchestrator {
         _ step: StartupStep,
         body: @MainActor () async throws -> Void
     ) async -> Bool {
+        guard !isCancellationRequested else { return false }
+
         stepStatuses[step] = .running
         phase = .running(step: step)
 
         let signpostID = Self.signposter.makeSignpostID()
         let state = Self.signposter.beginInterval(
             "Startup Step", id: signpostID, "\(step.label, privacy: .public)")
+        defer { Self.signposter.endInterval("Startup Step", state) }
         let startTime = CFAbsoluteTimeGetCurrent()
 
         do {
+            try checkCancellation()
             try await body()
+            try checkCancellation()
             let elapsedMs = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
             ClientLog.startup.info(
                 "\(step.label, privacy: .public) completed in \(elapsedMs, privacy: .public)ms")
-            Self.signposter.endInterval("Startup Step", state)
             stepStatuses[step] = .completed
             return true
         } catch {
+            if isCancellationRequested || error is CancellationError {
+                ClientLog.startup.info("\(step.label, privacy: .public) canceled")
+                stepStatuses[step] = .pending
+                phase = .idle
+                return false
+            }
+
             let elapsedMs = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
             let message = error.localizedDescription
             ClientLog.startup.error(
@@ -260,7 +305,6 @@ public final class StartupOrchestrator {
             SentrySDK.capture(error: error) { scope in
                 scope.setTag(value: step.label, key: "startup_step")
             }
-            Self.signposter.endInterval("Startup Step", state)
             stepStatuses[step] = .failed(message)
             phase = .failed(step: step, message: message)
             return false

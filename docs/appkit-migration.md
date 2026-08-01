@@ -511,7 +511,6 @@ controller 提供 `ASWebAuthenticationPresentationContextProviding`。
 - `terminalTheme`
 - `externalTerminal`
 - `startAtLogin`
-- `keepRunning`
 - `telemetryEnabled`
 - `includeTimeMachine`
 - `switchDockerContextAutomatically`
@@ -822,8 +821,9 @@ hover／selection 时参与 layout，隐藏后不保留宽度。
 - 冷启动主窗口尺寸、最小尺寸、资源页三栏／全宽页双栏 divider、frame 恢复。
 - `⌘,`、About、Check for Updates、`⌘N` responder chain。
 - 关闭主窗口后从 Dock、menu bar、deep link 重开。
-- `keepRunning + showInMenuBar` 时关闭窗口不退出。
-- menu bar 的 Quit 走真实 shutdown：停 monitors、恢复 Docker context、关闭 client、禁用 daemon。
+- `⌘Q` 与 menu bar Quit 隐藏全部可交互界面，只显示独立退出卡片。
+- 退出卡片期间拒绝 reopen／deep link，并完成真实 shutdown：停 monitors、恢复 Docker context、
+  关闭 client、禁用 daemon。
 - 设置与关于不重复创建窗口。
 
 #### Startup 与 daemon
