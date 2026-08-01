@@ -25,14 +25,15 @@ final class MainWindowControllerTests: XCTestCase {
             contentViewController: host,
             frameAutosaveName: autosaveName
         )
+        let window = try XCTUnwrap(controller.window)
+        XCTAssertEqual(window.frame.size, NSSize(width: 1_200, height: 800))
+
         controller.showWindow(nil)
         defer { controller.close() }
 
-        let window = try XCTUnwrap(controller.window)
         waitForToolbarLayout(in: window)
         let chromeHeight = window.frame.height - window.contentLayoutRect.height
 
-        XCTAssertEqual(window.frame.size, NSSize(width: 1_200, height: 800))
         XCTAssertEqual(window.minSize.width, 900, accuracy: 1)
         XCTAssertEqual(window.minSize.height, 600 + chromeHeight, accuracy: 1)
         XCTAssertTrue(window.styleMask.contains(.fullSizeContentView))
