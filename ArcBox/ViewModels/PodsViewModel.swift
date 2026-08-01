@@ -18,12 +18,11 @@ class PodsViewModel {
     var pods: [PodViewModel] = []
     var selectedID: String?
     var activeTab: PodDetailTab = .info
-    var isLoading: Bool = false
+    var streamPhase: KubernetesStreamPhase = .connecting
     var searchText: String = ""
     var isSearching: Bool = false
 
     var podCount: Int { pods.count }
-    var runningCount: Int { pods.filter(\.isRunning).count }
     var filteredPods: [PodViewModel] {
         guard !searchText.isEmpty else { return pods }
         let query = searchText.lowercased()
@@ -36,11 +35,7 @@ class PodsViewModel {
 
     var selectedPod: PodViewModel? {
         guard let id = selectedID else { return nil }
-        return filteredPods.first { $0.id == id }
-    }
-
-    func selectPod(_ id: String) {
-        selectedID = id
+        return pods.first { $0.id == id }
     }
 
     /// Replace the list with a watch snapshot. Called by ``KubernetesState``, which owns the
@@ -53,6 +48,7 @@ class PodsViewModel {
     func clear() {
         pods = []
         selectedID = nil
+        streamPhase = .connecting
     }
 
     // MARK: - Mapping

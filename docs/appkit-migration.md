@@ -427,8 +427,8 @@ enum LoadPhase: Equatable {
 | Sandbox snapshots | 与空态混用 | 有 | 被伪装为空 | 无 | 独立 `LoadPhase` |
 | Activity | redacted connecting | 不适用 | 3 次后 unavailable | 保留旧图 | 补 client unavailable、手动 Retry、stale 标记 |
 | Sandbox monitoring | 直接显示 `0` 为 live | 不适用 | 无 | 无 | `connecting / live / reconnecting / failed` |
-| Kubernetes status | disabled 混合多义 | disabled | RPC 失败被吞 | 无 | 单一 lifecycle enum |
-| Pods／Services watch | 首次 `isLoading` | 有 | watch 错误不显示 | 保留旧 items | 暴露 reconnecting／failed |
+| Kubernetes status | disabled 混合多义 | disabled | RPC 失败被吞 | 无 | lifecycle enum 已完成；status／start／stop 错误可见 |
+| Pods／Services watch | 首次 `isLoading` | 有 | watch 错误不显示 | 保留旧 items | AppKit 列表已完成；connecting／live／reconnecting 可见 |
 | Auth | signing in | signed out | error | 不适用 | 补 restoring／signing out／userinfo error |
 | Container logs | spinner | no logs／no match | 首次 error 无 Retry | 有日志时 error 隐藏 | 显示 retry 或 stale warning |
 | Files | 明确 | 空目录 | 多数可 Refresh | 不适用 | 保留；节点 I/O error 不得吞掉 |
@@ -466,12 +466,12 @@ enum StreamPhase: Equatable {
     case connecting
     case live
     case reconnecting(attempt: Int, lastError: String?)
-    case failed(String)
 }
 ```
 
 Pods／Services controller 的 task key 必须包含 client identity；第一次出现时 client 为 nil，之后注入
-client 必须重启 status 与 watch。status RPC 失败不能静默变成 disabled。
+client 必须重启 status 与 watch。status RPC 失败不能静默变成 disabled。watch supervisor 会持续
+自动重连，因此错误附着在 `reconnecting`，不再增加一个永远到不了的终态。
 
 ### 5.5 Terminal、logs 与文件
 
@@ -562,7 +562,7 @@ Task 归属：
 2. 将所有 Docker API gate 统一为 `setupPhase.isDockerReady && dockerClient != nil`。
 3. 为 Images、Sandboxes、Snapshots 增加显式 load phase；Volumes、Networks 与 Network inspect
    已完成。
-4. 将 Kubernetes 布尔组合改为 lifecycle enum，并让 client identity 驱动 task 重启。
+4. 将 Kubernetes 布尔组合改为 lifecycle enum，并让 client identity 驱动 task 重启。已完成。
 5. 把 app-scoped startup／monitor tasks 从 window `.task` 移到 application coordinator。
 6. 消除主窗口与菜单栏重复的 Activity source。
 
@@ -734,7 +734,7 @@ Task 归属：
 | Images | table + 3 detail children | 原生 table／load／empty／error 已完成 | terminal、files | toolbar／detail／pull sheet／terminal 常驻 |
 | Volumes | table + 2 detail children | 原生 table／load／empty／error 已完成 | files | toolbar／detail／import sheet 待迁移 |
 | Networks | table + detail | 原生 table／detail／inspect load phase 已完成 | Docker store | toolbar／创建 sheet 待迁移 |
-| Pods／Services | tables + detail | Kubernetes lifecycle／watch health | K8s clients | reconnect、client injection |
+| Pods／Services | tables + detail | lifecycle、watch health 与原生列表已完成 | K8s clients | toolbar／detail 待迁移 |
 | Machines | table + 4 detail children | 原生 table／load／empty／error 已完成 | terminal | toolbar／create sheet／detail／inspect error |
 | Sandboxes | list／monitoring + 6 detail children | load、monitor、snapshot、event phases | terminal、file panels | surface 最多 |
 | Settings | split + form controllers | defaults registration、visible errors | updater／system models | permissions／rollback |
@@ -796,7 +796,8 @@ Task 归属：
   - 2 个 tracking separators；
   - toolbar item 不越栏；
   - Activity 时 content list 折叠。
-- 为新 `LoadPhase` 派生逻辑、Kubernetes lifecycle、preferences 默认值和 task key 增加最小有意义测试。
+- 为新 `LoadPhase` 派生逻辑、preferences 默认值和 task key 增加最小有意义测试；
+  `KubernetesStateTests` 已覆盖 lifecycle、client 注入后的 supersede／cancel 与数据保留。
 - `ContainersListViewControllerTests` 验证状态页、Compose outline、搜索可见批量范围、折叠／
   过滤后的选择保持、操作重校验与 controller 释放。
 - `VolumesListViewControllerTests`、`NetworksListViewControllerTests`、
@@ -804,6 +805,8 @@ Task 归属：
   连续 Observation 重注册、搜索、选择同步与 controller 释放。
 - `NetworkDetailViewControllerTests` 验证无选择、inspect error／Retry／真实空态与 controller
   释放。
+- `KubernetesListViewControllerTests` 验证 Pods／Services 的 loading、空、reconnecting、搜索、
+  选择同步与 controller 释放。
 - 不测试 `NSTextField` 是否能显示文本、`NSButton` 是否会发 action 等框架保证。
 
 ### 10.3 手工验收矩阵

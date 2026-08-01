@@ -82,14 +82,3 @@ extension MachineState {
         }
     }
 }
-
-extension PodPhase {
-    var color: Color {
-        switch self {
-        case .running, .succeeded: AppColors.running
-        case .pending: .orange
-        case .failed: .red
-        case .unknown: AppColors.textSecondary
-        }
-    }
-}

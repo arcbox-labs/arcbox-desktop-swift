@@ -2,21 +2,13 @@ import Foundation
 import K8sClient
 import Observation
 
-/// Detail tab for services
-enum ServiceDetailTab: String, @MainActor DetailTab {
-    case info = "Info"
-
-    var id: String { rawValue }
-}
-
 /// Service list state
 @MainActor
 @Observable
 class ServicesViewModel {
     var services: [ServiceViewModel] = []
     var selectedID: String?
-    var activeTab: ServiceDetailTab = .info
-    var isLoading: Bool = false
+    var streamPhase: KubernetesStreamPhase = .connecting
     var searchText: String = ""
     var isSearching: Bool = false
 
@@ -35,11 +27,7 @@ class ServicesViewModel {
 
     var selectedService: ServiceViewModel? {
         guard let id = selectedID else { return nil }
-        return filteredServices.first { $0.id == id }
-    }
-
-    func selectService(_ id: String) {
-        selectedID = id
+        return services.first { $0.id == id }
     }
 
     /// Replace the list with a watch snapshot. Called by ``KubernetesState``, which owns the
@@ -52,6 +40,7 @@ class ServicesViewModel {
     func clear() {
         services = []
         selectedID = nil
+        streamPhase = .connecting
     }
 
     // MARK: - Mapping

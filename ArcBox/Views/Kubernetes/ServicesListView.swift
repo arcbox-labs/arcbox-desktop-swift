@@ -1,54 +1,86 @@
 import ArcBoxClient
 import SwiftUI
 
-/// Column 2: services list with toolbar
+/// Transitional SwiftUI toolbar and lifecycle host for the native Services list.
 struct ServicesListView: View {
     @Environment(KubernetesState.self) private var k8s
     @Environment(ServicesViewModel.self) private var vm
     @Environment(\.arcboxClient) private var arcboxClient
 
     var body: some View {
-        VStack(spacing: 0) {
-            if !k8s.enabled {
-                KubernetesDisabledView(isStarting: k8s.isStarting, startError: k8s.startError) {
-                    Task { await k8s.start(client: arcboxClient) }
-                }
-            } else if vm.services.isEmpty {
-                VStack {
-                    Spacer()
-                    if vm.isLoading {
-                        ProgressView()
-                            .controlSize(.regular)
-                    } else {
-                        Text("No services")
-                            .foregroundStyle(AppColors.textSecondary)
-                    }
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(vm.filteredServices) { service in
-                            ServiceRowView(
-                                service: service,
-                                isSelected: vm.selectedID == service.id,
-                                onSelect: { vm.selectService(service.id) }
-                            )
-                        }
-                    }
-                }
+        ServicesListControllerView(
+            state: k8s,
+            viewModel: vm,
+            canControl: arcboxClient != nil,
+            onCheckStatus: {
+                Task { await k8s.checkStatus(client: arcboxClient) }
+            },
+            onStart: {
+                Task { await k8s.start(client: arcboxClient) }
+            },
+            onStop: {
+                Task { await k8s.stop(client: arcboxClient) }
+            },
+            onRetryStreams: {
+                k8s.retryStreams(client: arcboxClient)
             }
-        }
+        )
         .navigationTitle("Services")
-        .navigationSubtitle(k8s.enabled ? "\(vm.serviceCount) total" : "Disabled")
+        .navigationSubtitle(navigationSubtitle)
         .searchable(text: Bindable(vm).searchText, isPresented: Bindable(vm).isSearching)
         .onChange(of: vm.isSearching) { _, newValue in
-            if !newValue { vm.searchText = "" }
+            if !newValue {
+                vm.searchText = ""
+            }
         }
-        // Refreshing is owned by KubernetesState, which starts and stops it with `enabled`.
-        .task {
+        .task(id: arcboxClient.map(ObjectIdentifier.init)) {
             await k8s.checkStatus(client: arcboxClient)
         }
+    }
+
+    private var navigationSubtitle: String {
+        switch k8s.lifecycle {
+        case .checking: "Checking"
+        case .disabled: "Disabled"
+        case .starting: "Starting"
+        case .ready: "\(vm.serviceCount) total"
+        case .stopping: "Stopping"
+        case .failed: "Unavailable"
+        }
+    }
+}
+
+private struct ServicesListControllerView: NSViewControllerRepresentable {
+    let state: KubernetesState
+    let viewModel: ServicesViewModel
+    let canControl: Bool
+    let onCheckStatus: @MainActor () -> Void
+    let onStart: @MainActor () -> Void
+    let onStop: @MainActor () -> Void
+    let onRetryStreams: @MainActor () -> Void
+
+    func makeNSViewController(context _: Context) -> ServicesListViewController {
+        ServicesListViewController(
+            state: state,
+            viewModel: viewModel,
+            canControl: canControl,
+            onCheckStatus: onCheckStatus,
+            onStart: onStart,
+            onStop: onStop,
+            onRetryStreams: onRetryStreams
+        )
+    }
+
+    func updateNSViewController(
+        _ controller: ServicesListViewController,
+        context _: Context
+    ) {
+        controller.update(
+            canControl: canControl,
+            onCheckStatus: onCheckStatus,
+            onStart: onStart,
+            onStop: onStop,
+            onRetryStreams: onRetryStreams
+        )
     }
 }
