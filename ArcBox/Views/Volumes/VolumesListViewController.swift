@@ -167,8 +167,16 @@ final class VolumesListViewController: NSViewController,
         guard let item = snapshot?.rows[row] else { return 0 }
         switch item {
         case .section: return 28
-        case .volume: return 52
+        case .volume: return AppMetrics.rowHeight
         }
+    }
+
+    func tableView(_: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        guard let item = snapshot?.rows[row] else { return nil }
+        if case .volume = item {
+            return ResourceListRowView(horizontalInset: 12)
+        }
+        return nil
     }
 
     func tableView(_ tableView: NSTableView, isGroupRow row: Int) -> Bool {
@@ -288,7 +296,7 @@ final class VolumesListViewController: NSViewController,
         tableView.floatsGroupRows = false
         tableView.allowsMultipleSelection = false
         tableView.allowsEmptySelection = true
-        tableView.selectionHighlightStyle = .regular
+        tableView.selectionHighlightStyle = .none
         tableView.dataSource = self
         tableView.delegate = self
         tableView.setAccessibilityLabel("Volumes")
@@ -428,24 +436,32 @@ final class VolumesListViewController: NSViewController,
 }
 
 @MainActor
-private final class VolumeTableCellView: NSTableCellView {
+private final class VolumeTableCellView: NSTableCellView, ResourceListActionDisplaying {
+    private let iconBox = NSBox()
     private let volumeImageView = NSImageView()
     private let nameLabel = NSTextField(labelWithString: "")
     private let sizeLabel = NSTextField(labelWithString: "")
-    private let deleteButton = NSButton()
+    private let deleteButton = ResourceActionButton()
     private var onDelete: (@MainActor () -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+
+        iconBox.boxType = .custom
+        iconBox.borderWidth = 0
+        iconBox.cornerRadius = 6
+        iconBox.fillColor = AppColors.iconBackgroundNSColor
+        iconBox.translatesAutoresizingMaskIntoConstraints = false
 
         volumeImageView.image = NSImage(
             systemSymbolName: "externaldrive",
             accessibilityDescription: nil
         )
         volumeImageView.contentTintColor = .secondaryLabelColor
-        volumeImageView.symbolConfiguration = .init(pointSize: 16, weight: .regular)
+        volumeImageView.symbolConfiguration = .init(pointSize: 14, weight: .regular)
         volumeImageView.setAccessibilityElement(false)
         volumeImageView.translatesAutoresizingMaskIntoConstraints = false
+        iconBox.addSubview(volumeImageView)
 
         nameLabel.font = .systemFont(ofSize: 13)
         nameLabel.lineBreakMode = .byTruncatingTail
@@ -456,35 +472,38 @@ private final class VolumeTableCellView: NSTableCellView {
         labels.orientation = .vertical
         labels.alignment = .leading
         labels.spacing = 2
-        labels.translatesAutoresizingMaskIntoConstraints = false
 
-        deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
-        deleteButton.isBordered = false
+        deleteButton.identifier = NSUserInterfaceItemIdentifier("VolumeDeleteButton")
+        deleteButton.image = NSImage(systemSymbolName: "trash.fill", accessibilityDescription: nil)
         deleteButton.contentTintColor = .secondaryLabelColor
+        deleteButton.isHidden = true
         deleteButton.target = self
         deleteButton.action = #selector(deletePressed)
         deleteButton.toolTip = "Delete volume"
         deleteButton.setAccessibilityLabel("Delete volume")
-        deleteButton.translatesAutoresizingMaskIntoConstraints = false
 
-        addSubview(volumeImageView)
-        addSubview(labels)
-        addSubview(deleteButton)
+        let content = NSStackView(views: [iconBox, labels, deleteButton])
+        content.orientation = .horizontal
+        content.alignment = .centerY
+        content.distribution = .fill
+        content.spacing = 12
+        content.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(content)
         imageView = volumeImageView
         textField = nameLabel
 
         NSLayoutConstraint.activate([
-            volumeImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            volumeImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            volumeImageView.widthAnchor.constraint(equalToConstant: 24),
-            volumeImageView.heightAnchor.constraint(equalToConstant: 24),
-            labels.leadingAnchor.constraint(equalTo: volumeImageView.trailingAnchor, constant: 10),
-            labels.centerYAnchor.constraint(equalTo: centerYAnchor),
-            labels.trailingAnchor.constraint(lessThanOrEqualTo: deleteButton.leadingAnchor, constant: -8),
-            deleteButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            deleteButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            deleteButton.widthAnchor.constraint(equalToConstant: 24),
-            deleteButton.heightAnchor.constraint(equalToConstant: 24),
+            content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
+            content.centerYAnchor.constraint(equalTo: centerYAnchor),
+            iconBox.widthAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
+            iconBox.heightAnchor.constraint(equalToConstant: AppMetrics.rowIcon),
+            volumeImageView.centerXAnchor.constraint(equalTo: iconBox.centerXAnchor),
+            volumeImageView.centerYAnchor.constraint(equalTo: iconBox.centerYAnchor),
+            volumeImageView.widthAnchor.constraint(equalToConstant: 20),
+            volumeImageView.heightAnchor.constraint(equalToConstant: 20),
+            deleteButton.widthAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
+            deleteButton.heightAnchor.constraint(equalToConstant: AppMetrics.rowActionButton),
         ])
     }
 
@@ -501,8 +520,6 @@ private final class VolumeTableCellView: NSTableCellView {
                 isSelected
                 ? .alternateSelectedControlTextColor.withAlphaComponent(0.67)
                 : .secondaryLabelColor
-            volumeImageView.contentTintColor =
-                isSelected ? .alternateSelectedControlTextColor : .secondaryLabelColor
             deleteButton.contentTintColor =
                 isSelected ? .alternateSelectedControlTextColor : .secondaryLabelColor
         }
@@ -520,6 +537,10 @@ private final class VolumeTableCellView: NSTableCellView {
             "\(volume.name), \(volume.sizeDisplay), \(volume.inUse ? "In Use" : "Unused")"
         )
         deleteButton.setAccessibilityLabel("Delete \(volume.name)")
+    }
+
+    func setShowsActions(_ showsActions: Bool) {
+        deleteButton.isHidden = !showsActions
     }
 
     @objc private func deletePressed() {

@@ -29,6 +29,35 @@ final class VolumesListViewControllerTests: XCTestCase {
 
         XCTAssertFalse(try XCTUnwrap(tableView.enclosingScrollView).isHidden)
         XCTAssertEqual(tableView.numberOfRows, 4)
+        XCTAssertEqual(tableView.rect(ofRow: 1).height, AppMetrics.rowHeight)
+        XCTAssertEqual(tableView.selectionHighlightStyle, .none)
+        XCTAssertTrue(
+            tableView.rowView(atRow: 1, makeIfNecessary: true) is ResourceListRowView
+        )
+
+        let dataCell = try XCTUnwrap(
+            tableView.view(atColumn: 0, row: 1, makeIfNecessary: true)
+                as? NSTableCellView
+        )
+        let deleteButton = try XCTUnwrap(deleteButton(in: dataCell))
+        XCTAssertTrue(deleteButton is ResourceActionButton)
+        dataCell.frame = NSRect(x: 0, y: 0, width: 360, height: AppMetrics.rowHeight)
+        dataCell.layoutSubtreeIfNeeded()
+        let content = try XCTUnwrap(deleteButton.superview as? NSStackView)
+        let labels = content.arrangedSubviews[1]
+        XCTAssertTrue(deleteButton.isHidden)
+        XCTAssertEqual(content.spacing, 12)
+        XCTAssertEqual(content.frame.minX, 24, accuracy: 0.5)
+        XCTAssertEqual(dataCell.bounds.maxX - content.frame.maxX, 24, accuracy: 0.5)
+        XCTAssertEqual(labels.frame.maxX, content.bounds.maxX, accuracy: 0.5)
+        tableView.selectRowIndexes(IndexSet(integer: 1), byExtendingSelection: false)
+        dataCell.layoutSubtreeIfNeeded()
+        XCTAssertFalse(deleteButton.isHidden)
+        XCTAssertEqual(deleteButton.frame.minX - labels.frame.maxX, 12, accuracy: 0.5)
+        XCTAssertEqual(dataCell.imageView?.contentTintColor, .secondaryLabelColor)
+        tableView.deselectAll(nil)
+        dataCell.layoutSubtreeIfNeeded()
+        XCTAssertEqual(labels.frame.maxX, content.bounds.maxX, accuracy: 0.5)
 
         viewModel.searchText = "cache"
         try await waitUntil { tableView.numberOfRows == 2 }
@@ -80,6 +109,16 @@ final class VolumesListViewControllerTests: XCTestCase {
             return tableView
         }
         return view.subviews.lazy.compactMap(findTableView).first
+    }
+
+    @MainActor
+    private func deleteButton(in view: NSView) -> NSButton? {
+        if let button = view as? NSButton,
+            button.identifier == NSUserInterfaceItemIdentifier("VolumeDeleteButton")
+        {
+            return button
+        }
+        return view.subviews.lazy.compactMap { self.deleteButton(in: $0) }.first
     }
 
     private func volume(name: String, inUse: Bool) -> VolumeViewModel {

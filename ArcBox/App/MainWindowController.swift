@@ -16,7 +16,6 @@ final class MainWindowController: NSWindowController {
             defer: false
         )
         window.title = "ArcBox"
-        window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.toolbarStyle = .unified
         window.contentMinSize = NSSize(width: 900, height: 600)

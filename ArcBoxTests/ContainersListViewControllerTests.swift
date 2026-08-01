@@ -28,10 +28,48 @@ final class ContainersListViewControllerTests: XCTestCase {
         viewModel.expandedGroups = ["active", "idle"]
         viewModel.containers = hierarchyContainers()
         try await waitUntil { outlineView.numberOfRows == 9 }
+        rootView.frame = NSRect(x: 0, y: 0, width: 500, height: 600)
+        rootView.layoutSubtreeIfNeeded()
+        outlineView.layoutSubtreeIfNeeded()
         XCTAssertFalse(try XCTUnwrap(outlineView.enclosingScrollView).isHidden)
+        XCTAssertEqual(outlineView.indentationPerLevel, 28)
         for title in ["In Use", "active", "web", "db", "solo", "Stopped", "idle", "worker", "sleeping"] {
             XCTAssertNotNil(row(named: title, in: outlineView))
         }
+
+        let groupRow = try XCTUnwrap(row(named: "active", in: outlineView))
+        let groupCell = try XCTUnwrap(
+            try cell(named: "active", in: outlineView) as? ContainerGroupTableCellView
+        )
+        let idleGroupCell = try XCTUnwrap(
+            try cell(named: "idle", in: outlineView) as? ContainerGroupTableCellView
+        )
+        XCTAssertEqual(groupCell.textField?.textColor, .labelColor)
+        XCTAssertEqual(idleGroupCell.textField?.textColor, .secondaryLabelColor)
+        let groupDisclosure = try XCTUnwrap(
+            view("ContainerGroupDisclosureImage", in: groupCell)
+        )
+        XCTAssertTrue(outlineView.frameOfOutlineCell(atRow: groupRow).isEmpty)
+        XCTAssertEqual(
+            groupDisclosure.convert(groupDisclosure.bounds, to: outlineView).minX,
+            24,
+            accuracy: 0.5
+        )
+
+        let rootCell = try cell(named: "solo", in: outlineView)
+        let childCell = try cell(named: "web", in: outlineView)
+        let rootIcon = try XCTUnwrap(firstBox(in: rootCell))
+        let childIcon = try XCTUnwrap(firstBox(in: childCell))
+        XCTAssertEqual(
+            rootIcon.convert(rootIcon.bounds, to: outlineView).minX,
+            24,
+            accuracy: 0.5
+        )
+        XCTAssertEqual(
+            childIcon.convert(childIcon.bounds, to: outlineView).minX,
+            52,
+            accuracy: 0.5
+        )
 
         viewModel.searchText = "missing"
         try await waitUntil {
@@ -125,6 +163,11 @@ final class ContainersListViewControllerTests: XCTestCase {
         let soloToggle = try XCTUnwrap(
             button("ContainerToggleButton", in: soloCell)
         )
+        let soloDelete = try XCTUnwrap(
+            button("ContainerDeleteButton", in: soloCell)
+        )
+        let soloActions = try XCTUnwrap(soloDelete.superview as? NSStackView)
+        XCTAssertEqual(soloActions.fittingSize.width, 0)
         soloToggle.performClick(nil)
         XCTAssertEqual(oldToggleIDs, ["solo"])
 
@@ -146,6 +189,7 @@ final class ContainersListViewControllerTests: XCTestCase {
         viewModel.setTransitioning("solo", true)
         soloToggle.performClick(nil)
         XCTAssertEqual(newToggleIDs, ["solo"])
+        try await assertBusyContainer(named: "solo", in: outlineView)
 
         let groupCell = try cell(named: "active", in: outlineView)
         let groupToggle = try XCTUnwrap(
@@ -154,6 +198,7 @@ final class ContainersListViewControllerTests: XCTestCase {
         viewModel.setTransitioning("web", true)
         groupToggle.performClick(nil)
         XCTAssertTrue(groupCalls.isEmpty)
+        try await assertBusyGroup(named: "active", in: outlineView)
 
         viewModel.setTransitioning("web", false)
         viewModel.searchText = "web"
@@ -260,6 +305,68 @@ final class ContainersListViewControllerTests: XCTestCase {
     }
 
     @MainActor
+    private func assertBusyContainer(
+        named name: String,
+        in outlineView: NSOutlineView
+    ) async throws {
+        try await waitUntil {
+            guard
+                let cell = try? self.cell(named: name, in: outlineView),
+                let busyCell = cell as? ContainerTableCellView
+            else {
+                return false
+            }
+            busyCell.setShowsActions(true)
+            return self.view(
+                "ContainerStatusBusyIndicator",
+                in: busyCell
+            )?.isHidden == false
+        }
+        let cell = try XCTUnwrap(
+            try cell(named: name, in: outlineView) as? ContainerTableCellView
+        )
+        cell.setShowsActions(true)
+        XCTAssertTrue(try XCTUnwrap(button("ContainerToggleButton", in: cell)).isHidden)
+        XCTAssertFalse(try XCTUnwrap(button("ContainerDeleteButton", in: cell)).isHidden)
+        XCTAssertTrue(try XCTUnwrap(button("ContainerDeleteButton", in: cell)).isEnabled)
+        XCTAssertFalse(try XCTUnwrap(view("ContainerBusyIndicator", in: cell)).isHidden)
+        XCTAssertTrue(try XCTUnwrap(view("ContainerStatusDot", in: cell)).isHidden)
+        XCTAssertFalse(
+            try XCTUnwrap(view("ContainerStatusBusyIndicator", in: cell)).isHidden
+        )
+    }
+
+    @MainActor
+    private func assertBusyGroup(
+        named name: String,
+        in outlineView: NSOutlineView
+    ) async throws {
+        try await waitUntil {
+            guard
+                let cell = try? self.cell(named: name, in: outlineView),
+                let busyCell = cell as? ContainerGroupTableCellView
+            else {
+                return false
+            }
+            busyCell.setShowsActions(true)
+            return self.view(
+                "ContainerGroupBusyIndicator",
+                in: busyCell
+            )?.isHidden == false
+        }
+        let cell = try XCTUnwrap(
+            try cell(named: name, in: outlineView) as? ContainerGroupTableCellView
+        )
+        cell.setShowsActions(true)
+        XCTAssertTrue(try XCTUnwrap(button("ContainerGroupToggleButton", in: cell)).isHidden)
+        XCTAssertFalse(try XCTUnwrap(button("ContainerGroupDeleteButton", in: cell)).isHidden)
+        XCTAssertTrue(try XCTUnwrap(button("ContainerGroupDeleteButton", in: cell)).isEnabled)
+        XCTAssertFalse(
+            try XCTUnwrap(view("ContainerGroupBusyIndicator", in: cell)).isHidden
+        )
+    }
+
+    @MainActor
     private func button(_ identifier: String, in view: NSView) -> NSButton? {
         if let button = view as? NSButton,
             button.identifier == NSUserInterfaceItemIdentifier(identifier)
@@ -268,6 +375,26 @@ final class ContainersListViewControllerTests: XCTestCase {
         }
         return view.subviews.lazy.compactMap {
             self.button(identifier, in: $0)
+        }.first
+    }
+
+    @MainActor
+    private func view(_ identifier: String, in view: NSView) -> NSView? {
+        if view.identifier == NSUserInterfaceItemIdentifier(identifier) {
+            return view
+        }
+        return view.subviews.lazy.compactMap {
+            self.view(identifier, in: $0)
+        }.first
+    }
+
+    @MainActor
+    private func firstBox(in view: NSView) -> NSBox? {
+        if let box = view as? NSBox {
+            return box
+        }
+        return view.subviews.lazy.compactMap {
+            self.firstBox(in: $0)
         }.first
     }
 

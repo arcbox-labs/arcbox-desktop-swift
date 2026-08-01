@@ -29,7 +29,7 @@ final class ImagesListViewControllerTests: XCTestCase {
         try await waitUntil { self.hasText("No images yet", in: rootView) }
 
         viewModel.images = [
-            image(id: "nginx", repository: "nginx", inUse: true),
+            image(id: "nginx", repository: "nginx", inUse: true, architecture: "amd64"),
             image(id: "postgres", repository: "postgres", inUse: false),
             image(id: "redis", repository: "redis", inUse: false),
         ]
@@ -43,10 +43,47 @@ final class ImagesListViewControllerTests: XCTestCase {
         let nginxRow = try XCTUnwrap(row(named: "nginx:latest", in: tableView))
         let nginxCell = try XCTUnwrap(
             tableView.view(atColumn: 0, row: nginxRow, makeIfNecessary: true)
+                as? NSTableCellView
         )
         let deleteButton = try XCTUnwrap(deleteButton(in: nginxCell))
-        XCTAssertFalse(deleteButton.isHidden)
+        XCTAssertTrue(deleteButton is ResourceActionButton)
+        nginxCell.frame = NSRect(x: 0, y: 0, width: 360, height: AppMetrics.rowHeight)
+        nginxCell.layoutSubtreeIfNeeded()
+        let content = try XCTUnwrap(deleteButton.superview as? NSStackView)
+        let labels = content.arrangedSubviews[1]
+        XCTAssertTrue(deleteButton.isHidden)
         XCTAssertTrue(deleteButton.isEnabled)
+        XCTAssertEqual(content.spacing, 12)
+        XCTAssertEqual(content.frame.minX, 24, accuracy: 0.5)
+        XCTAssertEqual(nginxCell.bounds.maxX - content.frame.maxX, 24, accuracy: 0.5)
+        XCTAssertEqual(labels.frame.maxX, content.bounds.maxX, accuracy: 0.5)
+
+        let architectureLabel = try XCTUnwrap(textField(titled: "amd64", in: nginxCell))
+        let architectureBox = try XCTUnwrap(ancestorBox(of: architectureLabel))
+        let architectureLabelFrame = architectureLabel.convert(
+            architectureLabel.bounds,
+            to: architectureBox
+        )
+        XCTAssertEqual(architectureLabelFrame.minX, 6, accuracy: 0.5)
+        XCTAssertEqual(
+            architectureBox.bounds.maxX - architectureLabelFrame.maxX,
+            6,
+            accuracy: 0.5
+        )
+        XCTAssertEqual(architectureLabelFrame.minY, 2, accuracy: 0.5)
+        XCTAssertEqual(
+            architectureBox.bounds.maxY - architectureLabelFrame.maxY,
+            2,
+            accuracy: 0.5
+        )
+
+        tableView.selectRowIndexes(IndexSet(integer: nginxRow), byExtendingSelection: false)
+        nginxCell.layoutSubtreeIfNeeded()
+        XCTAssertFalse(deleteButton.isHidden)
+        XCTAssertEqual(deleteButton.frame.minX - labels.frame.maxX, 12, accuracy: 0.5)
+        tableView.deselectAll(nil)
+        nginxCell.layoutSubtreeIfNeeded()
+        XCTAssertEqual(labels.frame.maxX, content.bounds.maxX, accuracy: 0.5)
 
         viewModel.searchText = "missing"
         try await waitUntil {
@@ -148,10 +185,31 @@ final class ImagesListViewControllerTests: XCTestCase {
         return view.subviews.lazy.compactMap { self.deleteButton(in: $0) }.first
     }
 
+    @MainActor
+    private func textField(titled title: String, in view: NSView) -> NSTextField? {
+        if let textField = view as? NSTextField, textField.stringValue == title {
+            return textField
+        }
+        return view.subviews.lazy.compactMap { self.textField(titled: title, in: $0) }.first
+    }
+
+    @MainActor
+    private func ancestorBox(of view: NSView) -> NSBox? {
+        var ancestor = view.superview
+        while let current = ancestor {
+            if let box = current as? NSBox {
+                return box
+            }
+            ancestor = current.superview
+        }
+        return nil
+    }
+
     private func image(
         id: String,
         repository: String,
-        inUse: Bool
+        inUse: Bool,
+        architecture: String = "arm64"
     ) -> ImageViewModel {
         ImageViewModel(
             id: id,
@@ -162,7 +220,7 @@ final class ImagesListViewControllerTests: XCTestCase {
             createdAt: .distantPast,
             inUse: inUse,
             os: "linux",
-            architecture: "arm64",
+            architecture: architecture,
             iconURL: nil
         )
     }
