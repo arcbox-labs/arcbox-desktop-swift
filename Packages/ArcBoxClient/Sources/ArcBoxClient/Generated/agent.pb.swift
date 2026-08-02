@@ -25,6 +25,49 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
   typealias Version = _2
 }
 
+/// Transport protocol of a forwarded sandbox port.
+///
+/// Deliberately separate from `arcbox.sandbox.v1.PortProtocol`: the public
+/// contract must not be imported by the internal wire, or the two evolve
+/// together by accident.
+public enum Arcbox_V1_SandboxPortProtocol: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
+  case unspecified // = 0
+  case tcp // = 1
+  case udp // = 2
+  case UNRECOGNIZED(Int)
+
+  public init() {
+    self = .unspecified
+  }
+
+  public init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .tcp
+    case 2: self = .udp
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  public var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .tcp: return 1
+    case .udp: return 2
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  public static let allCases: [Arcbox_V1_SandboxPortProtocol] = [
+    .unspecified,
+    .tcp,
+    .udp,
+  ]
+
+}
+
 /// Ping request.
 public struct Arcbox_V1_AgentPingRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -886,9 +929,98 @@ public struct Arcbox_V1_ImageFsPathsResponse: Sendable {
   public init() {}
 }
 
+/// Ask the guest agent to bring up the read-only NFS export of the docker
+/// data mount (browsable on the host at `~/ArcBox`). The host daemon sends
+/// this only when the mount is enabled, so a daemon started with
+/// `--no-mount-nfs` never sends it and the guest runs no nfsd at all. The
+/// agent ensures the docker data mount exists first, so the request is safe
+/// to send at any point after the agent is up.
+public struct Arcbox_V1_EnsureNfsExportRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Response to `EnsureNfsExportRequest`.
+public struct Arcbox_V1_EnsureNfsExportResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Human-readable setup notes (mounts bound, exportfs refreshed, nfsd
+  /// threads started).
+  public var notes: [String] = []
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Ask the guest agent to DNAT a reserved guest port to a sandbox port.
+public struct Arcbox_V1_SandboxPortForwardRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Sandbox ID.
+  public var id: String = String()
+
+  /// Destination port inside the sandbox.
+  public var sandboxPort: UInt32 = 0
+
+  /// Transport protocol (UNSPECIFIED = TCP).
+  public var `protocol`: Arcbox_V1_SandboxPortProtocol = .unspecified
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Guest agent's answer: the allocated reserved-range guest port.
+public struct Arcbox_V1_SandboxPortForwardResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Guest port now DNATed to the sandbox.
+  public var guestPort: UInt32 = 0
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Ask the guest agent to remove a DNAT mapping.
+public struct Arcbox_V1_SandboxPortForwardRemoveRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Sandbox ID.
+  public var id: String = String()
+
+  /// The sandbox port previously forwarded.
+  public var sandboxPort: UInt32 = 0
+
+  /// Transport protocol (UNSPECIFIED = TCP).
+  public var `protocol`: Arcbox_V1_SandboxPortProtocol = .unspecified
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "arcbox.v1"
+
+extension Arcbox_V1_SandboxPortProtocol: SwiftProtobuf._ProtoNameProviding {
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0SANDBOX_PORT_PROTOCOL_UNSPECIFIED\0\u{1}SANDBOX_PORT_PROTOCOL_TCP\0\u{1}SANDBOX_PORT_PROTOCOL_UDP\0")
+}
 
 extension Arcbox_V1_AgentPingRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".AgentPingRequest"
@@ -2271,6 +2403,165 @@ extension Arcbox_V1_ImageFsPathsResponse: SwiftProtobuf.Message, SwiftProtobuf._
 
   public static func ==(lhs: Arcbox_V1_ImageFsPathsResponse, rhs: Arcbox_V1_ImageFsPathsResponse) -> Bool {
     if lhs.lowerDirs != rhs.lowerDirs {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_V1_EnsureNfsExportRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".EnsureNfsExportRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_V1_EnsureNfsExportRequest, rhs: Arcbox_V1_EnsureNfsExportRequest) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_V1_EnsureNfsExportResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".EnsureNfsExportResponse"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}notes\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedStringField(value: &self.notes) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.notes.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.notes, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_V1_EnsureNfsExportResponse, rhs: Arcbox_V1_EnsureNfsExportResponse) -> Bool {
+    if lhs.notes != rhs.notes {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_V1_SandboxPortForwardRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".SandboxPortForwardRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{3}sandbox_port\0\u{1}protocol\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.sandboxPort) }()
+      case 3: try { try decoder.decodeSingularEnumField(value: &self.`protocol`) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.id.isEmpty {
+      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
+    }
+    if self.sandboxPort != 0 {
+      try visitor.visitSingularUInt32Field(value: self.sandboxPort, fieldNumber: 2)
+    }
+    if self.`protocol` != .unspecified {
+      try visitor.visitSingularEnumField(value: self.`protocol`, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_V1_SandboxPortForwardRequest, rhs: Arcbox_V1_SandboxPortForwardRequest) -> Bool {
+    if lhs.id != rhs.id {return false}
+    if lhs.sandboxPort != rhs.sandboxPort {return false}
+    if lhs.`protocol` != rhs.`protocol` {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_V1_SandboxPortForwardResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".SandboxPortForwardResponse"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}guest_port\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.guestPort) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.guestPort != 0 {
+      try visitor.visitSingularUInt32Field(value: self.guestPort, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_V1_SandboxPortForwardResponse, rhs: Arcbox_V1_SandboxPortForwardResponse) -> Bool {
+    if lhs.guestPort != rhs.guestPort {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_V1_SandboxPortForwardRemoveRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".SandboxPortForwardRemoveRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{3}sandbox_port\0\u{1}protocol\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.sandboxPort) }()
+      case 3: try { try decoder.decodeSingularEnumField(value: &self.`protocol`) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.id.isEmpty {
+      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
+    }
+    if self.sandboxPort != 0 {
+      try visitor.visitSingularUInt32Field(value: self.sandboxPort, fieldNumber: 2)
+    }
+    if self.`protocol` != .unspecified {
+      try visitor.visitSingularEnumField(value: self.`protocol`, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_V1_SandboxPortForwardRemoveRequest, rhs: Arcbox_V1_SandboxPortForwardRemoveRequest) -> Bool {
+    if lhs.id != rhs.id {return false}
+    if lhs.sandboxPort != rhs.sandboxPort {return false}
+    if lhs.`protocol` != rhs.`protocol` {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

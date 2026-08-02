@@ -24,24 +24,19 @@ enum SandboxSortField: String, CaseIterable {
 /// Parameters for creating a sandbox.
 struct SandboxCreateSpec {
     var labels: [String: String] = [:]
-    /// Docker image reference; resolved to its overlay2 layer directory and
-    /// passed as `rootfs` (mirrors `abctl sandbox create --from-image`).
+    /// Docker image reference; sent to the daemon as a `docker:` template.
     var image = ""
-    /// Direct rootfs path; ignored when `image` is set. Empty = daemon default.
-    var rootfs = ""
-    var kernel = ""
-    var bootArgs = ""
     var vcpus: UInt32 = 0
     var memoryMiB: UInt64 = 0
     var cmd: [String] = []
     var env: [String: String] = [:]
     var workingDir = ""
     var user = ""
-    var networkMode = ""
+    var networkMode: Arcbox_Sandbox_V1_NetworkMode = .unspecified
     var ttlSeconds: UInt32 = 0
 }
 
-/// Sandbox list state backed by the sandbox.v1 gRPC API.
+/// Sandbox list state backed by the arcbox.sandbox.v1 gRPC API.
 @MainActor
 @Observable
 class SandboxesViewModel {
@@ -49,6 +44,7 @@ class SandboxesViewModel {
     var loadState: LoadPhase = .waiting
     var refreshError: String?
     let listLoadGate = SingleFlightLoadGate()
+    @ObservationIgnored let terminalSession = SandboxTerminalSession()
     var selectedID: String?
     var activeTab: SandboxDetailTab = .info
     var sortBy: SandboxSortField = .name

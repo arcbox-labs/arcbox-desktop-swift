@@ -149,19 +149,13 @@ jobs:
           set -euo pipefail
           REF="${{ steps.resolve.outputs.ref }}"
 
-          # Resolve which release to download:
-          #   - If REF is a version tag (v*), use that exact release
-          #   - Otherwise, use the latest release
-          if [[ "$REF" =~ ^v[0-9] ]]; then
-            RELEASE_TAG="$REF"
-          else
-            RELEASE_TAG=$(gh release list --repo arcboxlabs/arcbox --limit 1 --json tagName -q '.[0].tagName')
-            if [ -z "$RELEASE_TAG" ]; then
-              echo "No arcbox releases found, will build from source"
-              exit 1
-            fi
-            echo "Ref '$REF' is not a version tag, using latest release: $RELEASE_TAG"
+          # Prebuilt binaries are only compatible with their exact release tag.
+          # Branches and SHAs must be built from the checked-out source below.
+          if [[ ! "$REF" =~ ^v[0-9] ]]; then
+            echo "Ref '$REF' is not a version tag; building arcbox from source"
+            exit 1
           fi
+          RELEASE_TAG="$REF"
 
           echo "Downloading arcbox binaries from release $RELEASE_TAG..."
 

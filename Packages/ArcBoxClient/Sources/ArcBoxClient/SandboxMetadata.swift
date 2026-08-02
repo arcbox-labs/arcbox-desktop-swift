@@ -1,11 +1,11 @@
 import GRPCCore
 
-/// Helpers for building gRPC metadata required by sandbox RPCs.
+/// Helpers for routing sandbox RPCs to a machine.
 public enum SandboxMetadata {
-    /// Build metadata containing the required `x-machine` header.
+    /// Build metadata containing the local `x-machine` routing header.
     ///
-    /// All sandbox RPCs require this header to route to the target machine's
-    /// guest agent. Without it the server returns `INVALID_ARGUMENT`.
+    /// The daemon uses the System VM when the header is absent; Desktop sends
+    /// it explicitly so the selected machine remains unambiguous.
     public static func forMachine(_ machineID: String) -> Metadata {
         ["x-machine": .string(machineID)]
     }
