@@ -34,6 +34,7 @@ final class ApplicationCoordinator: NSObject {
 
     private var mainWindowController: MainWindowController?
     private var onboardingWindowController: OnboardingWindowController?
+    private var gettingStartedWindowController: OnboardingWindowController?
     private var settingsWindowController: SettingsWindowController?
     private var statusItemController: StatusItemController?
     private var quitWindowController: QuitWindowController?
@@ -149,6 +150,33 @@ final class ApplicationCoordinator: NSObject {
         showAboutWindow()
     }
 
+    func showGettingStarted() {
+        guard canUseMainInterface, let orchestrator = startupOrchestrator else { return }
+
+        if gettingStartedWindowController?.window?.isVisible != true {
+            let host = NSHostingController(
+                rootView: OnboardingView(
+                    orchestrator: orchestrator,
+                    initialStep: .welcome,
+                    isReplay: true,
+                    onStart: {},
+                    onComplete: { [weak self] in
+                        self?.gettingStartedWindowController?.window?.performClose(nil)
+                    },
+                    onQuit: {}
+                ))
+            gettingStartedWindowController = OnboardingWindowController(
+                title: "Getting Started with ArcBox",
+                contentViewController: host,
+                allowsClosing: true,
+                onClose: {}
+            )
+        }
+
+        activate()
+        gettingStartedWindowController?.show()
+    }
+
     func checkForUpdates() {
         guard !isTerminating else { return }
         updaterController.updater.checkForUpdates()
@@ -259,6 +287,8 @@ final class ApplicationCoordinator: NSObject {
         isOnboarding = true
         mainWindowController?.window?.orderOut(nil)
         settingsWindowController?.window?.orderOut(nil)
+        gettingStartedWindowController?.window?.orderOut(nil)
+        gettingStartedWindowController = nil
         statusItemController?.setVisible(false)
 
         if onboardingWindowController == nil {

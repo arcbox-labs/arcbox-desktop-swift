@@ -22,4 +22,25 @@ final class OnboardingWindowControllerTests: XCTestCase {
         XCTAssertFalse(window.isRestorable)
         XCTAssertEqual(window.tabbingMode, .disallowed)
     }
+
+    func testCloseBehaviorMatchesWindowPurpose() throws {
+        var firstRunCloseRequested = false
+        let firstRunController = OnboardingWindowController(
+            contentViewController: NSViewController(),
+            onClose: { firstRunCloseRequested = true }
+        )
+        let firstRunWindow = try XCTUnwrap(firstRunController.window)
+
+        XCTAssertFalse(firstRunController.windowShouldClose(firstRunWindow))
+        XCTAssertTrue(firstRunCloseRequested)
+
+        let replayController = OnboardingWindowController(
+            contentViewController: NSViewController(),
+            allowsClosing: true,
+            onClose: { XCTFail("replay close must not request app termination") }
+        )
+        let replayWindow = try XCTUnwrap(replayController.window)
+
+        XCTAssertTrue(replayController.windowShouldClose(replayWindow))
+    }
 }
