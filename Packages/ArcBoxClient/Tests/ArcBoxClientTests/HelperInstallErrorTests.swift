@@ -4,6 +4,12 @@ import Testing
 @testable import ArcBoxClient
 
 struct HelperInstallErrorTests {
+    @Test func approvalRequiredMessageExplainsWhyStartupPaused() {
+        let message = HelperInstallError.approvalRequired.errorDescription ?? ""
+        #expect(message.contains("Administrator approval"))
+        #expect(message.contains("helper service"))
+    }
+
     @Test func userCanceledMessageMentionsRetryAndDocker() {
         let message = HelperInstallError.userCanceled.errorDescription ?? ""
         #expect(message.contains("Retry"))
