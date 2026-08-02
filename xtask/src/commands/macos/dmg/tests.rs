@@ -1,5 +1,6 @@
 use super::{
-    BundleProfile, boot_asset_files, boot_cache_ready, embed_boot_assets, prepare_strip_copy,
+    BundleProfile, boot_asset_files, boot_cache_ready, embed_boot_assets, local_boot_cache_ready,
+    prepare_strip_copy, should_reuse_local_boot_cache, write_binaries_fragment,
 };
 
 #[test]
@@ -18,7 +19,7 @@ fn failed_strip_preparation_leaves_no_temporary_file() {
 }
 
 #[test]
-fn boot_cache_requires_declared_runtime_image() {
+fn boot_cache_ignores_legacy_runtime_image() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join("manifest.json"),
@@ -31,12 +32,47 @@ fn boot_cache_requires_declared_runtime_image() {
 
     assert_eq!(
         boot_asset_files(&dir.path().join("manifest.json")).unwrap(),
-        ["manifest.json", "kernel", "rootfs.erofs", "runtime.erofs"]
+        ["manifest.json", "kernel", "rootfs.erofs"]
     );
-    assert!(!boot_cache_ready(dir.path()));
-
-    std::fs::write(dir.path().join("runtime.erofs"), "runtime").unwrap();
     assert!(boot_cache_ready(dir.path()));
+}
+
+#[test]
+fn local_boot_cache_keeps_the_runtime_manifest_fragment() {
+    let dir = tempfile::tempdir().unwrap();
+    let manifest = dir.path().join("manifest.json");
+    std::fs::write(
+        &manifest,
+        r#"{
+            "source_repo": "local/boot-assets",
+            "targets": {"arm64": {"kernel": {}, "rootfs": {}}},
+            "binaries": [{
+                "name": "dockerd",
+                "targets": {"arm64": {"path": "dockerd", "sha256": "00"}}
+            }]
+        }"#,
+    )
+    .unwrap();
+    for name in ["kernel", "rootfs.erofs"] {
+        std::fs::write(dir.path().join(name), name).unwrap();
+    }
+
+    assert!(local_boot_cache_ready(dir.path()));
+    assert!(should_reuse_local_boot_cache(
+        BundleProfile::Development,
+        false,
+        dir.path()
+    ));
+    assert!(!should_reuse_local_boot_cache(
+        BundleProfile::Production,
+        false,
+        dir.path()
+    ));
+    let fragment = dir.path().join("binaries.json");
+    write_binaries_fragment(&manifest, &fragment).unwrap();
+    let binaries: serde_json::Value =
+        serde_json::from_reader(std::fs::File::open(fragment).unwrap()).unwrap();
+    assert_eq!(binaries[0]["name"], "dockerd");
 }
 
 #[test]
