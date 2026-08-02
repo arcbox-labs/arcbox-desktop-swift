@@ -58,7 +58,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         if menuItem.action == #selector(checkForUpdates(_:)) {
             return coordinator?.canCheckForUpdates == true
         }
-        if menuItem.action == #selector(showSettings(_:)) {
+        if menuItem.action == #selector(showSettings(_:))
+            || menuItem.action == #selector(showGettingStarted(_:))
+        {
             return coordinator?.canUseMainInterface == true
         }
         return true
@@ -76,6 +78,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         coordinator?.checkForUpdates()
     }
 
+    @objc private func showGettingStarted(_ sender: Any?) {
+        coordinator?.showGettingStarted()
+    }
+
     private func installMainMenu() {
         let mainMenu = NSMenu()
         let appItem = NSMenuItem()
@@ -83,12 +89,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let editItem = NSMenuItem()
         let viewItem = NSMenuItem()
         let windowItem = NSMenuItem()
+        let helpItem = NSMenuItem()
 
         mainMenu.addItem(appItem)
         mainMenu.addItem(fileItem)
         mainMenu.addItem(editItem)
         mainMenu.addItem(viewItem)
         mainMenu.addItem(windowItem)
+        mainMenu.addItem(helpItem)
 
         appItem.submenu = makeApplicationMenu()
         fileItem.submenu = makeFileMenu()
@@ -96,9 +104,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         viewItem.submenu = makeViewMenu()
         let windowMenu = makeWindowMenu()
         windowItem.submenu = windowMenu
+        let helpMenu = makeHelpMenu()
+        helpItem.submenu = helpMenu
 
         NSApp.mainMenu = mainMenu
         NSApp.windowsMenu = windowMenu
+        NSApp.helpMenu = helpMenu
     }
 
     private func makeApplicationMenu() -> NSMenu {
@@ -209,6 +220,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 "Bring All to Front",
                 action: #selector(NSApplication.arrangeInFront(_:)),
                 target: NSApp
+            ))
+        return menu
+    }
+
+    private func makeHelpMenu() -> NSMenu {
+        let menu = NSMenu(title: "Help")
+        menu.addItem(
+            item(
+                "Getting Started with ArcBox",
+                action: #selector(showGettingStarted(_:))
             ))
         return menu
     }

@@ -10,6 +10,7 @@ enum OnboardingStep: Hashable {
 
 struct OnboardingView: View {
     let orchestrator: StartupOrchestrator
+    let isReplay: Bool
     let onStart: () -> Void
     let onComplete: () -> Void
     let onQuit: () -> Void
@@ -22,11 +23,13 @@ struct OnboardingView: View {
     init(
         orchestrator: StartupOrchestrator,
         initialStep: OnboardingStep,
+        isReplay: Bool = false,
         onStart: @escaping () -> Void,
         onComplete: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
         self.orchestrator = orchestrator
+        self.isReplay = isReplay
         self.onStart = onStart
         self.onComplete = onComplete
         self.onQuit = onQuit
@@ -147,8 +150,12 @@ struct OnboardingView: View {
                 .accessibilityHidden(true)
 
             VStack(spacing: 8) {
-                Text("Allow ArcBox to finish system setup")
-                    .font(.system(size: 24, weight: .semibold))
+                Text(
+                    isReplay
+                        ? "Why ArcBox may ask for administrator access"
+                        : "Allow ArcBox to finish system setup"
+                )
+                .font(.system(size: 24, weight: .semibold))
 
                 Text(
                     "ArcBox and its runtime normally run as your user. "
@@ -261,9 +268,13 @@ struct OnboardingView: View {
 
                 Spacer()
 
-                primaryButton("Continue to macOS") {
-                    move(to: .setup, forward: true)
-                    onStart()
+                if isReplay {
+                    primaryButton("Done", action: onComplete)
+                } else {
+                    primaryButton("Continue to macOS") {
+                        move(to: .setup, forward: true)
+                        onStart()
+                    }
                 }
             case .setup:
                 if orchestrator.isReady {

@@ -4,9 +4,16 @@ import AppKit
 final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     static let windowSize = NSSize(width: 760, height: 600)
 
+    private let allowsClosing: Bool
     private let onClose: () -> Void
 
-    init(contentViewController: NSViewController, onClose: @escaping () -> Void) {
+    init(
+        title: String = "Welcome to ArcBox",
+        contentViewController: NSViewController,
+        allowsClosing: Bool = false,
+        onClose: @escaping () -> Void
+    ) {
+        self.allowsClosing = allowsClosing
         self.onClose = onClose
 
         let window = NSWindow(
@@ -15,7 +22,7 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Welcome to ArcBox"
+        window.title = title
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.contentViewController = contentViewController
@@ -42,6 +49,7 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard !allowsClosing else { return true }
         onClose()
         return false
     }
