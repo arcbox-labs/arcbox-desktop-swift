@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.33.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.32.1...v1.33.0) (2026-08-02)
+
+
+### Features
+
+* **dev:** add runnable debug bundle workflow ([a0e9a84](https://github.com/arcboxlabs/arcbox-desktop/commit/a0e9a84a405e768966346c0501cbe3224f9c2936))
+* **onboarding:** add guided first-run setup ([067a34b](https://github.com/arcboxlabs/arcbox-desktop/commit/067a34b276aa9362cd942c7d4c741cb271bdde4f))
+* **onboarding:** add replayable getting started ([9520091](https://github.com/arcboxlabs/arcbox-desktop/commit/952009175a7bc677f1eebe50a90c677a865d9617))
+* **onboarding:** show core workloads ([095bf9f](https://github.com/arcboxlabs/arcbox-desktop/commit/095bf9f1982221c61353ba5a1eedfa6f3d18abbe))
+
+
+### Bug Fixes
+
+* **app:** isolate graceful quit UI ([63f8b0c](https://github.com/arcboxlabs/arcbox-desktop/commit/63f8b0cd82fb2daffb55a5ed7478eb82d5a16d88))
+* **ui:** align sidebar geometry ([7c74d7d](https://github.com/arcboxlabs/arcbox-desktop/commit/7c74d7dfbc2ffd85bb21ddcac6475061f6b36edd))
+* **ui:** animate liquid glass detail tabs ([ac730e8](https://github.com/arcboxlabs/arcbox-desktop/commit/ac730e8393911af061e10712db9192b139e46b23))
+* **ui:** complete hybrid migration usability pass ([f50dc89](https://github.com/arcboxlabs/arcbox-desktop/commit/f50dc891388faeb174f4b37b6c115603b6a3236c))
+* **ui:** restore main window fidelity ([0594260](https://github.com/arcboxlabs/arcbox-desktop/commit/0594260daecd84ff748b528e8b2d6daedb1559d5))
+* **ui:** restore native glass navigation ([74d767f](https://github.com/arcboxlabs/arcbox-desktop/commit/74d767f7b6678e430819ced669e7982bbb19043b))
+* **ui:** restore resource list fidelity ([9f4a194](https://github.com/arcboxlabs/arcbox-desktop/commit/9f4a19402aea6484a53077ab2f62e746de8844f9))
+* **ui:** restore tab glass and window sizing ([ead50b0](https://github.com/arcboxlabs/arcbox-desktop/commit/ead50b0e7a4337224e98490d997678b29807d3f2))
+* **ui:** restore toolbar separator ([9a3588c](https://github.com/arcboxlabs/arcbox-desktop/commit/9a3588cc5d0c41f4262ea4c77961b565a770702e))
+
+
+### Refactoring
+
+* **app:** introduce AppKit lifecycle shell ([dc1094f](https://github.com/arcboxlabs/arcbox-desktop/commit/dc1094f5f30173ef0e184efc744c68e4d1c11b5a))
+* **app:** migrate main sidebar and list states ([1eb9054](https://github.com/arcboxlabs/arcbox-desktop/commit/1eb905445b21dfd88ed8eaaab8b02041fa389de3))
+* **containers:** migrate list to AppKit ([720cc6c](https://github.com/arcboxlabs/arcbox-desktop/commit/720cc6c643353679057ea149d3da3ce0c0346b14))
+* **images:** migrate list to AppKit ([be5b6b1](https://github.com/arcboxlabs/arcbox-desktop/commit/be5b6b1dba8fd6af89085c8b6b67bf266ff9de2b))
+* **kubernetes:** migrate resource lists to AppKit ([39d1100](https://github.com/arcboxlabs/arcbox-desktop/commit/39d11000e14bd55386733355b107f938c99d6025))
+* **machines:** migrate list to AppKit ([fd44a4d](https://github.com/arcboxlabs/arcbox-desktop/commit/fd44a4d94e837f7f15646eeaef7d24d6474e02b4))
+* **networks:** migrate detail to AppKit ([6dc7b69](https://github.com/arcboxlabs/arcbox-desktop/commit/6dc7b69f80683fb48ba5104b6edd6d1c2b1dab52))
+* **networks:** migrate list to AppKit ([16588d8](https://github.com/arcboxlabs/arcbox-desktop/commit/16588d8c293f25e92a88142b1ca505cc5765b20a))
+* **templates:** remove unreachable SwiftUI ([570f000](https://github.com/arcboxlabs/arcbox-desktop/commit/570f000fb9a1fe5b6acaed3e2ae484a208cf50bf))
+* **ui:** remove unreachable SwiftUI ([919b548](https://github.com/arcboxlabs/arcbox-desktop/commit/919b548bd306e797faa6b6cb6c1eb33aa6592cd0))
+* **volumes:** migrate list to AppKit ([f706194](https://github.com/arcboxlabs/arcbox-desktop/commit/f7061949625a004125fb2afc0d54d986b51d4e91))
+
 ## [1.32.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.32.0...v1.32.1) (2026-08-01)
 
 
