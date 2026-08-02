@@ -33,6 +33,7 @@ const DOCKER_TOOLS: [&str; 4] = [
     "docker-compose",
     "docker-credential-osxkeychain",
 ];
+const BUNDLED_BOOT_ASSETS: [&str; 3] = ["manifest.json", "kernel", "rootfs.erofs"];
 
 const HOST_ARCH: &str = "arm64";
 
@@ -537,10 +538,15 @@ fn embed_boot_assets(app_bundle: &Path, arcbox_dir: &Path, profile: BundleProfil
     let resources = app_bundle.join("Contents").join("Resources");
     std::fs::copy(&lock_file, resources.join("assets.lock")).context("copying assets.lock")?;
 
-    let boot_dest = resources.join("assets").join(&boot_version);
+    let assets_dest = resources.join("assets");
+    if assets_dest.exists() {
+        std::fs::remove_dir_all(&assets_dest)
+            .with_context(|| format!("removing {}", assets_dest.display()))?;
+    }
+    let boot_dest = assets_dest.join(&boot_version);
     std::fs::create_dir_all(&boot_dest)
         .with_context(|| format!("creating {}", boot_dest.display()))?;
-    for name in boot_asset_files(&boot_cache.join("manifest.json"))? {
+    for name in BUNDLED_BOOT_ASSETS {
         std::fs::copy(boot_cache.join(name), boot_dest.join(name))
             .with_context(|| format!("copying boot asset {name}"))?;
     }
@@ -1298,11 +1304,14 @@ fn verify_runnable_bundle(app_bundle: &Path, profile: BundleProfile) -> Result<(
 
     let boot_version = read_boot_version(&resources.join("assets.lock"))?;
     let boot_dir = resources.join("assets").join(boot_version);
-    require_files(
-        boot_asset_files(&boot_dir.join("manifest.json"))?
-            .into_iter()
-            .map(|name| boot_dir.join(name)),
-    )?;
+    require_files(BUNDLED_BOOT_ASSETS.map(|name| boot_dir.join(name)))?;
+    let runtime_image = boot_dir.join("runtime.erofs");
+    if runtime_image.exists() {
+        bail!(
+            "runnable app must not bundle the runtime image: {}",
+            runtime_image.display()
+        );
+    }
 
     let manifest: serde_json::Value =
         serde_json::from_reader(std::fs::File::open(boot_dir.join("manifest.json"))?)

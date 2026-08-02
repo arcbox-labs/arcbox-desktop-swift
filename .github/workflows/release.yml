@@ -444,6 +444,11 @@ jobs:
 
           MANIFEST=$(find "$APP/Contents/Resources/assets" -name manifest.json -print -quit)
           test -n "$MANIFEST"
+          RUNTIME_EROFS=$(find "$APP/Contents/Resources/assets" -name runtime.erofs -print -quit)
+          if [ -n "$RUNTIME_EROFS" ]; then
+            echo "::error::Release app must not contain runtime.erofs: $RUNTIME_EROFS"
+            exit 1
+          fi
           python3 - "$MANIFEST" "$APP/Contents/Resources/runtime" <<'PY'
           import hashlib
           import json
