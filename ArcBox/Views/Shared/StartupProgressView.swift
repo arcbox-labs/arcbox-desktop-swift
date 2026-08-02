@@ -7,6 +7,7 @@ import SwiftUI
 /// After startup completes, DaemonLoadingView handles daemon disconnect/stop.
 struct StartupProgressView: View {
     let orchestrator: StartupOrchestrator
+    var allowingAdministratorPrompt = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -30,7 +31,11 @@ struct StartupProgressView: View {
                             .multilineTextAlignment(.center)
 
                         Button("Retry") {
-                            Task { await orchestrator.retry() }
+                            Task {
+                                await orchestrator.retry(
+                                    allowingAdministratorPrompt: allowingAdministratorPrompt
+                                )
+                            }
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)

@@ -78,6 +78,7 @@
 		47F7DA566708A3959A5AEB8D /* SystemVmBackendModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BC46E06601AA9D330AF049 /* SystemVmBackendModel.swift */; };
 		48014023336A8AD5D1B21A27 /* ContainerLogsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB364896F740E811FBE1B04D /* ContainerLogsTab.swift */; };
 		4B14BB17843A552B8D1B51BA /* ExternalTerminalDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77BE672A52785F040AC6CEB2 /* ExternalTerminalDiscovery.swift */; };
+		4C3BC465BFE58BF0D59AFE78 /* OnboardingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 915561BEEE49F5E27F4B0D40 /* OnboardingWindowController.swift */; };
 		4D2029E55A7979B8BD9EE89A /* ContainersViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E610512C9106BB92A47DC044 /* ContainersViewModelTests.swift */; };
 		4D2FB362066EF19A8C5983F1 /* DockerClient in Frameworks */ = {isa = PBXBuildFile; productRef = 984278376FF4860E6FADC66F /* DockerClient */; };
 		50CCDEFCA186BCD1E99D291F /* ChangelogParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBEBBF08F0E4AC45D9C0BB83 /* ChangelogParser.swift */; };
@@ -175,6 +176,7 @@
 		A75C60F77B89D7AEE365BC2E /* VolumeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDF2337ED21F8382F7ABB29A /* VolumeModel.swift */; };
 		A7E66915A83CDD9FF95EF09F /* MachineEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81FCCED6F39D73E946107243 /* MachineEmptyStateView.swift */; };
 		A8374C7CC46723B1764B2F43 /* KeychainTokenStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18DFEA7126F89956523019B4 /* KeychainTokenStoreTests.swift */; };
+		A9BC7D2040EC032EBBC709E4 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 747AB46D7603C23FB9112444 /* OnboardingView.swift */; };
 		A9E1DA5DBCAC015D9C41FF18 /* SandboxesViewModel+Snapshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F2D773B0312F0D5695D0ADA /* SandboxesViewModel+Snapshots.swift */; };
 		AA8A34E11EF00EBFB5AC1090 /* MachinesViewModel+GRPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB1B1CD1D5E0E961CD17118 /* MachinesViewModel+GRPC.swift */; };
 		AAC2BE593C229A83757CCD23 /* LiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3572105F94A4F2399F9446D4 /* LiquidGlass.swift */; };
@@ -222,6 +224,7 @@
 		D786BBF78698824ED9F5E048 /* ComingSoonPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE64C34A555B2A5BA02AD9FA /* ComingSoonPanel.swift */; };
 		DA5B57293BC69B7D95AABBA8 /* ActivityRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0201CD86DCD5E042D07FF66F /* ActivityRow.swift */; };
 		DB19F0073D84ED7A7C937D49 /* ContainersListViewControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80010452354615CAC08FAF1D /* ContainersListViewControllerTests.swift */; };
+		DB5CE5663EE824474F0739FF /* OnboardingWindowControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A517313E1085B62A40075622 /* OnboardingWindowControllerTests.swift */; };
 		DC9E1747A0F6F6574688BBD0 /* arcbox.version in Resources */ = {isa = PBXBuildFile; fileRef = AC70A79B919D909CF6D811B4 /* arcbox.version */; };
 		DDF9F74BA0638A51322686DE /* PodsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF5B0B3EC77FB12D8B4EA6A /* PodsViewModel.swift */; };
 		E0C997A42E6F8D8B4D9C26FF /* ImagesListViewControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35969670AC4F826B4A3BB567 /* ImagesListViewControllerTests.swift */; };
@@ -376,6 +379,7 @@
 		7058C8975F3F2684714E24E2 /* SleepWakeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepWakeManager.swift; sourceTree = "<group>"; };
 		71DF8E5C8AADE1AD5C60F457 /* OIDCClientConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OIDCClientConfigurationTests.swift; sourceTree = "<group>"; };
 		738233A82C7BAA825F73EE2F /* GuestExportFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestExportFixture.swift; sourceTree = "<group>"; };
+		747AB46D7603C23FB9112444 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		7607A876F6C88A440DA53BE1 /* SidebarAccountButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarAccountButton.swift; sourceTree = "<group>"; };
 		769B6260DD087F5B16E7407D /* MachinesListViewControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesListViewControllerTests.swift; sourceTree = "<group>"; };
 		77BE672A52785F040AC6CEB2 /* ExternalTerminalDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalTerminalDiscovery.swift; sourceTree = "<group>"; };
@@ -408,6 +412,7 @@
 		8ECCF18CC36CC3579EE2B5B9 /* MachinesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesView.swift; sourceTree = "<group>"; };
 		903FA72CEF39142ADA5CA378 /* NewVolumeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewVolumeSheet.swift; sourceTree = "<group>"; };
 		9101DCB26B0BB5B8DE4CAE70 /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
+		915561BEEE49F5E27F4B0D40 /* OnboardingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindowController.swift; sourceTree = "<group>"; };
 		920C9CA81449FA23CEC17EF6 /* SandboxFilesTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxFilesTab.swift; sourceTree = "<group>"; };
 		9234FC5BCCDDCBF441A94880 /* UpdaterDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterDelegate.swift; sourceTree = "<group>"; };
 		93968609F8E058EAC838DD18 /* UpdaterSettingsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterSettingsModel.swift; sourceTree = "<group>"; };
@@ -425,6 +430,7 @@
 		A2B92BFA23F4133B8488DDD8 /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
 		A37BB3605830EBE3A1625452 /* PodModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodModel.swift; sourceTree = "<group>"; };
 		A45A5AAA9B74A59E7543D8D0 /* LocalRootFSOutlineCoordinator+Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocalRootFSOutlineCoordinator+Actions.swift"; sourceTree = "<group>"; };
+		A517313E1085B62A40075622 /* OnboardingWindowControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindowControllerTests.swift; sourceTree = "<group>"; };
 		A70BE1C3890C5F6A96C6BCBD /* ContainersViewModel+GRPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ContainersViewModel+GRPC.swift"; sourceTree = "<group>"; };
 		A764F03F9EA5C3149B777338 /* SandboxesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxesViewModel.swift; sourceTree = "<group>"; };
 		A80B0A0F4FC2E7ECA0B844DD /* ContainerFilesTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerFilesTab.swift; sourceTree = "<group>"; };
@@ -714,6 +720,7 @@
 				1C649765AA76CFCBFC3302DA /* DeepLinkRouter.swift */,
 				794F192F207790B1A137A816 /* EnvironmentValues+Clients.swift */,
 				C396CA9355FFB5ACB7DD1D32 /* MainWindowController.swift */,
+				915561BEEE49F5E27F4B0D40 /* OnboardingWindowController.swift */,
 				D6F75C788ADEDBC9B1F007E3 /* QuitWindowController.swift */,
 				DB9FDA2F6F3036772AC0B23C /* SettingsWindowController.swift */,
 				E217254D0827A011E01C3F05 /* StatusItemController.swift */,
@@ -759,6 +766,7 @@
 				9AAA79DD504AA68C0CF27A7E /* Machines */,
 				0519B44E047B9175695BEB9D /* MenuBar */,
 				1B2068276E193C5409B45A9A /* Networks */,
+				7D67538045DC5ABA446A6F68 /* Onboarding */,
 				EAC6176638594B6D1458C90D /* Sandboxes */,
 				36146B8720F5A0DE35FA0026 /* Settings */,
 				1953A7C4A7DE99DBA4B29185 /* Shared */,
@@ -857,6 +865,14 @@
 				2D053B8542825698996A16FE /* ArcBoxTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		7D67538045DC5ABA446A6F68 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				747AB46D7603C23FB9112444 /* OnboardingView.swift */,
+			);
+			path = Onboarding;
 			sourceTree = "<group>";
 		};
 		7D89C26DD9B6BEB015B28923 /* Images */ = {
@@ -1130,6 +1146,7 @@
 				2110402B2013A53E306B4E43 /* MainWindowControllerTests.swift */,
 				0FA3C6B6F10198DFC435A33E /* NetworkDetailViewControllerTests.swift */,
 				FA27F4AC273B14038EDB6593 /* NetworksListViewControllerTests.swift */,
+				A517313E1085B62A40075622 /* OnboardingWindowControllerTests.swift */,
 				B084B3E5BD66E2DA018764E8 /* QuitWindowControllerTests.swift */,
 				B4BAE047B96D10B4716BA1A2 /* VolumesListViewControllerTests.swift */,
 			);
@@ -1440,6 +1457,8 @@
 				72CCF0BC7FEAEB988595757C /* NewNetworkSheet.swift in Sources */,
 				B29A0911581DF9A70350B726 /* NewSandboxSheet.swift in Sources */,
 				D745D0D7EF5FF65174C47F28 /* NewVolumeSheet.swift in Sources */,
+				A9BC7D2040EC032EBBC709E4 /* OnboardingView.swift in Sources */,
+				4C3BC465BFE58BF0D59AFE78 /* OnboardingWindowController.swift in Sources */,
 				97B9638AA9C685C6DB2780B4 /* PerformanceTracing.swift in Sources */,
 				B8F04FD5D42B1934B13D9D3A /* PodDetailView.swift in Sources */,
 				73E1E5FC3E40AD0760A21AC0 /* PodModel.swift in Sources */,
@@ -1548,6 +1567,7 @@
 				F6386D2A578AD21E751CFC57 /* OIDCAuthorizationURLBuilderTests.swift in Sources */,
 				D6C6DEA33D73FF969786C018 /* OIDCClientConfigurationTests.swift in Sources */,
 				B6AB384B22968963098E96F3 /* OIDCClientTests.swift in Sources */,
+				DB5CE5663EE824474F0739FF /* OnboardingWindowControllerTests.swift in Sources */,
 				98E7A55FC92F874A28D762FD /* PKCETests.swift in Sources */,
 				D4ECBBCAC3D4631041F292D5 /* QuitWindowControllerTests.swift in Sources */,
 				1CB8AE8C16D0C333B7C0B32F /* ResourceStatsTests.swift in Sources */,

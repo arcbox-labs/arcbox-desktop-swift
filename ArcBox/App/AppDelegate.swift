@@ -58,6 +58,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         if menuItem.action == #selector(checkForUpdates(_:)) {
             return coordinator?.canCheckForUpdates == true
         }
+        if menuItem.action == #selector(showSettings(_:)) {
+            return coordinator?.canUseMainInterface == true
+        }
         return true
     }
 

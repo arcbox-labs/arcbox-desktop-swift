@@ -44,8 +44,9 @@ certificate because macOS rejects the daemon's virtualization entitlements under
 The script creates an isolated `.build/arcbox-<version>` worktree so every runtime binary matches
 [`arcbox.version`](../arcbox.version), without changing the neighboring ArcBox checkout. It rejects
 the wrong commit and any tracked or untracked, non-ignored source changes in that worktree.
-Use `./script/build_and_run.sh --verify` to also wait for the development LaunchAgent, socket, and
-bundled `abctl` connection.
+Use `./script/build_and_run.sh --verify` to skip onboarding for that launch and wait for the
+development LaunchAgent, socket, and bundled `abctl` connection. The launch override does not
+change the stored onboarding preference.
 
 To get the same behavior from Xcode's Run button, enable the full-debug settings documented at the
 bottom of `Local.xcconfig.example`. Codex exposes the same script as its project Run action.

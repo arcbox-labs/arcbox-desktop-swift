@@ -33,6 +33,7 @@ final class ApplicationCoordinator: NSObject {
     private(set) var startupOrchestrator: StartupOrchestrator?
 
     private var mainWindowController: MainWindowController?
+    private var onboardingWindowController: OnboardingWindowController?
     private var settingsWindowController: SettingsWindowController?
     private var statusItemController: StatusItemController?
     private var quitWindowController: QuitWindowController?
@@ -45,10 +46,14 @@ final class ApplicationCoordinator: NSObject {
     private var lastValidNavigation: NavItem = .containers
     private var lastShowInMenuBar: Bool
     private var lastUpdateChannel: String
+    private var isOnboarding: Bool
+    private var shouldOpenSandboxesAfterOnboarding: Bool
+    private var deepLinksConfigured = false
     private var started = false
     private(set) var isTerminating = false
 
     override init() {
+        let hasCompletedOnboarding = AppPreferences.hasCompletedOnboarding()
         updaterController = SPUStandardUpdaterController(
             startingUpdater: true,
             updaterDelegate: updaterDelegate,
@@ -57,11 +62,17 @@ final class ApplicationCoordinator: NSObject {
         updaterSettings = UpdaterSettingsModel(updater: updaterController.updater)
         lastShowInMenuBar = UserDefaults.standard.bool(forKey: "showInMenuBar")
         lastUpdateChannel = UserDefaults.standard.string(forKey: "updateChannel") ?? "stable"
+        isOnboarding = !hasCompletedOnboarding
+        shouldOpenSandboxesAfterOnboarding = !hasCompletedOnboarding
         super.init()
     }
 
     var canCheckForUpdates: Bool {
         updaterController.updater.canCheckForUpdates
+    }
+
+    var canUseMainInterface: Bool {
+        !isTerminating && !isOnboarding
     }
 
     func start() {
@@ -73,10 +84,13 @@ final class ApplicationCoordinator: NSObject {
             onClientsNeeded: { [unowned self] in try initClientsAndReturn() }
         )
         startupOrchestrator = orchestrator
+        observeStartupPhase()
 
         installWindows()
         observeNavigation()
-        configureDeepLinks()
+        if !isOnboarding {
+            configureDeepLinks()
+        }
         observeDaemonState()
         _ = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
@@ -92,11 +106,8 @@ final class ApplicationCoordinator: NSObject {
             await self?.authSession.loadUserInfo()
         }
 
-        startupTask = Task { [weak self] in
-            guard let self else { return }
-            let startedAt = CFAbsoluteTimeGetCurrent()
-            await orchestrator.start()
-            captureStartupResult(orchestrator, startedAt: startedAt)
+        if !isOnboarding {
+            startRuntimeIfNeeded()
         }
     }
 
@@ -107,6 +118,10 @@ final class ApplicationCoordinator: NSObject {
 
     func showMainWindow() {
         guard !isTerminating else { return }
+        guard !isOnboarding else {
+            showOnboarding()
+            return
+        }
         activate()
         mainWindowController?.window?.deminiaturize(nil)
         mainWindowController?.showWindow(nil)
@@ -115,6 +130,10 @@ final class ApplicationCoordinator: NSObject {
 
     func showSettings(tab: SettingsTab? = nil) {
         guard !isTerminating else { return }
+        guard !isOnboarding else {
+            showOnboarding()
+            return
+        }
         if let tab {
             appVM.settingsTab = tab
         }
@@ -196,10 +215,12 @@ final class ApplicationCoordinator: NSObject {
         mainWindowController = MainWindowController(contentViewController: mainHost)
         settingsWindowController = SettingsWindowController(contentViewController: settingsHost)
         statusItemController = StatusItemController(contentViewController: menuBarHost)
-        statusItemController?.setVisible(lastShowInMenuBar)
+        statusItemController?.setVisible(!isOnboarding && lastShowInMenuBar)
     }
 
     private func configureDeepLinks() {
+        guard !deepLinksConfigured else { return }
+        deepLinksConfigured = true
         deepLinkRouter.configure(
             .init(
                 appVM: appVM,
@@ -214,6 +235,93 @@ final class ApplicationCoordinator: NSObject {
                     Task { await self?.authSession.handleAuthorizationCallback(url) }
                 }
             ))
+    }
+
+    private func startRuntimeIfNeeded(allowingAdministratorPrompt: Bool = false) {
+        guard !isTerminating, startupTask == nil, let orchestrator = startupOrchestrator else {
+            return
+        }
+
+        startupTask = Task { [weak self] in
+            guard let self else { return }
+            let startedAt = CFAbsoluteTimeGetCurrent()
+            await orchestrator.start(
+                allowingAdministratorPrompt: allowingAdministratorPrompt
+            )
+            captureStartupResult(orchestrator, startedAt: startedAt)
+            startupTask = nil
+        }
+    }
+
+    private func showOnboarding(startingAt initialStep: OnboardingStep? = nil) {
+        guard !isTerminating, let orchestrator = startupOrchestrator else { return }
+
+        isOnboarding = true
+        mainWindowController?.window?.orderOut(nil)
+        settingsWindowController?.window?.orderOut(nil)
+        statusItemController?.setVisible(false)
+
+        if onboardingWindowController == nil {
+            let host = NSHostingController(
+                rootView: OnboardingView(
+                    orchestrator: orchestrator,
+                    initialStep: initialStep ?? .welcome,
+                    onStart: { [weak self] in
+                        self?.startRuntimeIfNeeded(allowingAdministratorPrompt: true)
+                    },
+                    onComplete: { [weak self] in
+                        self?.completeOnboarding()
+                    },
+                    onQuit: { [weak self] in
+                        self?.requestQuit()
+                    }
+                ))
+            onboardingWindowController = OnboardingWindowController(
+                contentViewController: host,
+                onClose: { [weak self] in
+                    self?.requestQuit()
+                }
+            )
+        }
+
+        activate()
+        onboardingWindowController?.show()
+    }
+
+    private func completeOnboarding() {
+        guard !isTerminating, startupOrchestrator?.isReady == true else { return }
+
+        AppPreferences.markOnboardingCompleted()
+        isOnboarding = false
+        onboardingWindowController?.window?.orderOut(nil)
+        onboardingWindowController = nil
+
+        if shouldOpenSandboxesAfterOnboarding {
+            appVM.navigate(to: .sandboxes)
+            shouldOpenSandboxesAfterOnboarding = false
+        }
+
+        statusItemController?.setVisible(lastShowInMenuBar)
+        showMainWindow()
+        configureDeepLinks()
+    }
+
+    private func observeStartupPhase() {
+        guard let orchestrator = startupOrchestrator else { return }
+        withObservationTracking {
+            _ = orchestrator.phase
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.startupPhaseDidChange()
+            }
+        }
+    }
+
+    private func startupPhaseDidChange() {
+        guard !isTerminating else { return }
+        observeStartupPhase()
+        guard startupOrchestrator?.phase == .requiresAdministratorApproval else { return }
+        showOnboarding(startingAt: .permission)
     }
 
     private func observeDaemonState() {
@@ -420,7 +528,7 @@ final class ApplicationCoordinator: NSObject {
         let showInMenuBar = defaults.bool(forKey: "showInMenuBar")
         if showInMenuBar != lastShowInMenuBar {
             lastShowInMenuBar = showInMenuBar
-            statusItemController?.setVisible(showInMenuBar)
+            statusItemController?.setVisible(!isOnboarding && showInMenuBar)
         }
 
         let updateChannel = defaults.string(forKey: "updateChannel") ?? "stable"

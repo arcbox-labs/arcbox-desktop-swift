@@ -5,7 +5,7 @@ extension DaemonManager {
     // MARK: - Helper Lifecycle
 
     /// Installs the privileged helper via `abctl _install` with a macOS
-    /// admin password prompt.
+    /// admin password prompt when the caller has explicitly allowed it.
     ///
     /// SMAppService.daemon() is unreliable — macOS registers the daemon
     /// as disabled without notifying the user, and System Settings provides
@@ -16,19 +16,21 @@ extension DaemonManager {
     /// Skips the password prompt when the installed helper's **own crate
     /// version** is already ≥ the bundled one. That version is independent of
     /// the arcbox workspace version, so ordinary runtime bumps do not force an
-    /// admin reinstall. Always refreshes user-space shell integration
-    /// (`~/.arcbox/bin` Docker CLI links + PATH) so terminals keep working even
-    /// when the privileged helper path is deferred or fails.
+    /// admin reinstall. Refreshes user-space shell integration
+    /// (`~/.arcbox/bin` Docker CLI links + PATH) only after the helper is known
+    /// to be sufficient.
     ///
     /// - Throws: when the helper is missing/outdated and the privileged install
     ///   fails or does not leave a matching binary on disk. Callers surface this
     ///   in the startup UI so the user can retry (password cancel used to be
     ///   silent, leaving `/usr/local/bin/docker*` unlinked forever).
+    /// - Parameter allowingAdministratorPrompt: `true` only after the user has
+    ///   explicitly chosen to continue to the macOS administrator prompt.
     ///
     /// Installed helper binary path (must match arcbox-constants privileged::HELPER_BINARY).
     nonisolated static let installedHelperPath = "/usr/local/libexec/arcbox-helper"
 
-    public func installHelper() async throws {
+    public func installHelper(allowingAdministratorPrompt: Bool = false) async throws {
         // Find abctl and helper in the app bundle.
         let bundle = Bundle.main.bundleURL
         let abctl = bundle.appendingPathComponent("Contents/MacOS/bin/abctl").path
@@ -65,6 +67,11 @@ extension DaemonManager {
             return
         }
 
+        guard allowingAdministratorPrompt else {
+            helperInstalled = false
+            throw HelperInstallError.approvalRequired
+        }
+
         ClientLog.daemon.info(
             """
             Installing helper via abctl _install \
@@ -76,10 +83,6 @@ extension DaemonManager {
         let installError = try await runPrivilegedHelperInstall(abctl: abctl, helper: helper)
         if let installError {
             helperInstalled = false
-            // Still refresh user-space PATH/CLI links — these do not need root
-            // and keep `docker` available via ~/.arcbox/bin when the user has
-            // shell integration sourced.
-            await installShellIntegration(abctl: abctl)
             throw installError
         }
 
@@ -97,7 +100,6 @@ extension DaemonManager {
         }
 
         helperInstalled = false
-        await installShellIntegration(abctl: abctl)
         throw HelperInstallError.versionMismatch(
             installed: postInstallVersion,
             expected: bundledVersion
@@ -277,6 +279,7 @@ func appleScriptStringLiteral(_ value: String) -> String {
 /// Failures while installing or verifying the privileged helper.
 public enum HelperInstallError: LocalizedError, Sendable, Equatable {
     case bundledBinaryMissing(String)
+    case approvalRequired
     case appleScriptUnavailable
     case userCanceled
     case installFailed(String)
@@ -286,6 +289,8 @@ public enum HelperInstallError: LocalizedError, Sendable, Equatable {
         switch self {
         case .bundledBinaryMissing(let name):
             return "Bundled \(name) is missing from the app. Reinstall ArcBox."
+        case .approvalRequired:
+            return "Administrator approval is required to install or update the helper service."
         case .appleScriptUnavailable:
             return "Could not start the administrator prompt to install the helper service."
         case .userCanceled:

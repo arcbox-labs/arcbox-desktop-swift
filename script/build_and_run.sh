@@ -64,7 +64,7 @@ case "$mode" in
     /usr/bin/log stream --info --style compact --predicate 'subsystem == "com.arcboxlabs.desktop"'
     ;;
   --verify | verify)
-    open_app
+    /usr/bin/open -n "$app_bundle" --args -hasCompletedOnboarding YES
     for _ in {1..30}; do
       if /usr/bin/pgrep -f "$app_binary" >/dev/null \
         && /bin/launchctl print "gui/$(/usr/bin/id -u)/$daemon_label" >/dev/null 2>&1 \

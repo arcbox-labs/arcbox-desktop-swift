@@ -86,8 +86,11 @@ public final class StartupOrchestrator {
     ///
     /// Safe to call multiple times — resets state on each invocation.
     /// Guarded against concurrent execution.
+    ///
+    /// - Parameter allowingAdministratorPrompt: `true` only after the user has
+    ///   explicitly chosen to continue to the macOS administrator prompt.
     @available(macOS 15.0, *)
-    public func start() async {
+    public func start(allowingAdministratorPrompt: Bool = false) async {
         guard !isTerminating else { return }
         if let startupTask {
             await startupTask.value
@@ -95,7 +98,7 @@ public final class StartupOrchestrator {
         }
 
         let task = Task {
-            await runStartup()
+            await runStartup(allowingAdministratorPrompt: allowingAdministratorPrompt)
             startupTask = nil
         }
         startupTask = task
@@ -113,7 +116,7 @@ public final class StartupOrchestrator {
         await startupTask?.value
     }
 
-    private func runStartup() async {
+    private func runStartup(allowingAdministratorPrompt: Bool) async {
         guard !isCancellationRequested else { return }
 
         for step in StartupStep.allCases {
@@ -125,7 +128,9 @@ public final class StartupOrchestrator {
         // docker.sock convenience link. Failures used to be swallowed, leaving
         // an ancient helper on disk and no CLI tools on PATH.
         let helperOK = await runStep(.installHelper) {
-            try await self.daemonManager.installHelper()
+            try await self.daemonManager.installHelper(
+                allowingAdministratorPrompt: allowingAdministratorPrompt
+            )
         }
 
         guard !isCancellationRequested else { return }
@@ -239,9 +244,12 @@ public final class StartupOrchestrator {
     }
 
     /// Retry the startup sequence after a failure.
+    ///
+    /// - Parameter allowingAdministratorPrompt: `true` only when the retry is
+    ///   itself an explicit administrator-approval action.
     @available(macOS 15.0, *)
-    public func retry() async {
-        await start()
+    public func retry(allowingAdministratorPrompt: Bool = false) async {
+        await start(allowingAdministratorPrompt: allowingAdministratorPrompt)
     }
 
     /// Human-readable cause of a daemon `FAILED` setup phase, for the retryable
@@ -289,6 +297,10 @@ public final class StartupOrchestrator {
                 "\(step.label, privacy: .public) completed in \(elapsedMs, privacy: .public)ms")
             stepStatuses[step] = .completed
             return true
+        } catch HelperInstallError.approvalRequired {
+            stepStatuses[step] = .pending
+            phase = .requiresAdministratorApproval
+            return false
         } catch {
             if isCancellationRequested || error is CancellationError {
                 ClientLog.startup.info("\(step.label, privacy: .public) canceled")
