@@ -174,8 +174,11 @@ fn build_swift_app(
     // Packaging re-embeds host/guest binaries after the Swift build. Skipping
     // the Xcode embed phase avoids a second copy/sign pass (and any residual
     // cargo work) during CI release builds.
+    cmd.arg(format!(
+        "SKIP_RUST_BUILD={}",
+        if skip_xcode_embed { "1" } else { "0" }
+    ));
     if skip_xcode_embed {
-        cmd.env("SKIP_RUST_BUILD", "1");
         println!("  SKIP_RUST_BUILD=1 (packaging will embed binaries)");
     }
 
