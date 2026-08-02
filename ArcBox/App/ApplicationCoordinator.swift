@@ -48,7 +48,6 @@ final class ApplicationCoordinator: NSObject {
     private var lastShowInMenuBar: Bool
     private var lastUpdateChannel: String
     private var isOnboarding: Bool
-    private var shouldOpenSandboxesAfterOnboarding: Bool
     private var deepLinksConfigured = false
     private var started = false
     private(set) var isTerminating = false
@@ -64,7 +63,6 @@ final class ApplicationCoordinator: NSObject {
         lastShowInMenuBar = UserDefaults.standard.bool(forKey: "showInMenuBar")
         lastUpdateChannel = UserDefaults.standard.string(forKey: "updateChannel") ?? "stable"
         isOnboarding = !hasCompletedOnboarding
-        shouldOpenSandboxesAfterOnboarding = !hasCompletedOnboarding
         super.init()
     }
 
@@ -325,11 +323,6 @@ final class ApplicationCoordinator: NSObject {
         isOnboarding = false
         onboardingWindowController?.window?.orderOut(nil)
         onboardingWindowController = nil
-
-        if shouldOpenSandboxesAfterOnboarding {
-            appVM.navigate(to: .sandboxes)
-            shouldOpenSandboxesAfterOnboarding = false
-        }
 
         statusItemController?.setVisible(lastShowInMenuBar)
         showMainWindow()

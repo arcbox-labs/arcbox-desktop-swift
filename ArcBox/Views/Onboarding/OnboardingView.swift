@@ -85,60 +85,63 @@ struct OnboardingView: View {
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
-                .frame(width: 88, height: 88)
+                .frame(width: 72, height: 72)
                 .accessibilityHidden(true)
 
             VStack(spacing: 6) {
                 Text("Welcome to ArcBox")
                     .font(.system(size: 28, weight: .semibold))
 
-                Text("Disposable Linux environments, ready in seconds.")
-                    .font(.system(size: 15))
-                    .foregroundStyle(AppColors.textSecondary)
+                Text(
+                    "Containers, Kubernetes, Linux VMs, and sandboxes — together on your Mac."
+                )
+                .font(.system(size: 15))
+                .foregroundStyle(AppColors.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
             }
 
-            sandboxCard
+            capabilitiesPanel
                 .padding(.top, 4)
         }
         .frame(maxWidth: 536)
         .accessibilityElement(children: .contain)
     }
 
-    private var sandboxCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 16) {
-                Image(systemName: "server.rack")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 56, height: 56)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(AppColors.iconBackground)
-                    )
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Sandboxes")
-                        .font(.system(size: 18, weight: .semibold))
-                    Text(
-                        "Create isolated environments, then inspect and control them without leaving ArcBox."
-                    )
-                    .font(.system(size: 13))
-                    .foregroundStyle(AppColors.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                }
+    private var capabilitiesPanel: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                capabilityCell(
+                    "Containers",
+                    symbol: NavItem.containers.sfSymbol,
+                    detail: "Run Docker and Compose workloads."
+                )
+                Divider()
+                capabilityCell(
+                    "Kubernetes",
+                    symbol: NavItem.pods.sfSymbol,
+                    detail: "Manage local pods and services."
+                )
             }
 
-            HStack(spacing: 18) {
-                featureLabel("Terminal", symbol: "terminal")
-                featureLabel("Files", symbol: "folder")
-                featureLabel("Ports", symbol: "network")
-                featureLabel("Snapshots", symbol: "clock.arrow.circlepath")
-                featureLabel("Events", symbol: "list.bullet.rectangle")
+            Divider()
+
+            HStack(spacing: 0) {
+                capabilityCell(
+                    "Linux VMs",
+                    symbol: NavItem.machines.sfSymbol,
+                    detail: "Full Linux machines with terminal and files."
+                )
+                Divider()
+                capabilityCell(
+                    "Sandboxes",
+                    symbol: NavItem.sandboxes.sfSymbol,
+                    detail: "Disposable microVMs with ports and snapshots."
+                )
             }
         }
-        .padding(20)
         .background(cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(cardBorder)
     }
 
@@ -217,7 +220,7 @@ struct OnboardingView: View {
                 Text("ArcBox is ready")
                     .font(.system(size: 24, weight: .semibold))
 
-                Text("Your Sandboxes and system integrations are ready to use.")
+                Text("ArcBox and its local runtime are ready to use.")
                     .font(.system(size: 14))
                     .foregroundStyle(AppColors.textSecondary)
             }
@@ -308,10 +311,30 @@ struct OnboardingView: View {
         )
     }
 
-    private func featureLabel(_ title: String, symbol: String) -> some View {
-        Label(title, systemImage: symbol)
-            .font(.system(size: 12))
-            .foregroundStyle(AppColors.textSecondary)
+    private func capabilityCell(_ title: String, symbol: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 36, height: 36)
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(AppColors.iconBackground)
+                )
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                Text(detail)
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 100, alignment: .topLeading)
+        .accessibilityElement(children: .combine)
     }
 
     private func primaryButton(_ title: String, action: @escaping () -> Void) -> some View {
