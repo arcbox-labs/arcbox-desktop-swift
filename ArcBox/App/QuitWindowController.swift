@@ -10,7 +10,8 @@ final class QuitWindowController: NSWindowController {
             contentRect: NSRect(origin: .zero, size: Self.cardSize),
             styleMask: .borderless,
             backing: .buffered,
-            defer: false
+            defer: false,
+            screen: screen
         )
         window.title = "Quitting ArcBox"
         window.contentViewController = NSHostingController(rootView: QuitCardView())
@@ -25,16 +26,7 @@ final class QuitWindowController: NSWindowController {
         window.isExcludedFromWindowsMenu = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.animationBehavior = .none
-        if let screen {
-            let visibleFrame = screen.visibleFrame
-            window.setFrameOrigin(
-                NSPoint(
-                    x: visibleFrame.midX - Self.cardSize.width / 2,
-                    y: visibleFrame.midY - Self.cardSize.height / 2
-                ))
-        } else {
-            window.center()
-        }
+        window.center()
 
         super.init(window: window)
     }
