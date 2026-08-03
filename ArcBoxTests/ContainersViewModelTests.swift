@@ -515,6 +515,19 @@ final class SandboxesLoadStateTests: XCTestCase {
         XCTAssertNil(sandbox.createdAt)
     }
 
+    func testSandboxModelMapsPausedStateAsRemovable() {
+        var summary = Arcbox_Sandbox_V1_SandboxSummary()
+        summary.id = "sandbox-1"
+        summary.state = .paused
+
+        let sandbox = SandboxViewModel(from: summary)
+
+        XCTAssertEqual(sandbox.state, .paused)
+        XCTAssertFalse(sandbox.state.isActive)
+        XCTAssertFalse(sandbox.state.isDataPlaneReady)
+        XCTAssertTrue(sandbox.state.canRemove)
+    }
+
     func testSandboxEventMapsTypedKindAndTimestamp() {
         let timestamp = Date(timeIntervalSince1970: 1_756_700_456.5)
         var event = Arcbox_Sandbox_V1_SandboxEvent()
@@ -527,5 +540,12 @@ final class SandboxesLoadStateTests: XCTestCase {
         XCTAssertEqual(record.sandboxID, "sandbox-1")
         XCTAssertEqual(record.kind, .idle)
         XCTAssertEqual(record.timestamp.timeIntervalSince1970, timestamp.timeIntervalSince1970, accuracy: 0.001)
+    }
+
+    func testSandboxEventMapsResumeLifecycleKind() {
+        var event = Arcbox_Sandbox_V1_SandboxEvent()
+        event.kind = .resumed
+
+        XCTAssertEqual(SandboxEventRecord(from: event).kind, .resumed)
     }
 }

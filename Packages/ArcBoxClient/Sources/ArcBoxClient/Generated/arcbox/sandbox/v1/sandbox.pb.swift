@@ -50,9 +50,11 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
 ///
 ///   STARTING ──► READY ──► RUNNING ──► READY  (execution exited, sandbox alive)
 ///                  │          │
-///                  └──────────┴──► STOPPING ──► STOPPED
-///                                       │
-///                                    FAILED
+///                  ├──────────┴──► STOPPING ──► STOPPED
+///                  │          │
+///                  ├──────────┴──► PAUSING ──► PAUSED ──(Resume)──► STARTING  (same ID)
+///                  │          │
+///                  └──────────┴──► FAILED  (error reason set)
 public enum Arcbox_Sandbox_V1_SandboxState: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case unspecified // = 0
@@ -74,6 +76,13 @@ public enum Arcbox_Sandbox_V1_SandboxState: SwiftProtobuf.Enum, Swift.CaseIterab
 
   /// Unrecoverable error occurred.
   case failed // = 6
+
+  /// Pause in progress: checkpointing state, then releasing the VM.
+  case pausing // = 7
+
+  /// Checkpointed to disk; runtime resources released. The record and
+  /// snapshot survive under the same ID until Resume or Remove.
+  case paused // = 8
   case UNRECOGNIZED(Int)
 
   public init() {
@@ -89,6 +98,8 @@ public enum Arcbox_Sandbox_V1_SandboxState: SwiftProtobuf.Enum, Swift.CaseIterab
     case 4: self = .stopping
     case 5: self = .stopped
     case 6: self = .failed
+    case 7: self = .pausing
+    case 8: self = .paused
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -102,6 +113,8 @@ public enum Arcbox_Sandbox_V1_SandboxState: SwiftProtobuf.Enum, Swift.CaseIterab
     case .stopping: return 4
     case .stopped: return 5
     case .failed: return 6
+    case .pausing: return 7
+    case .paused: return 8
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -115,6 +128,8 @@ public enum Arcbox_Sandbox_V1_SandboxState: SwiftProtobuf.Enum, Swift.CaseIterab
     .stopping,
     .stopped,
     .failed,
+    .pausing,
+    .paused,
   ]
 
 }
@@ -149,6 +164,20 @@ public enum Arcbox_Sandbox_V1_SandboxEventKind: SwiftProtobuf.Enum, Swift.CaseIt
 
   /// Sandbox deleted.
   case removed // = 8
+
+  /// Pause started — whether client-driven (Pause) or automated (idle
+  /// timeout with a PAUSE policy); automation must be visible, so the
+  /// idle detector emits the same events. Attributes carry "reason"
+  /// ("pause" or "idle_timeout").
+  case pausing // = 9
+
+  /// Checkpoint complete; runtime resources released.
+  case paused // = 10
+
+  /// Resume completed — explicit or transparent (a data-plane call to a
+  /// paused sandbox); sandbox READY again under the same ID. Attributes
+  /// carry "reason" ("resume" or "auto_resume").
+  case resumed // = 11
   case UNRECOGNIZED(Int)
 
   public init() {
@@ -166,6 +195,9 @@ public enum Arcbox_Sandbox_V1_SandboxEventKind: SwiftProtobuf.Enum, Swift.CaseIt
     case 6: self = .stopped
     case 7: self = .failed
     case 8: self = .removed
+    case 9: self = .pausing
+    case 10: self = .paused
+    case 11: self = .resumed
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -181,6 +213,9 @@ public enum Arcbox_Sandbox_V1_SandboxEventKind: SwiftProtobuf.Enum, Swift.CaseIt
     case .stopped: return 6
     case .failed: return 7
     case .removed: return 8
+    case .pausing: return 9
+    case .paused: return 10
+    case .resumed: return 11
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -196,6 +231,56 @@ public enum Arcbox_Sandbox_V1_SandboxEventKind: SwiftProtobuf.Enum, Swift.CaseIt
     .stopped,
     .failed,
     .removed,
+    .pausing,
+    .paused,
+    .resumed,
+  ]
+
+}
+
+/// What the daemon does when a sandbox's idle timeout expires.
+public enum Arcbox_Sandbox_V1_IdleAction: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
+
+  /// Daemon default (currently KILL; auto-pause is opt-in).
+  case unspecified // = 0
+
+  /// Destroy the sandbox and release all resources (Remove semantics).
+  case kill // = 1
+
+  /// Pause: checkpoint to disk under the same ID and release the VM.
+  /// Trades RAM for disk — the sandbox reports `storage_bytes` until
+  /// resumed or removed.
+  case pause // = 2
+  case UNRECOGNIZED(Int)
+
+  public init() {
+    self = .unspecified
+  }
+
+  public init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .kill
+    case 2: self = .pause
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  public var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .kill: return 1
+    case .pause: return 2
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  public static let allCases: [Arcbox_Sandbox_V1_IdleAction] = [
+    .unspecified,
+    .kill,
+    .pause,
   ]
 
 }
@@ -390,93 +475,170 @@ public struct Arcbox_Sandbox_V1_KeepAlive: Sendable {
 }
 
 /// Request to create a sandbox.
-public struct Arcbox_Sandbox_V1_CreateSandboxRequest: Sendable {
+public struct Arcbox_Sandbox_V1_CreateSandboxRequest: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
   /// Caller-supplied unique ID for durable retry idempotency.
   /// If empty the daemon generates a fresh UUID for every attempt.
-  public var id: String = String()
+  public var id: String {
+    get {_storage._id}
+    set {_uniqueStorage()._id = newValue}
+  }
 
   /// Arbitrary key-value metadata (used for filtering in List / Events).
-  public var labels: Dictionary<String,String> = [:]
+  public var labels: Dictionary<String,String> {
+    get {_storage._labels}
+    set {_uniqueStorage()._labels = newValue}
+  }
 
   /// --- Resources ---
+  /// Unset = the template's default limits, if any, else daemon
+  /// defaults. Set = replaces the template default wholesale: a zero
+  /// subfield (vcpus, memory_mib) inside a set message means the DAEMON
+  /// default for that resource — the template's value does not shine
+  /// through per-field. Precision costs message presence, which the
+  /// subfields (plain proto3 scalars) do not have.
   public var limits: Arcbox_Sandbox_V1_ResourceLimits {
-    get {_limits ?? Arcbox_Sandbox_V1_ResourceLimits()}
-    set {_limits = newValue}
+    get {_storage._limits ?? Arcbox_Sandbox_V1_ResourceLimits()}
+    set {_uniqueStorage()._limits = newValue}
   }
   /// Returns true if `limits` has been explicitly set.
-  public var hasLimits: Bool {self._limits != nil}
+  public var hasLimits: Bool {_storage._limits != nil}
   /// Clears the value of `limits`. Subsequent reads from it will return its default value.
-  public mutating func clearLimits() {self._limits = nil}
+  public mutating func clearLimits() {_uniqueStorage()._limits = nil}
 
   /// --- Initial workload (optional) ---
   /// Initial command launched automatically after boot.
-  /// Empty = sandbox enters READY without running anything.
+  /// Empty = inherit the template's default cmd, if any; otherwise the
+  /// sandbox enters READY without running anything. Non-empty =
+  /// replaces the template default.
   /// When this process exits the sandbox transitions back to READY
   /// (NOT destroyed) and continues accepting executions.
-  public var cmd: [String] = []
+  public var cmd: [String] {
+    get {_storage._cmd}
+    set {_uniqueStorage()._cmd = newValue}
+  }
 
-  /// Environment variables for the initial command.
-  public var env: Dictionary<String,String> = [:]
+  /// Suppress the template's default cmd: enter READY without running
+  /// anything even when the template defines one. proto3 repeated
+  /// fields cannot express "explicitly empty", so this flag carries the
+  /// presence `cmd` cannot. Rejected with INVALID_ARGUMENT alongside a
+  /// non-empty `cmd`.
+  public var noDefaultCmd: Bool {
+    get {_storage._noDefaultCmd}
+    set {_uniqueStorage()._noDefaultCmd = newValue}
+  }
+
+  /// Environment variables for the initial command, merged over the
+  /// template's default env (per key, this request wins).
+  public var env: Dictionary<String,String> {
+    get {_storage._env}
+    set {_uniqueStorage()._env = newValue}
+  }
+
+  /// Start the initial command from exactly `env`, discarding the
+  /// template's default env instead of merging over it (the map
+  /// counterpart of `no_default_cmd`; to unset a single default key,
+  /// set this and supply the full desired map).
+  public var noDefaultEnv: Bool {
+    get {_storage._noDefaultEnv}
+    set {_uniqueStorage()._noDefaultEnv = newValue}
+  }
 
   /// Working directory for the initial command.
-  public var workingDir: String = String()
+  public var workingDir: String {
+    get {_storage._workingDir}
+    set {_uniqueStorage()._workingDir = newValue}
+  }
 
   /// User to run the initial command as.
-  public var user: String = String()
+  public var user: String {
+    get {_storage._user}
+    set {_uniqueStorage()._user = newValue}
+  }
 
   /// --- Filesystem ---
   /// NOT supported in Sandbox V1: a non-empty list is rejected with
   /// FAILED_PRECONDITION. Copy files in with WriteFile / `sandbox cp`.
-  public var mounts: [Arcbox_Sandbox_V1_Mount] = []
+  public var mounts: [Arcbox_Sandbox_V1_Mount] {
+    get {_storage._mounts}
+    set {_uniqueStorage()._mounts = newValue}
+  }
 
   /// --- Network ---
   public var network: Arcbox_Sandbox_V1_NetworkSpec {
-    get {_network ?? Arcbox_Sandbox_V1_NetworkSpec()}
-    set {_network = newValue}
+    get {_storage._network ?? Arcbox_Sandbox_V1_NetworkSpec()}
+    set {_uniqueStorage()._network = newValue}
   }
   /// Returns true if `network` has been explicitly set.
-  public var hasNetwork: Bool {self._network != nil}
+  public var hasNetwork: Bool {_storage._network != nil}
   /// Clears the value of `network`. Subsequent reads from it will return its default value.
-  public mutating func clearNetwork() {self._network = nil}
+  public mutating func clearNetwork() {_uniqueStorage()._network = nil}
 
   /// --- Lifecycle ---
-  /// Sandbox auto-destruction timeout in seconds (0 = no limit).
-  /// The timer starts from the moment the sandbox is created and is not
-  /// reset by workload activity.
-  public var ttlSeconds: UInt32 = 0
+  /// Two independent lifecycle knobs exist; never conflate them:
+  /// `ttl_seconds` is the hard maximum lifetime, `idle_timeout_seconds`
+  /// reacts to inactivity.
+  ///
+  /// Hard maximum lifetime in seconds (0 = no limit). On expiry the
+  /// sandbox is always destroyed — pausing does not apply. The deadline
+  /// starts at creation and is not reset by workload activity;
+  /// SetLifecycle replaces it with a fresh deadline from now (CORE-60).
+  public var ttlSeconds: UInt32 {
+    get {_storage._ttlSeconds}
+    set {_uniqueStorage()._ttlSeconds = newValue}
+  }
 
   /// --- Provisioning ---
   /// NOT supported in Sandbox V1: a set value is rejected with
   /// FAILED_PRECONDITION. Use executions for interactive access.
   public var sshPublicKey: String {
-    get {_sshPublicKey ?? String()}
-    set {_sshPublicKey = newValue}
+    get {_storage._sshPublicKey ?? String()}
+    set {_uniqueStorage()._sshPublicKey = newValue}
   }
   /// Returns true if `sshPublicKey` has been explicitly set.
-  public var hasSshPublicKey: Bool {self._sshPublicKey != nil}
+  public var hasSshPublicKey: Bool {_storage._sshPublicKey != nil}
   /// Clears the value of `sshPublicKey`. Subsequent reads from it will return its default value.
-  public mutating func clearSshPublicKey() {self._sshPublicKey = nil}
+  public mutating func clearSshPublicKey() {_uniqueStorage()._sshPublicKey = nil}
 
-  /// Opaque reference to what boots inside the sandbox. Local mode accepts:
-  ///   ""             — the built-in minimal template (busybox + init)
-  ///   "docker:<ref>" — a local Docker image reference, resolved and
-  ///                    converted inside the VM
-  /// Cloud mode resolves names against the tenant's template registry;
-  /// first-class templates are designed in CORE-21. Anything else is
-  /// rejected with INVALID_ARGUMENT.
-  public var template: String = String()
+  /// Reference to what boots inside the sandbox:
+  ///   ""               — the built-in minimal template (busybox + init)
+  ///   "docker:<ref>"   — a local Docker image reference, resolved and
+  ///                      converted inside the VM
+  ///   "name[:version]" — a template from the catalog (`template.proto`,
+  ///                      CORE-21); a bare name resolves to the newest
+  ///                      published version. Template defaults apply
+  ///                      per the override rules on the fields above.
+  /// Cloud mode resolves names against the tenant's template registry.
+  /// Anything else is rejected with INVALID_ARGUMENT.
+  public var template: String {
+    get {_storage._template}
+    set {_uniqueStorage()._template = newValue}
+  }
+
+  /// Apply `on_idle` after this many seconds without a running
+  /// execution (0 = no idle detection). Re-armed every time the
+  /// workload goes idle; distinct from `ttl_seconds`, which caps total
+  /// lifetime regardless of activity (CORE-21).
+  public var idleTimeoutSeconds: UInt32 {
+    get {_storage._idleTimeoutSeconds}
+    set {_uniqueStorage()._idleTimeoutSeconds = newValue}
+  }
+
+  /// What to do when the idle timeout expires (UNSPECIFIED = the
+  /// daemon default, currently KILL).
+  public var onIdle: Arcbox_Sandbox_V1_IdleAction {
+    get {_storage._onIdle}
+    set {_uniqueStorage()._onIdle = newValue}
+  }
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
-  fileprivate var _limits: Arcbox_Sandbox_V1_ResourceLimits? = nil
-  fileprivate var _network: Arcbox_Sandbox_V1_NetworkSpec? = nil
-  fileprivate var _sshPublicKey: String? = nil
+  fileprivate var _storage = _StorageClass.defaultInstance
 }
 
 /// Response to CreateSandbox.
@@ -536,6 +698,151 @@ public struct Arcbox_Sandbox_V1_RemoveSandboxRequest: Sendable {
   public init() {}
 }
 
+/// Request to pause a sandbox.
+public struct Arcbox_Sandbox_V1_PauseSandboxRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Sandbox ID.
+  public var id: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Request to resume a paused sandbox.
+public struct Arcbox_Sandbox_V1_ResumeSandboxRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Sandbox ID.
+  public var id: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Request to replace a sandbox's lifecycle deadlines. Absent fields are
+/// left unchanged, so each knob can be adjusted independently.
+public struct Arcbox_Sandbox_V1_SetLifecycleRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Sandbox ID.
+  public var id: String = String()
+
+  /// Replace the hard maximum lifetime: expire this many seconds from
+  /// now (0 = remove the limit).
+  public var ttlSeconds: UInt32 {
+    get {_ttlSeconds ?? 0}
+    set {_ttlSeconds = newValue}
+  }
+  /// Returns true if `ttlSeconds` has been explicitly set.
+  public var hasTtlSeconds: Bool {self._ttlSeconds != nil}
+  /// Clears the value of `ttlSeconds`. Subsequent reads from it will return its default value.
+  public mutating func clearTtlSeconds() {self._ttlSeconds = nil}
+
+  /// Replace the idle timeout (0 = disable idle detection).
+  public var idleTimeoutSeconds: UInt32 {
+    get {_idleTimeoutSeconds ?? 0}
+    set {_idleTimeoutSeconds = newValue}
+  }
+  /// Returns true if `idleTimeoutSeconds` has been explicitly set.
+  public var hasIdleTimeoutSeconds: Bool {self._idleTimeoutSeconds != nil}
+  /// Clears the value of `idleTimeoutSeconds`. Subsequent reads from it will return its default value.
+  public mutating func clearIdleTimeoutSeconds() {self._idleTimeoutSeconds = nil}
+
+  /// Replace the idle policy (absent = leave unchanged; UNSPECIFIED =
+  /// restore the daemon default).
+  public var onIdle: Arcbox_Sandbox_V1_IdleAction {
+    get {_onIdle ?? .unspecified}
+    set {_onIdle = newValue}
+  }
+  /// Returns true if `onIdle` has been explicitly set.
+  public var hasOnIdle: Bool {self._onIdle != nil}
+  /// Clears the value of `onIdle`. Subsequent reads from it will return its default value.
+  public mutating func clearOnIdle() {self._onIdle = nil}
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+
+  fileprivate var _ttlSeconds: UInt32? = nil
+  fileprivate var _idleTimeoutSeconds: UInt32? = nil
+  fileprivate var _onIdle: Arcbox_Sandbox_V1_IdleAction? = nil
+}
+
+/// Request for the daemon's sandbox capabilities.
+public struct Arcbox_Sandbox_V1_GetCapabilitiesRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// What this daemon can do. SDKs fetch it lazily once per process and
+/// fail fast with an actionable error instead of probing per call.
+public struct Arcbox_Sandbox_V1_GetCapabilitiesResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Daemon version string (informational).
+  public var daemonVersion: String = String()
+
+  /// Sandbox API protocol level. SDKs compare it against their floor
+  /// and raise a mismatch error with an upgrade suggestion
+  /// (PROTOCOL_MISMATCH in `errors.proto`) instead of sprinkling
+  /// version checks at call sites.
+  public var `protocol`: UInt32 = 0
+
+  /// Named feature flags for capabilities that postdate `protocol`.
+  public var features: [String] = []
+
+  /// Whether this host can run sandboxes at all (CORE-13).
+  public var nestedVirt: Arcbox_Sandbox_V1_NestedVirtCapability {
+    get {_nestedVirt ?? Arcbox_Sandbox_V1_NestedVirtCapability()}
+    set {_nestedVirt = newValue}
+  }
+  /// Returns true if `nestedVirt` has been explicitly set.
+  public var hasNestedVirt: Bool {self._nestedVirt != nil}
+  /// Clears the value of `nestedVirt`. Subsequent reads from it will return its default value.
+  public mutating func clearNestedVirt() {self._nestedVirt = nil}
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+
+  fileprivate var _nestedVirt: Arcbox_Sandbox_V1_NestedVirtCapability? = nil
+}
+
+/// Nested-virtualization support on this host.
+public struct Arcbox_Sandbox_V1_NestedVirtCapability: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// True when sandboxes can run (M3+ hardware, VZ backend).
+  public var supported: Bool = false
+
+  /// Why not, when unsupported — the daemon's authoritative reason
+  /// (chip generation vs backend), surfaced verbatim in
+  /// NESTED_VIRT_UNSUPPORTED errors.
+  public var reason: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
 /// Request to inspect a sandbox.
 public struct Arcbox_Sandbox_V1_InspectSandboxRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -551,94 +858,159 @@ public struct Arcbox_Sandbox_V1_InspectSandboxRequest: Sendable {
 }
 
 /// Full sandbox state. See SandboxState for the state machine.
-public struct Arcbox_Sandbox_V1_SandboxInfo: Sendable {
+public struct Arcbox_Sandbox_V1_SandboxInfo: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
   /// Sandbox ID.
-  public var id: String = String()
+  public var id: String {
+    get {_storage._id}
+    set {_uniqueStorage()._id = newValue}
+  }
 
   /// Lifecycle state.
-  public var state: Arcbox_Sandbox_V1_SandboxState = .unspecified
+  public var state: Arcbox_Sandbox_V1_SandboxState {
+    get {_storage._state}
+    set {_uniqueStorage()._state = newValue}
+  }
 
   /// User-supplied labels.
-  public var labels: Dictionary<String,String> = [:]
+  public var labels: Dictionary<String,String> {
+    get {_storage._labels}
+    set {_uniqueStorage()._labels = newValue}
+  }
 
   /// Effective resource limits.
   public var limits: Arcbox_Sandbox_V1_ResourceLimits {
-    get {_limits ?? Arcbox_Sandbox_V1_ResourceLimits()}
-    set {_limits = newValue}
+    get {_storage._limits ?? Arcbox_Sandbox_V1_ResourceLimits()}
+    set {_uniqueStorage()._limits = newValue}
   }
   /// Returns true if `limits` has been explicitly set.
-  public var hasLimits: Bool {self._limits != nil}
+  public var hasLimits: Bool {_storage._limits != nil}
   /// Clears the value of `limits`. Subsequent reads from it will return its default value.
-  public mutating func clearLimits() {self._limits = nil}
+  public mutating func clearLimits() {_uniqueStorage()._limits = nil}
 
   /// Network information.
   public var network: Arcbox_Sandbox_V1_SandboxNetwork {
-    get {_network ?? Arcbox_Sandbox_V1_SandboxNetwork()}
-    set {_network = newValue}
+    get {_storage._network ?? Arcbox_Sandbox_V1_SandboxNetwork()}
+    set {_uniqueStorage()._network = newValue}
   }
   /// Returns true if `network` has been explicitly set.
-  public var hasNetwork: Bool {self._network != nil}
+  public var hasNetwork: Bool {_storage._network != nil}
   /// Clears the value of `network`. Subsequent reads from it will return its default value.
-  public mutating func clearNetwork() {self._network = nil}
+  public mutating func clearNetwork() {_uniqueStorage()._network = nil}
 
   /// Creation time.
   public var createdAt: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {_createdAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
-    set {_createdAt = newValue}
+    get {_storage._createdAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_uniqueStorage()._createdAt = newValue}
   }
   /// Returns true if `createdAt` has been explicitly set.
-  public var hasCreatedAt: Bool {self._createdAt != nil}
+  public var hasCreatedAt: Bool {_storage._createdAt != nil}
   /// Clears the value of `createdAt`. Subsequent reads from it will return its default value.
-  public mutating func clearCreatedAt() {self._createdAt = nil}
+  public mutating func clearCreatedAt() {_uniqueStorage()._createdAt = nil}
 
   /// When the sandbox first became READY (unset if not yet).
   public var readyAt: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {_readyAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
-    set {_readyAt = newValue}
+    get {_storage._readyAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_uniqueStorage()._readyAt = newValue}
   }
   /// Returns true if `readyAt` has been explicitly set.
-  public var hasReadyAt: Bool {self._readyAt != nil}
+  public var hasReadyAt: Bool {_storage._readyAt != nil}
   /// Clears the value of `readyAt`. Subsequent reads from it will return its default value.
-  public mutating func clearReadyAt() {self._readyAt = nil}
+  public mutating func clearReadyAt() {_uniqueStorage()._readyAt = nil}
 
   /// When the last execution exited (unset if none has run).
   public var lastExitedAt: SwiftProtobuf.Google_Protobuf_Timestamp {
-    get {_lastExitedAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
-    set {_lastExitedAt = newValue}
+    get {_storage._lastExitedAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_uniqueStorage()._lastExitedAt = newValue}
   }
   /// Returns true if `lastExitedAt` has been explicitly set.
-  public var hasLastExitedAt: Bool {self._lastExitedAt != nil}
+  public var hasLastExitedAt: Bool {_storage._lastExitedAt != nil}
   /// Clears the value of `lastExitedAt`. Subsequent reads from it will return its default value.
-  public mutating func clearLastExitedAt() {self._lastExitedAt = nil}
+  public mutating func clearLastExitedAt() {_uniqueStorage()._lastExitedAt = nil}
 
   /// How the last execution terminated (unset if none has run, or when the
   /// last execution ended without an observed exit).
   public var lastExitStatus: Arcbox_Sandbox_V1_ExitStatus {
-    get {_lastExitStatus ?? Arcbox_Sandbox_V1_ExitStatus()}
-    set {_lastExitStatus = newValue}
+    get {_storage._lastExitStatus ?? Arcbox_Sandbox_V1_ExitStatus()}
+    set {_uniqueStorage()._lastExitStatus = newValue}
   }
   /// Returns true if `lastExitStatus` has been explicitly set.
-  public var hasLastExitStatus: Bool {self._lastExitStatus != nil}
+  public var hasLastExitStatus: Bool {_storage._lastExitStatus != nil}
   /// Clears the value of `lastExitStatus`. Subsequent reads from it will return its default value.
-  public mutating func clearLastExitStatus() {self._lastExitStatus = nil}
+  public mutating func clearLastExitStatus() {_uniqueStorage()._lastExitStatus = nil}
 
   /// Human-readable error message (only set when state == FAILED).
-  public var error: String = String()
+  public var error: String {
+    get {_storage._error}
+    set {_uniqueStorage()._error = newValue}
+  }
+
+  /// Template reference the sandbox was created from (as passed to
+  /// Create; empty = the built-in minimal template).
+  public var template: String {
+    get {_storage._template}
+    set {_uniqueStorage()._template = newValue}
+  }
+
+  /// When the hard maximum lifetime fires (unset = no limit). Replaced
+  /// by SetLifecycle.
+  public var ttlDeadline: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {_storage._ttlDeadline ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_uniqueStorage()._ttlDeadline = newValue}
+  }
+  /// Returns true if `ttlDeadline` has been explicitly set.
+  public var hasTtlDeadline: Bool {_storage._ttlDeadline != nil}
+  /// Clears the value of `ttlDeadline`. Subsequent reads from it will return its default value.
+  public mutating func clearTtlDeadline() {_uniqueStorage()._ttlDeadline = nil}
+
+  /// Idle timeout in seconds (0 = no idle detection).
+  public var idleTimeoutSeconds: UInt32 {
+    get {_storage._idleTimeoutSeconds}
+    set {_uniqueStorage()._idleTimeoutSeconds = newValue}
+  }
+
+  /// Action applied when the idle timeout expires.
+  public var onIdle: Arcbox_Sandbox_V1_IdleAction {
+    get {_storage._onIdle}
+    set {_uniqueStorage()._onIdle = newValue}
+  }
+
+  /// When the sandbox reached PAUSED (unset unless paused).
+  public var pausedAt: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {_storage._pausedAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_uniqueStorage()._pausedAt = newValue}
+  }
+  /// Returns true if `pausedAt` has been explicitly set.
+  public var hasPausedAt: Bool {_storage._pausedAt != nil}
+  /// Clears the value of `pausedAt`. Subsequent reads from it will return its default value.
+  public mutating func clearPausedAt() {_uniqueStorage()._pausedAt = nil}
+
+  /// When the sandbox reached FAILED (unset otherwise; `error` carries
+  /// the reason).
+  public var failedAt: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {_storage._failedAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_uniqueStorage()._failedAt = newValue}
+  }
+  /// Returns true if `failedAt` has been explicitly set.
+  public var hasFailedAt: Bool {_storage._failedAt != nil}
+  /// Clears the value of `failedAt`. Subsequent reads from it will return its default value.
+  public mutating func clearFailedAt() {_uniqueStorage()._failedAt = nil}
+
+  /// On-disk footprint of the sandbox's retained state (checkpoint +
+  /// disk overlay). Paused sandboxes keep paying this until removed.
+  public var storageBytes: UInt64 {
+    get {_storage._storageBytes}
+    set {_uniqueStorage()._storageBytes = newValue}
+  }
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
-  fileprivate var _limits: Arcbox_Sandbox_V1_ResourceLimits? = nil
-  fileprivate var _network: Arcbox_Sandbox_V1_SandboxNetwork? = nil
-  fileprivate var _createdAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
-  fileprivate var _readyAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
-  fileprivate var _lastExitedAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
-  fileprivate var _lastExitStatus: Arcbox_Sandbox_V1_ExitStatus? = nil
+  fileprivate var _storage = _StorageClass.defaultInstance
 }
 
 /// Network details of a sandbox.
@@ -698,6 +1070,9 @@ public struct Arcbox_Sandbox_V1_ListSandboxesResponse: Sendable {
 }
 
 /// Lightweight sandbox summary for List.
+///
+/// Carries the state timestamps and retention cost so a listing shows
+/// lifecycle truth without an Inspect per row.
 public struct Arcbox_Sandbox_V1_SandboxSummary: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -725,11 +1100,47 @@ public struct Arcbox_Sandbox_V1_SandboxSummary: Sendable {
   /// Clears the value of `createdAt`. Subsequent reads from it will return its default value.
   public mutating func clearCreatedAt() {self._createdAt = nil}
 
+  /// When the sandbox first became READY (unset if not yet).
+  public var readyAt: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {_readyAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_readyAt = newValue}
+  }
+  /// Returns true if `readyAt` has been explicitly set.
+  public var hasReadyAt: Bool {self._readyAt != nil}
+  /// Clears the value of `readyAt`. Subsequent reads from it will return its default value.
+  public mutating func clearReadyAt() {self._readyAt = nil}
+
+  /// When the sandbox reached PAUSED (unset unless paused).
+  public var pausedAt: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {_pausedAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_pausedAt = newValue}
+  }
+  /// Returns true if `pausedAt` has been explicitly set.
+  public var hasPausedAt: Bool {self._pausedAt != nil}
+  /// Clears the value of `pausedAt`. Subsequent reads from it will return its default value.
+  public mutating func clearPausedAt() {self._pausedAt = nil}
+
+  /// When the sandbox reached FAILED (unset otherwise).
+  public var failedAt: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {_failedAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_failedAt = newValue}
+  }
+  /// Returns true if `failedAt` has been explicitly set.
+  public var hasFailedAt: Bool {self._failedAt != nil}
+  /// Clears the value of `failedAt`. Subsequent reads from it will return its default value.
+  public mutating func clearFailedAt() {self._failedAt = nil}
+
+  /// On-disk footprint of retained state; nonzero for paused sandboxes.
+  public var storageBytes: UInt64 = 0
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
   fileprivate var _createdAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+  fileprivate var _readyAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+  fileprivate var _pausedAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+  fileprivate var _failedAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
 }
 
 /// Request to subscribe to sandbox lifecycle events.
@@ -886,11 +1297,15 @@ public struct Arcbox_Sandbox_V1_UnexposePortRequest: Sendable {
 fileprivate let _protobuf_package = "arcbox.sandbox.v1"
 
 extension Arcbox_Sandbox_V1_SandboxState: SwiftProtobuf._ProtoNameProviding {
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0SANDBOX_STATE_UNSPECIFIED\0\u{1}SANDBOX_STATE_STARTING\0\u{1}SANDBOX_STATE_READY\0\u{1}SANDBOX_STATE_RUNNING\0\u{1}SANDBOX_STATE_STOPPING\0\u{1}SANDBOX_STATE_STOPPED\0\u{1}SANDBOX_STATE_FAILED\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0SANDBOX_STATE_UNSPECIFIED\0\u{1}SANDBOX_STATE_STARTING\0\u{1}SANDBOX_STATE_READY\0\u{1}SANDBOX_STATE_RUNNING\0\u{1}SANDBOX_STATE_STOPPING\0\u{1}SANDBOX_STATE_STOPPED\0\u{1}SANDBOX_STATE_FAILED\0\u{1}SANDBOX_STATE_PAUSING\0\u{1}SANDBOX_STATE_PAUSED\0")
 }
 
 extension Arcbox_Sandbox_V1_SandboxEventKind: SwiftProtobuf._ProtoNameProviding {
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0SANDBOX_EVENT_KIND_UNSPECIFIED\0\u{1}SANDBOX_EVENT_KIND_CREATED\0\u{1}SANDBOX_EVENT_KIND_READY\0\u{1}SANDBOX_EVENT_KIND_RUNNING\0\u{1}SANDBOX_EVENT_KIND_IDLE\0\u{1}SANDBOX_EVENT_KIND_STOPPING\0\u{1}SANDBOX_EVENT_KIND_STOPPED\0\u{1}SANDBOX_EVENT_KIND_FAILED\0\u{1}SANDBOX_EVENT_KIND_REMOVED\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0SANDBOX_EVENT_KIND_UNSPECIFIED\0\u{1}SANDBOX_EVENT_KIND_CREATED\0\u{1}SANDBOX_EVENT_KIND_READY\0\u{1}SANDBOX_EVENT_KIND_RUNNING\0\u{1}SANDBOX_EVENT_KIND_IDLE\0\u{1}SANDBOX_EVENT_KIND_STOPPING\0\u{1}SANDBOX_EVENT_KIND_STOPPED\0\u{1}SANDBOX_EVENT_KIND_FAILED\0\u{1}SANDBOX_EVENT_KIND_REMOVED\0\u{1}SANDBOX_EVENT_KIND_PAUSING\0\u{1}SANDBOX_EVENT_KIND_PAUSED\0\u{1}SANDBOX_EVENT_KIND_RESUMED\0")
+}
+
+extension Arcbox_Sandbox_V1_IdleAction: SwiftProtobuf._ProtoNameProviding {
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0IDLE_ACTION_UNSPECIFIED\0\u{1}IDLE_ACTION_KILL\0\u{1}IDLE_ACTION_PAUSE\0")
 }
 
 extension Arcbox_Sandbox_V1_NetworkMode: SwiftProtobuf._ProtoNameProviding {
@@ -1084,88 +1499,174 @@ extension Arcbox_Sandbox_V1_KeepAlive: SwiftProtobuf.Message, SwiftProtobuf._Mes
 
 extension Arcbox_Sandbox_V1_CreateSandboxRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".CreateSandboxRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}labels\0\u{2}\u{4}limits\0\u{2}\u{2}cmd\0\u{1}env\0\u{3}working_dir\0\u{1}user\0\u{1}mounts\0\u{1}network\0\u{3}ttl_seconds\0\u{3}ssh_public_key\0\u{2}\u{2}template\0\u{b}kernel\0\u{b}rootfs\0\u{b}boot_args\0\u{b}image\0\u{c}\u{3}\u{1}\u{c}\u{4}\u{1}\u{c}\u{5}\u{1}\u{c}\u{7}\u{1}\u{c}\u{10}\u{1}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}labels\0\u{2}\u{4}limits\0\u{2}\u{2}cmd\0\u{1}env\0\u{3}working_dir\0\u{1}user\0\u{1}mounts\0\u{1}network\0\u{3}ttl_seconds\0\u{3}ssh_public_key\0\u{2}\u{2}template\0\u{3}idle_timeout_seconds\0\u{3}on_idle\0\u{3}no_default_cmd\0\u{3}no_default_env\0\u{b}kernel\0\u{b}rootfs\0\u{b}boot_args\0\u{b}image\0\u{c}\u{3}\u{1}\u{c}\u{4}\u{1}\u{c}\u{5}\u{1}\u{c}\u{7}\u{1}\u{c}\u{10}\u{1}")
+
+  fileprivate class _StorageClass {
+    var _id: String = String()
+    var _labels: Dictionary<String,String> = [:]
+    var _limits: Arcbox_Sandbox_V1_ResourceLimits? = nil
+    var _cmd: [String] = []
+    var _noDefaultCmd: Bool = false
+    var _env: Dictionary<String,String> = [:]
+    var _noDefaultEnv: Bool = false
+    var _workingDir: String = String()
+    var _user: String = String()
+    var _mounts: [Arcbox_Sandbox_V1_Mount] = []
+    var _network: Arcbox_Sandbox_V1_NetworkSpec? = nil
+    var _ttlSeconds: UInt32 = 0
+    var _sshPublicKey: String? = nil
+    var _template: String = String()
+    var _idleTimeoutSeconds: UInt32 = 0
+    var _onIdle: Arcbox_Sandbox_V1_IdleAction = .unspecified
+
+      // This property is used as the initial default value for new instances of the type.
+      // The type itself is protecting the reference to its storage via CoW semantics.
+      // This will force a copy to be made of this reference when the first mutation occurs;
+      // hence, it is safe to mark this as `nonisolated(unsafe)`.
+      static nonisolated(unsafe) let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _id = source._id
+      _labels = source._labels
+      _limits = source._limits
+      _cmd = source._cmd
+      _noDefaultCmd = source._noDefaultCmd
+      _env = source._env
+      _noDefaultEnv = source._noDefaultEnv
+      _workingDir = source._workingDir
+      _user = source._user
+      _mounts = source._mounts
+      _network = source._network
+      _ttlSeconds = source._ttlSeconds
+      _sshPublicKey = source._sshPublicKey
+      _template = source._template
+      _idleTimeoutSeconds = source._idleTimeoutSeconds
+      _onIdle = source._onIdle
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
-      case 2: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.labels) }()
-      case 6: try { try decoder.decodeSingularMessageField(value: &self._limits) }()
-      case 8: try { try decoder.decodeRepeatedStringField(value: &self.cmd) }()
-      case 9: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.env) }()
-      case 10: try { try decoder.decodeSingularStringField(value: &self.workingDir) }()
-      case 11: try { try decoder.decodeSingularStringField(value: &self.user) }()
-      case 12: try { try decoder.decodeRepeatedMessageField(value: &self.mounts) }()
-      case 13: try { try decoder.decodeSingularMessageField(value: &self._network) }()
-      case 14: try { try decoder.decodeSingularUInt32Field(value: &self.ttlSeconds) }()
-      case 15: try { try decoder.decodeSingularStringField(value: &self._sshPublicKey) }()
-      case 17: try { try decoder.decodeSingularStringField(value: &self.template) }()
-      default: break
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularStringField(value: &_storage._id) }()
+        case 2: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &_storage._labels) }()
+        case 6: try { try decoder.decodeSingularMessageField(value: &_storage._limits) }()
+        case 8: try { try decoder.decodeRepeatedStringField(value: &_storage._cmd) }()
+        case 9: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &_storage._env) }()
+        case 10: try { try decoder.decodeSingularStringField(value: &_storage._workingDir) }()
+        case 11: try { try decoder.decodeSingularStringField(value: &_storage._user) }()
+        case 12: try { try decoder.decodeRepeatedMessageField(value: &_storage._mounts) }()
+        case 13: try { try decoder.decodeSingularMessageField(value: &_storage._network) }()
+        case 14: try { try decoder.decodeSingularUInt32Field(value: &_storage._ttlSeconds) }()
+        case 15: try { try decoder.decodeSingularStringField(value: &_storage._sshPublicKey) }()
+        case 17: try { try decoder.decodeSingularStringField(value: &_storage._template) }()
+        case 18: try { try decoder.decodeSingularUInt32Field(value: &_storage._idleTimeoutSeconds) }()
+        case 19: try { try decoder.decodeSingularEnumField(value: &_storage._onIdle) }()
+        case 20: try { try decoder.decodeSingularBoolField(value: &_storage._noDefaultCmd) }()
+        case 21: try { try decoder.decodeSingularBoolField(value: &_storage._noDefaultEnv) }()
+        default: break
+        }
       }
     }
   }
 
   public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every if/case branch local when no optimizations
-    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-    // https://github.com/apple/swift-protobuf/issues/1182
-    if !self.id.isEmpty {
-      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
-    }
-    if !self.labels.isEmpty {
-      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: self.labels, fieldNumber: 2)
-    }
-    try { if let v = self._limits {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
-    } }()
-    if !self.cmd.isEmpty {
-      try visitor.visitRepeatedStringField(value: self.cmd, fieldNumber: 8)
-    }
-    if !self.env.isEmpty {
-      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: self.env, fieldNumber: 9)
-    }
-    if !self.workingDir.isEmpty {
-      try visitor.visitSingularStringField(value: self.workingDir, fieldNumber: 10)
-    }
-    if !self.user.isEmpty {
-      try visitor.visitSingularStringField(value: self.user, fieldNumber: 11)
-    }
-    if !self.mounts.isEmpty {
-      try visitor.visitRepeatedMessageField(value: self.mounts, fieldNumber: 12)
-    }
-    try { if let v = self._network {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
-    } }()
-    if self.ttlSeconds != 0 {
-      try visitor.visitSingularUInt32Field(value: self.ttlSeconds, fieldNumber: 14)
-    }
-    try { if let v = self._sshPublicKey {
-      try visitor.visitSingularStringField(value: v, fieldNumber: 15)
-    } }()
-    if !self.template.isEmpty {
-      try visitor.visitSingularStringField(value: self.template, fieldNumber: 17)
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      if !_storage._id.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._id, fieldNumber: 1)
+      }
+      if !_storage._labels.isEmpty {
+        try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: _storage._labels, fieldNumber: 2)
+      }
+      try { if let v = _storage._limits {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+      } }()
+      if !_storage._cmd.isEmpty {
+        try visitor.visitRepeatedStringField(value: _storage._cmd, fieldNumber: 8)
+      }
+      if !_storage._env.isEmpty {
+        try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: _storage._env, fieldNumber: 9)
+      }
+      if !_storage._workingDir.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._workingDir, fieldNumber: 10)
+      }
+      if !_storage._user.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._user, fieldNumber: 11)
+      }
+      if !_storage._mounts.isEmpty {
+        try visitor.visitRepeatedMessageField(value: _storage._mounts, fieldNumber: 12)
+      }
+      try { if let v = _storage._network {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
+      } }()
+      if _storage._ttlSeconds != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._ttlSeconds, fieldNumber: 14)
+      }
+      try { if let v = _storage._sshPublicKey {
+        try visitor.visitSingularStringField(value: v, fieldNumber: 15)
+      } }()
+      if !_storage._template.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._template, fieldNumber: 17)
+      }
+      if _storage._idleTimeoutSeconds != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._idleTimeoutSeconds, fieldNumber: 18)
+      }
+      if _storage._onIdle != .unspecified {
+        try visitor.visitSingularEnumField(value: _storage._onIdle, fieldNumber: 19)
+      }
+      if _storage._noDefaultCmd != false {
+        try visitor.visitSingularBoolField(value: _storage._noDefaultCmd, fieldNumber: 20)
+      }
+      if _storage._noDefaultEnv != false {
+        try visitor.visitSingularBoolField(value: _storage._noDefaultEnv, fieldNumber: 21)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Arcbox_Sandbox_V1_CreateSandboxRequest, rhs: Arcbox_Sandbox_V1_CreateSandboxRequest) -> Bool {
-    if lhs.id != rhs.id {return false}
-    if lhs.labels != rhs.labels {return false}
-    if lhs._limits != rhs._limits {return false}
-    if lhs.cmd != rhs.cmd {return false}
-    if lhs.env != rhs.env {return false}
-    if lhs.workingDir != rhs.workingDir {return false}
-    if lhs.user != rhs.user {return false}
-    if lhs.mounts != rhs.mounts {return false}
-    if lhs._network != rhs._network {return false}
-    if lhs.ttlSeconds != rhs.ttlSeconds {return false}
-    if lhs._sshPublicKey != rhs._sshPublicKey {return false}
-    if lhs.template != rhs.template {return false}
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._id != rhs_storage._id {return false}
+        if _storage._labels != rhs_storage._labels {return false}
+        if _storage._limits != rhs_storage._limits {return false}
+        if _storage._cmd != rhs_storage._cmd {return false}
+        if _storage._noDefaultCmd != rhs_storage._noDefaultCmd {return false}
+        if _storage._env != rhs_storage._env {return false}
+        if _storage._noDefaultEnv != rhs_storage._noDefaultEnv {return false}
+        if _storage._workingDir != rhs_storage._workingDir {return false}
+        if _storage._user != rhs_storage._user {return false}
+        if _storage._mounts != rhs_storage._mounts {return false}
+        if _storage._network != rhs_storage._network {return false}
+        if _storage._ttlSeconds != rhs_storage._ttlSeconds {return false}
+        if _storage._sshPublicKey != rhs_storage._sshPublicKey {return false}
+        if _storage._template != rhs_storage._template {return false}
+        if _storage._idleTimeoutSeconds != rhs_storage._idleTimeoutSeconds {return false}
+        if _storage._onIdle != rhs_storage._onIdle {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1281,6 +1782,218 @@ extension Arcbox_Sandbox_V1_RemoveSandboxRequest: SwiftProtobuf.Message, SwiftPr
   }
 }
 
+extension Arcbox_Sandbox_V1_PauseSandboxRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".PauseSandboxRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.id.isEmpty {
+      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_Sandbox_V1_PauseSandboxRequest, rhs: Arcbox_Sandbox_V1_PauseSandboxRequest) -> Bool {
+    if lhs.id != rhs.id {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_Sandbox_V1_ResumeSandboxRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ResumeSandboxRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.id.isEmpty {
+      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_Sandbox_V1_ResumeSandboxRequest, rhs: Arcbox_Sandbox_V1_ResumeSandboxRequest) -> Bool {
+    if lhs.id != rhs.id {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_Sandbox_V1_SetLifecycleRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".SetLifecycleRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{3}ttl_seconds\0\u{3}idle_timeout_seconds\0\u{3}on_idle\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self._ttlSeconds) }()
+      case 3: try { try decoder.decodeSingularUInt32Field(value: &self._idleTimeoutSeconds) }()
+      case 4: try { try decoder.decodeSingularEnumField(value: &self._onIdle) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if !self.id.isEmpty {
+      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
+    }
+    try { if let v = self._ttlSeconds {
+      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 2)
+    } }()
+    try { if let v = self._idleTimeoutSeconds {
+      try visitor.visitSingularUInt32Field(value: v, fieldNumber: 3)
+    } }()
+    try { if let v = self._onIdle {
+      try visitor.visitSingularEnumField(value: v, fieldNumber: 4)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_Sandbox_V1_SetLifecycleRequest, rhs: Arcbox_Sandbox_V1_SetLifecycleRequest) -> Bool {
+    if lhs.id != rhs.id {return false}
+    if lhs._ttlSeconds != rhs._ttlSeconds {return false}
+    if lhs._idleTimeoutSeconds != rhs._idleTimeoutSeconds {return false}
+    if lhs._onIdle != rhs._onIdle {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_Sandbox_V1_GetCapabilitiesRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".GetCapabilitiesRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_Sandbox_V1_GetCapabilitiesRequest, rhs: Arcbox_Sandbox_V1_GetCapabilitiesRequest) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_Sandbox_V1_GetCapabilitiesResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".GetCapabilitiesResponse"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}daemon_version\0\u{1}protocol\0\u{1}features\0\u{3}nested_virt\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.daemonVersion) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.`protocol`) }()
+      case 3: try { try decoder.decodeRepeatedStringField(value: &self.features) }()
+      case 4: try { try decoder.decodeSingularMessageField(value: &self._nestedVirt) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if !self.daemonVersion.isEmpty {
+      try visitor.visitSingularStringField(value: self.daemonVersion, fieldNumber: 1)
+    }
+    if self.`protocol` != 0 {
+      try visitor.visitSingularUInt32Field(value: self.`protocol`, fieldNumber: 2)
+    }
+    if !self.features.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.features, fieldNumber: 3)
+    }
+    try { if let v = self._nestedVirt {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_Sandbox_V1_GetCapabilitiesResponse, rhs: Arcbox_Sandbox_V1_GetCapabilitiesResponse) -> Bool {
+    if lhs.daemonVersion != rhs.daemonVersion {return false}
+    if lhs.`protocol` != rhs.`protocol` {return false}
+    if lhs.features != rhs.features {return false}
+    if lhs._nestedVirt != rhs._nestedVirt {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_Sandbox_V1_NestedVirtCapability: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".NestedVirtCapability"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}supported\0\u{1}reason\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBoolField(value: &self.supported) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.reason) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.supported != false {
+      try visitor.visitSingularBoolField(value: self.supported, fieldNumber: 1)
+    }
+    if !self.reason.isEmpty {
+      try visitor.visitSingularStringField(value: self.reason, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_Sandbox_V1_NestedVirtCapability, rhs: Arcbox_Sandbox_V1_NestedVirtCapability) -> Bool {
+    if lhs.supported != rhs.supported {return false}
+    if lhs.reason != rhs.reason {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 extension Arcbox_Sandbox_V1_InspectSandboxRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".InspectSandboxRequest"
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0")
@@ -1313,78 +2026,181 @@ extension Arcbox_Sandbox_V1_InspectSandboxRequest: SwiftProtobuf.Message, SwiftP
 
 extension Arcbox_Sandbox_V1_SandboxInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".SandboxInfo"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}state\0\u{1}labels\0\u{1}limits\0\u{1}network\0\u{3}created_at\0\u{3}ready_at\0\u{3}last_exited_at\0\u{3}last_exit_status\0\u{1}error\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}state\0\u{1}labels\0\u{1}limits\0\u{1}network\0\u{3}created_at\0\u{3}ready_at\0\u{3}last_exited_at\0\u{3}last_exit_status\0\u{1}error\0\u{1}template\0\u{3}ttl_deadline\0\u{3}idle_timeout_seconds\0\u{3}on_idle\0\u{3}paused_at\0\u{3}failed_at\0\u{3}storage_bytes\0")
+
+  fileprivate class _StorageClass {
+    var _id: String = String()
+    var _state: Arcbox_Sandbox_V1_SandboxState = .unspecified
+    var _labels: Dictionary<String,String> = [:]
+    var _limits: Arcbox_Sandbox_V1_ResourceLimits? = nil
+    var _network: Arcbox_Sandbox_V1_SandboxNetwork? = nil
+    var _createdAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _readyAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _lastExitedAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _lastExitStatus: Arcbox_Sandbox_V1_ExitStatus? = nil
+    var _error: String = String()
+    var _template: String = String()
+    var _ttlDeadline: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _idleTimeoutSeconds: UInt32 = 0
+    var _onIdle: Arcbox_Sandbox_V1_IdleAction = .unspecified
+    var _pausedAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _failedAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+    var _storageBytes: UInt64 = 0
+
+      // This property is used as the initial default value for new instances of the type.
+      // The type itself is protecting the reference to its storage via CoW semantics.
+      // This will force a copy to be made of this reference when the first mutation occurs;
+      // hence, it is safe to mark this as `nonisolated(unsafe)`.
+      static nonisolated(unsafe) let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _id = source._id
+      _state = source._state
+      _labels = source._labels
+      _limits = source._limits
+      _network = source._network
+      _createdAt = source._createdAt
+      _readyAt = source._readyAt
+      _lastExitedAt = source._lastExitedAt
+      _lastExitStatus = source._lastExitStatus
+      _error = source._error
+      _template = source._template
+      _ttlDeadline = source._ttlDeadline
+      _idleTimeoutSeconds = source._idleTimeoutSeconds
+      _onIdle = source._onIdle
+      _pausedAt = source._pausedAt
+      _failedAt = source._failedAt
+      _storageBytes = source._storageBytes
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
-      case 2: try { try decoder.decodeSingularEnumField(value: &self.state) }()
-      case 3: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.labels) }()
-      case 4: try { try decoder.decodeSingularMessageField(value: &self._limits) }()
-      case 5: try { try decoder.decodeSingularMessageField(value: &self._network) }()
-      case 6: try { try decoder.decodeSingularMessageField(value: &self._createdAt) }()
-      case 7: try { try decoder.decodeSingularMessageField(value: &self._readyAt) }()
-      case 8: try { try decoder.decodeSingularMessageField(value: &self._lastExitedAt) }()
-      case 9: try { try decoder.decodeSingularMessageField(value: &self._lastExitStatus) }()
-      case 10: try { try decoder.decodeSingularStringField(value: &self.error) }()
-      default: break
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularStringField(value: &_storage._id) }()
+        case 2: try { try decoder.decodeSingularEnumField(value: &_storage._state) }()
+        case 3: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &_storage._labels) }()
+        case 4: try { try decoder.decodeSingularMessageField(value: &_storage._limits) }()
+        case 5: try { try decoder.decodeSingularMessageField(value: &_storage._network) }()
+        case 6: try { try decoder.decodeSingularMessageField(value: &_storage._createdAt) }()
+        case 7: try { try decoder.decodeSingularMessageField(value: &_storage._readyAt) }()
+        case 8: try { try decoder.decodeSingularMessageField(value: &_storage._lastExitedAt) }()
+        case 9: try { try decoder.decodeSingularMessageField(value: &_storage._lastExitStatus) }()
+        case 10: try { try decoder.decodeSingularStringField(value: &_storage._error) }()
+        case 11: try { try decoder.decodeSingularStringField(value: &_storage._template) }()
+        case 12: try { try decoder.decodeSingularMessageField(value: &_storage._ttlDeadline) }()
+        case 13: try { try decoder.decodeSingularUInt32Field(value: &_storage._idleTimeoutSeconds) }()
+        case 14: try { try decoder.decodeSingularEnumField(value: &_storage._onIdle) }()
+        case 15: try { try decoder.decodeSingularMessageField(value: &_storage._pausedAt) }()
+        case 16: try { try decoder.decodeSingularMessageField(value: &_storage._failedAt) }()
+        case 17: try { try decoder.decodeSingularUInt64Field(value: &_storage._storageBytes) }()
+        default: break
+        }
       }
     }
   }
 
   public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every if/case branch local when no optimizations
-    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-    // https://github.com/apple/swift-protobuf/issues/1182
-    if !self.id.isEmpty {
-      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
-    }
-    if self.state != .unspecified {
-      try visitor.visitSingularEnumField(value: self.state, fieldNumber: 2)
-    }
-    if !self.labels.isEmpty {
-      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: self.labels, fieldNumber: 3)
-    }
-    try { if let v = self._limits {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
-    } }()
-    try { if let v = self._network {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
-    } }()
-    try { if let v = self._createdAt {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
-    } }()
-    try { if let v = self._readyAt {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
-    } }()
-    try { if let v = self._lastExitedAt {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
-    } }()
-    try { if let v = self._lastExitStatus {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
-    } }()
-    if !self.error.isEmpty {
-      try visitor.visitSingularStringField(value: self.error, fieldNumber: 10)
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      if !_storage._id.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._id, fieldNumber: 1)
+      }
+      if _storage._state != .unspecified {
+        try visitor.visitSingularEnumField(value: _storage._state, fieldNumber: 2)
+      }
+      if !_storage._labels.isEmpty {
+        try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: _storage._labels, fieldNumber: 3)
+      }
+      try { if let v = _storage._limits {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+      } }()
+      try { if let v = _storage._network {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+      } }()
+      try { if let v = _storage._createdAt {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+      } }()
+      try { if let v = _storage._readyAt {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+      } }()
+      try { if let v = _storage._lastExitedAt {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
+      } }()
+      try { if let v = _storage._lastExitStatus {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
+      } }()
+      if !_storage._error.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._error, fieldNumber: 10)
+      }
+      if !_storage._template.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._template, fieldNumber: 11)
+      }
+      try { if let v = _storage._ttlDeadline {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
+      } }()
+      if _storage._idleTimeoutSeconds != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._idleTimeoutSeconds, fieldNumber: 13)
+      }
+      if _storage._onIdle != .unspecified {
+        try visitor.visitSingularEnumField(value: _storage._onIdle, fieldNumber: 14)
+      }
+      try { if let v = _storage._pausedAt {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 15)
+      } }()
+      try { if let v = _storage._failedAt {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 16)
+      } }()
+      if _storage._storageBytes != 0 {
+        try visitor.visitSingularUInt64Field(value: _storage._storageBytes, fieldNumber: 17)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Arcbox_Sandbox_V1_SandboxInfo, rhs: Arcbox_Sandbox_V1_SandboxInfo) -> Bool {
-    if lhs.id != rhs.id {return false}
-    if lhs.state != rhs.state {return false}
-    if lhs.labels != rhs.labels {return false}
-    if lhs._limits != rhs._limits {return false}
-    if lhs._network != rhs._network {return false}
-    if lhs._createdAt != rhs._createdAt {return false}
-    if lhs._readyAt != rhs._readyAt {return false}
-    if lhs._lastExitedAt != rhs._lastExitedAt {return false}
-    if lhs._lastExitStatus != rhs._lastExitStatus {return false}
-    if lhs.error != rhs.error {return false}
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._id != rhs_storage._id {return false}
+        if _storage._state != rhs_storage._state {return false}
+        if _storage._labels != rhs_storage._labels {return false}
+        if _storage._limits != rhs_storage._limits {return false}
+        if _storage._network != rhs_storage._network {return false}
+        if _storage._createdAt != rhs_storage._createdAt {return false}
+        if _storage._readyAt != rhs_storage._readyAt {return false}
+        if _storage._lastExitedAt != rhs_storage._lastExitedAt {return false}
+        if _storage._lastExitStatus != rhs_storage._lastExitStatus {return false}
+        if _storage._error != rhs_storage._error {return false}
+        if _storage._template != rhs_storage._template {return false}
+        if _storage._ttlDeadline != rhs_storage._ttlDeadline {return false}
+        if _storage._idleTimeoutSeconds != rhs_storage._idleTimeoutSeconds {return false}
+        if _storage._onIdle != rhs_storage._onIdle {return false}
+        if _storage._pausedAt != rhs_storage._pausedAt {return false}
+        if _storage._failedAt != rhs_storage._failedAt {return false}
+        if _storage._storageBytes != rhs_storage._storageBytes {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1507,7 +2323,7 @@ extension Arcbox_Sandbox_V1_ListSandboxesResponse: SwiftProtobuf.Message, SwiftP
 
 extension Arcbox_Sandbox_V1_SandboxSummary: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".SandboxSummary"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}state\0\u{1}labels\0\u{3}ip_address\0\u{3}created_at\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}state\0\u{1}labels\0\u{3}ip_address\0\u{3}created_at\0\u{3}ready_at\0\u{3}paused_at\0\u{3}failed_at\0\u{3}storage_bytes\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -1520,6 +2336,10 @@ extension Arcbox_Sandbox_V1_SandboxSummary: SwiftProtobuf.Message, SwiftProtobuf
       case 3: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.labels) }()
       case 4: try { try decoder.decodeSingularStringField(value: &self.ipAddress) }()
       case 5: try { try decoder.decodeSingularMessageField(value: &self._createdAt) }()
+      case 6: try { try decoder.decodeSingularMessageField(value: &self._readyAt) }()
+      case 7: try { try decoder.decodeSingularMessageField(value: &self._pausedAt) }()
+      case 8: try { try decoder.decodeSingularMessageField(value: &self._failedAt) }()
+      case 9: try { try decoder.decodeSingularUInt64Field(value: &self.storageBytes) }()
       default: break
       }
     }
@@ -1545,6 +2365,18 @@ extension Arcbox_Sandbox_V1_SandboxSummary: SwiftProtobuf.Message, SwiftProtobuf
     try { if let v = self._createdAt {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
     } }()
+    try { if let v = self._readyAt {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+    } }()
+    try { if let v = self._pausedAt {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    } }()
+    try { if let v = self._failedAt {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
+    } }()
+    if self.storageBytes != 0 {
+      try visitor.visitSingularUInt64Field(value: self.storageBytes, fieldNumber: 9)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1554,6 +2386,10 @@ extension Arcbox_Sandbox_V1_SandboxSummary: SwiftProtobuf.Message, SwiftProtobuf
     if lhs.labels != rhs.labels {return false}
     if lhs.ipAddress != rhs.ipAddress {return false}
     if lhs._createdAt != rhs._createdAt {return false}
+    if lhs._readyAt != rhs._readyAt {return false}
+    if lhs._pausedAt != rhs._pausedAt {return false}
+    if lhs._failedAt != rhs._failedAt {return false}
+    if lhs.storageBytes != rhs.storageBytes {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
