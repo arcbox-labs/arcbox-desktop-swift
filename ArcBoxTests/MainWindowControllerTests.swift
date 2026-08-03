@@ -96,3 +96,34 @@ final class MainWindowControllerTests: XCTestCase {
         XCTFail("SwiftUI toolbar did not settle")
     }
 }
+
+@MainActor
+final class SettingsWindowControllerTests: XCTestCase {
+    func testRestoresAndContinuesAutosavingFrame() throws {
+        let autosaveName = "ArcBoxTests.SettingsWindow.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removeObject(forKey: "NSWindow Frame \(autosaveName)") }
+
+        let savedFrame = NSRect(x: 80, y: 80, width: 760, height: 620)
+        let source = NSWindow(
+            contentRect: .zero,
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        source.setFrame(savedFrame, display: false)
+        source.saveFrame(usingName: autosaveName)
+
+        let controller = SettingsWindowController(
+            contentViewController: NSViewController(),
+            screen: NSScreen.main,
+            frameAutosaveName: autosaveName
+        )
+        let window = try XCTUnwrap(controller.window)
+
+        XCTAssertEqual(window.frame.origin.x, savedFrame.origin.x, accuracy: 1)
+        XCTAssertEqual(window.frame.origin.y, savedFrame.origin.y, accuracy: 1)
+        XCTAssertEqual(window.frame.width, savedFrame.width, accuracy: 1)
+        XCTAssertEqual(window.frame.height, savedFrame.height, accuracy: 1)
+        XCTAssertEqual(window.frameAutosaveName, autosaveName)
+    }
+}

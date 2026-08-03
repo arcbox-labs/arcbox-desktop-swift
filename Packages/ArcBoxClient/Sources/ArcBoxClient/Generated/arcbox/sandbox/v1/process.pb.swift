@@ -607,6 +607,55 @@ public struct Arcbox_Sandbox_V1_WaitExecutionRequest: Sendable {
   public init() {}
 }
 
+/// Request to list a sandbox's executions.
+public struct Arcbox_Sandbox_V1_ListExecutionsRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Sandbox whose executions to list.
+  public var sandboxID: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Response to ListExecutions.
+public struct Arcbox_Sandbox_V1_ListExecutionsResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Every retained execution, running and exited.
+  public var executions: [Arcbox_Sandbox_V1_Execution] = []
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Request to wait for a listening TCP port inside a sandbox.
+public struct Arcbox_Sandbox_V1_WaitForPortRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Sandbox to watch.
+  public var sandboxID: String = String()
+
+  /// TCP port a workload is expected to listen on.
+  public var port: UInt32 = 0
+
+  /// Give up after this many seconds with DEADLINE_EXCEEDED
+  /// (0 = daemon default of 30 s).
+  public var timeoutSeconds: UInt32 = 0
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "arcbox.sandbox.v1"
@@ -1313,6 +1362,106 @@ extension Arcbox_Sandbox_V1_WaitExecutionRequest: SwiftProtobuf.Message, SwiftPr
   public static func ==(lhs: Arcbox_Sandbox_V1_WaitExecutionRequest, rhs: Arcbox_Sandbox_V1_WaitExecutionRequest) -> Bool {
     if lhs.sandboxID != rhs.sandboxID {return false}
     if lhs.executionID != rhs.executionID {return false}
+    if lhs.timeoutSeconds != rhs.timeoutSeconds {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_Sandbox_V1_ListExecutionsRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ListExecutionsRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}sandbox_id\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.sandboxID) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.sandboxID.isEmpty {
+      try visitor.visitSingularStringField(value: self.sandboxID, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_Sandbox_V1_ListExecutionsRequest, rhs: Arcbox_Sandbox_V1_ListExecutionsRequest) -> Bool {
+    if lhs.sandboxID != rhs.sandboxID {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_Sandbox_V1_ListExecutionsResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ListExecutionsResponse"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}executions\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedMessageField(value: &self.executions) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.executions.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.executions, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_Sandbox_V1_ListExecutionsResponse, rhs: Arcbox_Sandbox_V1_ListExecutionsResponse) -> Bool {
+    if lhs.executions != rhs.executions {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_Sandbox_V1_WaitForPortRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".WaitForPortRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}sandbox_id\0\u{1}port\0\u{3}timeout_seconds\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.sandboxID) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.port) }()
+      case 3: try { try decoder.decodeSingularUInt32Field(value: &self.timeoutSeconds) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.sandboxID.isEmpty {
+      try visitor.visitSingularStringField(value: self.sandboxID, fieldNumber: 1)
+    }
+    if self.port != 0 {
+      try visitor.visitSingularUInt32Field(value: self.port, fieldNumber: 2)
+    }
+    if self.timeoutSeconds != 0 {
+      try visitor.visitSingularUInt32Field(value: self.timeoutSeconds, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_Sandbox_V1_WaitForPortRequest, rhs: Arcbox_Sandbox_V1_WaitForPortRequest) -> Bool {
+    if lhs.sandboxID != rhs.sandboxID {return false}
+    if lhs.port != rhs.port {return false}
     if lhs.timeoutSeconds != rhs.timeoutSeconds {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true

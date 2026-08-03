@@ -132,6 +132,30 @@ public enum Arcbox_Sandbox_V1_SandboxProcessService {
                 method: "WaitExecution"
             )
         }
+        /// Namespace for "ListExecutions" metadata.
+        public enum ListExecutions {
+            /// Request type for "ListExecutions".
+            public typealias Input = Arcbox_Sandbox_V1_ListExecutionsRequest
+            /// Response type for "ListExecutions".
+            public typealias Output = Arcbox_Sandbox_V1_ListExecutionsResponse
+            /// Descriptor for "ListExecutions".
+            public static let descriptor = GRPCCore.MethodDescriptor(
+                service: GRPCCore.ServiceDescriptor(fullyQualifiedService: "arcbox.sandbox.v1.SandboxProcessService"),
+                method: "ListExecutions"
+            )
+        }
+        /// Namespace for "WaitForPort" metadata.
+        public enum WaitForPort {
+            /// Request type for "WaitForPort".
+            public typealias Input = Arcbox_Sandbox_V1_WaitForPortRequest
+            /// Response type for "WaitForPort".
+            public typealias Output = SwiftProtobuf.Google_Protobuf_Empty
+            /// Descriptor for "WaitForPort".
+            public static let descriptor = GRPCCore.MethodDescriptor(
+                service: GRPCCore.ServiceDescriptor(fullyQualifiedService: "arcbox.sandbox.v1.SandboxProcessService"),
+                method: "WaitForPort"
+            )
+        }
         /// Descriptors for all methods in the "arcbox.sandbox.v1.SandboxProcessService" service.
         public static let descriptors: [GRPCCore.MethodDescriptor] = [
             StartExecution.descriptor,
@@ -141,7 +165,9 @@ public enum Arcbox_Sandbox_V1_SandboxProcessService {
             GetStdinStatus.descriptor,
             SignalExecution.descriptor,
             ResizeExecutionTty.descriptor,
-            WaitExecution.descriptor
+            WaitExecution.descriptor,
+            ListExecutions.descriptor,
+            WaitForPort.descriptor
         ]
     }
 }
@@ -329,6 +355,48 @@ extension Arcbox_Sandbox_V1_SandboxProcessService {
             request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_WaitExecutionRequest>,
             context: GRPCCore.ServerContext
         ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_Execution>
+
+        /// Handle the "ListExecutions" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > List a sandbox's executions, running and exited, so a client can
+        /// > rediscover processes it no longer holds handles to — after losing
+        /// > its connection, or across an auto-pause/resume cycle. Executions
+        /// > are retained for the life of their sandbox.
+        ///
+        /// - Parameters:
+        ///   - request: A streaming request of `Arcbox_Sandbox_V1_ListExecutionsRequest` messages.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A streaming response of `Arcbox_Sandbox_V1_ListExecutionsResponse` messages.
+        func listExecutions(
+            request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_ListExecutionsRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_ListExecutionsResponse>
+
+        /// Handle the "WaitForPort" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Wait until something inside the sandbox listens on the given TCP
+        /// > port, or fail with DEADLINE_EXCEEDED when the timeout elapses. The
+        /// > guest agent watches the listen table directly — clients never
+        /// > poll with shelled-out probes.
+        ///
+        /// - Parameters:
+        ///   - request: A streaming request of `Arcbox_Sandbox_V1_WaitForPortRequest` messages.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A streaming response of `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        func waitForPort(
+            request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_WaitForPortRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
     }
 
     /// Service protocol for the "arcbox.sandbox.v1.SandboxProcessService" service.
@@ -501,6 +569,48 @@ extension Arcbox_Sandbox_V1_SandboxProcessService {
             request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_WaitExecutionRequest>,
             context: GRPCCore.ServerContext
         ) async throws -> GRPCCore.ServerResponse<Arcbox_Sandbox_V1_Execution>
+
+        /// Handle the "ListExecutions" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > List a sandbox's executions, running and exited, so a client can
+        /// > rediscover processes it no longer holds handles to — after losing
+        /// > its connection, or across an auto-pause/resume cycle. Executions
+        /// > are retained for the life of their sandbox.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_ListExecutionsRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A response containing a single `Arcbox_Sandbox_V1_ListExecutionsResponse` message.
+        func listExecutions(
+            request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_ListExecutionsRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.ServerResponse<Arcbox_Sandbox_V1_ListExecutionsResponse>
+
+        /// Handle the "WaitForPort" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Wait until something inside the sandbox listens on the given TCP
+        /// > port, or fail with DEADLINE_EXCEEDED when the timeout elapses. The
+        /// > guest agent watches the listen table directly — clients never
+        /// > poll with shelled-out probes.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_WaitForPortRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A response containing a single `SwiftProtobuf.Google_Protobuf_Empty` message.
+        func waitForPort(
+            request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_WaitForPortRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
     }
 
     /// Simple service protocol for the "arcbox.sandbox.v1.SandboxProcessService" service.
@@ -672,6 +782,48 @@ extension Arcbox_Sandbox_V1_SandboxProcessService {
             request: Arcbox_Sandbox_V1_WaitExecutionRequest,
             context: GRPCCore.ServerContext
         ) async throws -> Arcbox_Sandbox_V1_Execution
+
+        /// Handle the "ListExecutions" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > List a sandbox's executions, running and exited, so a client can
+        /// > rediscover processes it no longer holds handles to — after losing
+        /// > its connection, or across an auto-pause/resume cycle. Executions
+        /// > are retained for the life of their sandbox.
+        ///
+        /// - Parameters:
+        ///   - request: A `Arcbox_Sandbox_V1_ListExecutionsRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A `Arcbox_Sandbox_V1_ListExecutionsResponse` to respond with.
+        func listExecutions(
+            request: Arcbox_Sandbox_V1_ListExecutionsRequest,
+            context: GRPCCore.ServerContext
+        ) async throws -> Arcbox_Sandbox_V1_ListExecutionsResponse
+
+        /// Handle the "WaitForPort" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Wait until something inside the sandbox listens on the given TCP
+        /// > port, or fail with DEADLINE_EXCEEDED when the timeout elapses. The
+        /// > guest agent watches the listen table directly — clients never
+        /// > poll with shelled-out probes.
+        ///
+        /// - Parameters:
+        ///   - request: A `Arcbox_Sandbox_V1_WaitForPortRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A `SwiftProtobuf.Google_Protobuf_Empty` to respond with.
+        func waitForPort(
+            request: Arcbox_Sandbox_V1_WaitForPortRequest,
+            context: GRPCCore.ServerContext
+        ) async throws -> SwiftProtobuf.Google_Protobuf_Empty
     }
 }
 
@@ -767,6 +919,28 @@ extension Arcbox_Sandbox_V1_SandboxProcessService.StreamingServiceProtocol {
                 )
             }
         )
+        router.registerHandler(
+            forMethod: Arcbox_Sandbox_V1_SandboxProcessService.Method.ListExecutions.descriptor,
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_ListExecutionsRequest>(),
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_ListExecutionsResponse>(),
+            handler: { request, context in
+                try await self.listExecutions(
+                    request: request,
+                    context: context
+                )
+            }
+        )
+        router.registerHandler(
+            forMethod: Arcbox_Sandbox_V1_SandboxProcessService.Method.WaitForPort.descriptor,
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_WaitForPortRequest>(),
+            serializer: GRPCProtobuf.ProtobufSerializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            handler: { request, context in
+                try await self.waitForPort(
+                    request: request,
+                    context: context
+                )
+            }
+        )
     }
 }
 
@@ -855,6 +1029,28 @@ extension Arcbox_Sandbox_V1_SandboxProcessService.ServiceProtocol {
         context: GRPCCore.ServerContext
     ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_Execution> {
         let response = try await self.waitExecution(
+            request: GRPCCore.ServerRequest(stream: request),
+            context: context
+        )
+        return GRPCCore.StreamingServerResponse(single: response)
+    }
+
+    public func listExecutions(
+        request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_ListExecutionsRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_ListExecutionsResponse> {
+        let response = try await self.listExecutions(
+            request: GRPCCore.ServerRequest(stream: request),
+            context: context
+        )
+        return GRPCCore.StreamingServerResponse(single: response)
+    }
+
+    public func waitForPort(
+        request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_WaitForPortRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        let response = try await self.waitForPort(
             request: GRPCCore.ServerRequest(stream: request),
             context: context
         )
@@ -966,6 +1162,32 @@ extension Arcbox_Sandbox_V1_SandboxProcessService.SimpleServiceProtocol {
     ) async throws -> GRPCCore.ServerResponse<Arcbox_Sandbox_V1_Execution> {
         return GRPCCore.ServerResponse<Arcbox_Sandbox_V1_Execution>(
             message: try await self.waitExecution(
+                request: request.message,
+                context: context
+            ),
+            metadata: [:]
+        )
+    }
+
+    public func listExecutions(
+        request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_ListExecutionsRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.ServerResponse<Arcbox_Sandbox_V1_ListExecutionsResponse> {
+        return GRPCCore.ServerResponse<Arcbox_Sandbox_V1_ListExecutionsResponse>(
+            message: try await self.listExecutions(
+                request: request.message,
+                context: context
+            ),
+            metadata: [:]
+        )
+    }
+
+    public func waitForPort(
+        request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_WaitForPortRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        return GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>(
+            message: try await self.waitForPort(
                 request: request.message,
                 context: context
             ),
@@ -1184,6 +1406,58 @@ extension Arcbox_Sandbox_V1_SandboxProcessService {
             deserializer: some GRPCCore.MessageDeserializer<Arcbox_Sandbox_V1_Execution>,
             options: GRPCCore.CallOptions,
             onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_Execution>) async throws -> Result
+        ) async throws -> Result where Result: Sendable
+
+        /// Call the "ListExecutions" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > List a sandbox's executions, running and exited, so a client can
+        /// > rediscover processes it no longer holds handles to — after losing
+        /// > its connection, or across an auto-pause/resume cycle. Executions
+        /// > are retained for the life of their sandbox.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_ListExecutionsRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_ListExecutionsRequest` messages.
+        ///   - deserializer: A deserializer for `Arcbox_Sandbox_V1_ListExecutionsResponse` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        func listExecutions<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_ListExecutionsRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_ListExecutionsRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<Arcbox_Sandbox_V1_ListExecutionsResponse>,
+            options: GRPCCore.CallOptions,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_ListExecutionsResponse>) async throws -> Result
+        ) async throws -> Result where Result: Sendable
+
+        /// Call the "WaitForPort" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Wait until something inside the sandbox listens on the given TCP
+        /// > port, or fail with DEADLINE_EXCEEDED when the timeout elapses. The
+        /// > guest agent watches the listen table directly — clients never
+        /// > poll with shelled-out probes.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_WaitForPortRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_WaitForPortRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        func waitForPort<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_WaitForPortRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_WaitForPortRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result
         ) async throws -> Result where Result: Sendable
     }
 
@@ -1491,6 +1765,80 @@ extension Arcbox_Sandbox_V1_SandboxProcessService {
                 onResponse: handleResponse
             )
         }
+
+        /// Call the "ListExecutions" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > List a sandbox's executions, running and exited, so a client can
+        /// > rediscover processes it no longer holds handles to — after losing
+        /// > its connection, or across an auto-pause/resume cycle. Executions
+        /// > are retained for the life of their sandbox.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_ListExecutionsRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_ListExecutionsRequest` messages.
+        ///   - deserializer: A deserializer for `Arcbox_Sandbox_V1_ListExecutionsResponse` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        public func listExecutions<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_ListExecutionsRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_ListExecutionsRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<Arcbox_Sandbox_V1_ListExecutionsResponse>,
+            options: GRPCCore.CallOptions = .defaults,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_ListExecutionsResponse>) async throws -> Result = { response in
+                try response.message
+            }
+        ) async throws -> Result where Result: Sendable {
+            try await self.client.unary(
+                request: request,
+                descriptor: Arcbox_Sandbox_V1_SandboxProcessService.Method.ListExecutions.descriptor,
+                serializer: serializer,
+                deserializer: deserializer,
+                options: options,
+                onResponse: handleResponse
+            )
+        }
+
+        /// Call the "WaitForPort" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Wait until something inside the sandbox listens on the given TCP
+        /// > port, or fail with DEADLINE_EXCEEDED when the timeout elapses. The
+        /// > guest agent watches the listen table directly — clients never
+        /// > poll with shelled-out probes.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_WaitForPortRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_WaitForPortRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        public func waitForPort<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_WaitForPortRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_WaitForPortRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions = .defaults,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+                try response.message
+            }
+        ) async throws -> Result where Result: Sendable {
+            try await self.client.unary(
+                request: request,
+                descriptor: Arcbox_Sandbox_V1_SandboxProcessService.Method.WaitForPort.descriptor,
+                serializer: serializer,
+                deserializer: deserializer,
+                options: options,
+                onResponse: handleResponse
+            )
+        }
     }
 }
 
@@ -1737,6 +2085,70 @@ extension Arcbox_Sandbox_V1_SandboxProcessService.ClientProtocol {
             request: request,
             serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_WaitExecutionRequest>(),
             deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_Execution>(),
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "ListExecutions" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > List a sandbox's executions, running and exited, so a client can
+    /// > rediscover processes it no longer holds handles to — after losing
+    /// > its connection, or across an auto-pause/resume cycle. Executions
+    /// > are retained for the life of their sandbox.
+    ///
+    /// - Parameters:
+    ///   - request: A request containing a single `Arcbox_Sandbox_V1_ListExecutionsRequest` message.
+    ///   - options: Options to apply to this RPC.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func listExecutions<Result>(
+        request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_ListExecutionsRequest>,
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_ListExecutionsResponse>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        try await self.listExecutions(
+            request: request,
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_ListExecutionsRequest>(),
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_ListExecutionsResponse>(),
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "WaitForPort" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Wait until something inside the sandbox listens on the given TCP
+    /// > port, or fail with DEADLINE_EXCEEDED when the timeout elapses. The
+    /// > guest agent watches the listen table directly — clients never
+    /// > poll with shelled-out probes.
+    ///
+    /// - Parameters:
+    ///   - request: A request containing a single `Arcbox_Sandbox_V1_WaitForPortRequest` message.
+    ///   - options: Options to apply to this RPC.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func waitForPort<Result>(
+        request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_WaitForPortRequest>,
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        try await self.waitForPort(
+            request: request,
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_WaitForPortRequest>(),
+            deserializer: GRPCProtobuf.ProtobufDeserializer<SwiftProtobuf.Google_Protobuf_Empty>(),
             options: options,
             onResponse: handleResponse
         )
@@ -2018,6 +2430,78 @@ extension Arcbox_Sandbox_V1_SandboxProcessService.ClientProtocol {
             metadata: metadata
         )
         return try await self.waitExecution(
+            request: request,
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "ListExecutions" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > List a sandbox's executions, running and exited, so a client can
+    /// > rediscover processes it no longer holds handles to — after losing
+    /// > its connection, or across an auto-pause/resume cycle. Executions
+    /// > are retained for the life of their sandbox.
+    ///
+    /// - Parameters:
+    ///   - message: request message to send.
+    ///   - metadata: Additional metadata to send, defaults to empty.
+    ///   - options: Options to apply to this RPC, defaults to `.defaults`.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func listExecutions<Result>(
+        _ message: Arcbox_Sandbox_V1_ListExecutionsRequest,
+        metadata: GRPCCore.Metadata = [:],
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_ListExecutionsResponse>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        let request = GRPCCore.ClientRequest<Arcbox_Sandbox_V1_ListExecutionsRequest>(
+            message: message,
+            metadata: metadata
+        )
+        return try await self.listExecutions(
+            request: request,
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "WaitForPort" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Wait until something inside the sandbox listens on the given TCP
+    /// > port, or fail with DEADLINE_EXCEEDED when the timeout elapses. The
+    /// > guest agent watches the listen table directly — clients never
+    /// > poll with shelled-out probes.
+    ///
+    /// - Parameters:
+    ///   - message: request message to send.
+    ///   - metadata: Additional metadata to send, defaults to empty.
+    ///   - options: Options to apply to this RPC, defaults to `.defaults`.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func waitForPort<Result>(
+        _ message: Arcbox_Sandbox_V1_WaitForPortRequest,
+        metadata: GRPCCore.Metadata = [:],
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        let request = GRPCCore.ClientRequest<Arcbox_Sandbox_V1_WaitForPortRequest>(
+            message: message,
+            metadata: metadata
+        )
+        return try await self.waitForPort(
             request: request,
             options: options,
             onResponse: handleResponse

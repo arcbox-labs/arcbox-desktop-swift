@@ -150,6 +150,7 @@
 		8ED7BA2FEE7010BDBD4BAEDC /* VolumesViewModel+Docker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 420516961E57589A91B445DA /* VolumesViewModel+Docker.swift */; };
 		8FB67BF11BF2A3194A28BD32 /* SandboxTerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0841C2969EC1A1BC07489C8 /* SandboxTerminalSession.swift */; };
 		9010BB836D577FF81084FAAA /* ToolbarSeparator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 823F87591055C314EC29BF67 /* ToolbarSeparator.swift */; };
+		927458F82097ECF1A07412FD /* StatePlaceholderTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBD1F83B573C40DFA09E5633 /* StatePlaceholderTestSupport.swift */; };
 		931763946B40148917024A02 /* K8sClient in Frameworks */ = {isa = PBXBuildFile; productRef = E3B0A98EBADEEAA76280EF06 /* K8sClient */; };
 		932BD3DB61039B6A7B298661 /* ApplicationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78827F9105251AF033577933 /* ApplicationCoordinator.swift */; };
 		93E1F4FEF7A65834986A85E7 /* AppDelegate+Telemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95F313C9C7AA84A964728D44 /* AppDelegate+Telemetry.swift */; };
@@ -221,7 +222,6 @@
 		D6C6DEA33D73FF969786C018 /* OIDCClientConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71DF8E5C8AADE1AD5C60F457 /* OIDCClientConfigurationTests.swift */; };
 		D6D1C18BADA9AB8CAE608A7F /* SidebarAccountButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7607A876F6C88A440DA53BE1 /* SidebarAccountButton.swift */; };
 		D745D0D7EF5FF65174C47F28 /* NewVolumeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 903FA72CEF39142ADA5CA378 /* NewVolumeSheet.swift */; };
-		D786BBF78698824ED9F5E048 /* ComingSoonPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE64C34A555B2A5BA02AD9FA /* ComingSoonPanel.swift */; };
 		DA5B57293BC69B7D95AABBA8 /* ActivityRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0201CD86DCD5E042D07FF66F /* ActivityRow.swift */; };
 		DB19F0073D84ED7A7C937D49 /* ContainersListViewControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80010452354615CAC08FAF1D /* ContainersListViewControllerTests.swift */; };
 		DB5CE5663EE824474F0739FF /* OnboardingWindowControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A517313E1085B62A40075622 /* OnboardingWindowControllerTests.swift */; };
@@ -440,7 +440,6 @@
 		AC010DD9F0AEC7E4EA778C59 /* MenuBarView+Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenuBarView+Actions.swift"; sourceTree = "<group>"; };
 		AC70A79B919D909CF6D811B4 /* arcbox.version */ = {isa = PBXFileReference; path = arcbox.version; sourceTree = "<group>"; };
 		AE29B2F3FF7CFA3B0325CB97 /* ContainerInfoTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerInfoTab.swift; sourceTree = "<group>"; };
-		AE64C34A555B2A5BA02AD9FA /* ComingSoonPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComingSoonPanel.swift; sourceTree = "<group>"; };
 		AF7C1F10630FCFA65B832FA9 /* NewNetworkSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewNetworkSheet.swift; sourceTree = "<group>"; };
 		B011CA693D5A9EFCCF61AA2D /* NewContainerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewContainerSheet.swift; sourceTree = "<group>"; };
 		B050286A2450880AC2C95342 /* ActivityContainerTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityContainerTable.swift; sourceTree = "<group>"; };
@@ -502,6 +501,7 @@
 		E8632512053E9C750CAA97F9 /* MachineTerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineTerminalSession.swift; sourceTree = "<group>"; };
 		EA6DBFBB43078F295AFE54C0 /* PerformanceTracing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceTracing.swift; sourceTree = "<group>"; };
 		EB477EF803A15EDFF2685A23 /* ImageTerminalTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageTerminalTab.swift; sourceTree = "<group>"; };
+		EBD1F83B573C40DFA09E5633 /* StatePlaceholderTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatePlaceholderTestSupport.swift; sourceTree = "<group>"; };
 		EC6744BCBFA0A05831AFED0E /* MenuBarView+Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenuBarView+Layout.swift"; sourceTree = "<group>"; };
 		ECF57E2C2B0281B8CEA6132C /* MenuBarView+Metrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MenuBarView+Metrics.swift"; sourceTree = "<group>"; };
 		EE6C627A5BC34C783DAEAC31 /* LocalRootFSOutlineModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalRootFSOutlineModels.swift; sourceTree = "<group>"; };
@@ -755,7 +755,6 @@
 		36ACB0A8DEE9F48E74DC42FA /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				AE64C34A555B2A5BA02AD9FA /* ComingSoonPanel.swift */,
 				AA88097CAC1929269BE210C5 /* ContentView.swift */,
 				7607A876F6C88A440DA53BE1 /* SidebarAccountButton.swift */,
 				FDE4F12642D327661286B8A8 /* About */,
@@ -1148,6 +1147,7 @@
 				FA27F4AC273B14038EDB6593 /* NetworksListViewControllerTests.swift */,
 				A517313E1085B62A40075622 /* OnboardingWindowControllerTests.swift */,
 				B084B3E5BD66E2DA018764E8 /* QuitWindowControllerTests.swift */,
+				EBD1F83B573C40DFA09E5633 /* StatePlaceholderTestSupport.swift */,
 				B4BAE047B96D10B4716BA1A2 /* VolumesListViewControllerTests.swift */,
 			);
 			path = ArcBoxTests;
@@ -1356,7 +1356,6 @@
 				932BD3DB61039B6A7B298661 /* ApplicationCoordinator.swift in Sources */,
 				11E29BA2E32899164106A9E7 /* AvatarView.swift in Sources */,
 				50CCDEFCA186BCD1E99D291F /* ChangelogParser.swift in Sources */,
-				D786BBF78698824ED9F5E048 /* ComingSoonPanel.swift in Sources */,
 				0A2CD753BB4FE0991213273A /* CommandEmptyStateView.swift in Sources */,
 				7DABE0FBDD17F88D47333964 /* CommandHint.swift in Sources */,
 				7910184754585B4CF647FA92 /* ContainerDetailView.swift in Sources */,
@@ -1571,6 +1570,7 @@
 				98E7A55FC92F874A28D762FD /* PKCETests.swift in Sources */,
 				D4ECBBCAC3D4631041F292D5 /* QuitWindowControllerTests.swift in Sources */,
 				1CB8AE8C16D0C333B7C0B32F /* ResourceStatsTests.swift in Sources */,
+				927458F82097ECF1A07412FD /* StatePlaceholderTestSupport.swift in Sources */,
 				17ED6FFFD9A61998178E38B9 /* VolumesListViewControllerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

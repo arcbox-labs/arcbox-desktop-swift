@@ -81,6 +81,54 @@ public enum Arcbox_Sandbox_V1_SandboxService {
                 method: "Remove"
             )
         }
+        /// Namespace for "Pause" metadata.
+        public enum Pause {
+            /// Request type for "Pause".
+            public typealias Input = Arcbox_Sandbox_V1_PauseSandboxRequest
+            /// Response type for "Pause".
+            public typealias Output = SwiftProtobuf.Google_Protobuf_Empty
+            /// Descriptor for "Pause".
+            public static let descriptor = GRPCCore.MethodDescriptor(
+                service: GRPCCore.ServiceDescriptor(fullyQualifiedService: "arcbox.sandbox.v1.SandboxService"),
+                method: "Pause"
+            )
+        }
+        /// Namespace for "Resume" metadata.
+        public enum Resume {
+            /// Request type for "Resume".
+            public typealias Input = Arcbox_Sandbox_V1_ResumeSandboxRequest
+            /// Response type for "Resume".
+            public typealias Output = SwiftProtobuf.Google_Protobuf_Empty
+            /// Descriptor for "Resume".
+            public static let descriptor = GRPCCore.MethodDescriptor(
+                service: GRPCCore.ServiceDescriptor(fullyQualifiedService: "arcbox.sandbox.v1.SandboxService"),
+                method: "Resume"
+            )
+        }
+        /// Namespace for "SetLifecycle" metadata.
+        public enum SetLifecycle {
+            /// Request type for "SetLifecycle".
+            public typealias Input = Arcbox_Sandbox_V1_SetLifecycleRequest
+            /// Response type for "SetLifecycle".
+            public typealias Output = SwiftProtobuf.Google_Protobuf_Empty
+            /// Descriptor for "SetLifecycle".
+            public static let descriptor = GRPCCore.MethodDescriptor(
+                service: GRPCCore.ServiceDescriptor(fullyQualifiedService: "arcbox.sandbox.v1.SandboxService"),
+                method: "SetLifecycle"
+            )
+        }
+        /// Namespace for "GetCapabilities" metadata.
+        public enum GetCapabilities {
+            /// Request type for "GetCapabilities".
+            public typealias Input = Arcbox_Sandbox_V1_GetCapabilitiesRequest
+            /// Response type for "GetCapabilities".
+            public typealias Output = Arcbox_Sandbox_V1_GetCapabilitiesResponse
+            /// Descriptor for "GetCapabilities".
+            public static let descriptor = GRPCCore.MethodDescriptor(
+                service: GRPCCore.ServiceDescriptor(fullyQualifiedService: "arcbox.sandbox.v1.SandboxService"),
+                method: "GetCapabilities"
+            )
+        }
         /// Namespace for "Inspect" metadata.
         public enum Inspect {
             /// Request type for "Inspect".
@@ -146,6 +194,10 @@ public enum Arcbox_Sandbox_V1_SandboxService {
             Create.descriptor,
             Stop.descriptor,
             Remove.descriptor,
+            Pause.descriptor,
+            Resume.descriptor,
+            SetLifecycle.descriptor,
+            GetCapabilities.descriptor,
             Inspect.descriptor,
             List.descriptor,
             Events.descriptor,
@@ -235,6 +287,99 @@ extension Arcbox_Sandbox_V1_SandboxService {
             request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_RemoveSandboxRequest>,
             context: GRPCCore.ServerContext
         ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "Pause" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Pause a sandbox: checkpoint it to disk under the same ID, then
+        /// > release its runtime resources (VM, network, CoW overlay). The
+        /// > record survives as PAUSED and Resume restores it in place — the
+        /// > origin VM is gone by construction, which sidesteps the direct-mode
+        /// > relocation constraint documented in `snapshot.proto` (CORE-21).
+        /// > Returns once the sandbox reaches PAUSED; requires READY (no active
+        /// > execution). Trades RAM for disk: a paused sandbox keeps paying
+        /// > `storage_bytes` until removed.
+        ///
+        /// - Parameters:
+        ///   - request: A streaming request of `Arcbox_Sandbox_V1_PauseSandboxRequest` messages.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A streaming response of `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        func pause(
+            request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_PauseSandboxRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "Resume" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Resume a PAUSED sandbox in place under the same ID; returns once
+        /// > it is READY again. Explicit resume is for control-plane callers:
+        /// > data-plane RPCs (executions, files) targeting a PAUSED sandbox
+        /// > resume it transparently before proceeding, so clients see a
+        /// > latency blip rather than an error. Callers that want the honest
+        /// > state machine instead set the reserved `x-arcbox-no-auto-resume`
+        /// > request header (not yet honored) and receive SANDBOX_PAUSED
+        /// > (`errors.proto`). Inspect and List never resume.
+        ///
+        /// - Parameters:
+        ///   - request: A streaming request of `Arcbox_Sandbox_V1_ResumeSandboxRequest` messages.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A streaming response of `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        func resume(
+            request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_ResumeSandboxRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "SetLifecycle" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Replace a sandbox's lifecycle deadlines: the hard maximum lifetime
+        /// > (`ttl_seconds`, re-armed from now — CORE-60) and/or the idle
+        /// > timeout and its policy. Fields left unset are unchanged.
+        ///
+        /// - Parameters:
+        ///   - request: A streaming request of `Arcbox_Sandbox_V1_SetLifecycleRequest` messages.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A streaming response of `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        func setLifecycle(
+            request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_SetLifecycleRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "GetCapabilities" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Report what this daemon can do: version, sandbox protocol level,
+        /// > feature flags, and whether nested virtualization is available.
+        /// > Serves the SDK's lazy version handshake and the fail-fast
+        /// > capability check (CORE-13): creating a sandbox on an unsupported
+        /// > host fails immediately with NESTED_VIRT_UNSUPPORTED instead of a
+        /// > boot that wedges.
+        ///
+        /// - Parameters:
+        ///   - request: A streaming request of `Arcbox_Sandbox_V1_GetCapabilitiesRequest` messages.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A streaming response of `Arcbox_Sandbox_V1_GetCapabilitiesResponse` messages.
+        func getCapabilities(
+            request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_GetCapabilitiesRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_GetCapabilitiesResponse>
 
         /// Handle the "Inspect" method.
         ///
@@ -399,6 +544,99 @@ extension Arcbox_Sandbox_V1_SandboxService {
             context: GRPCCore.ServerContext
         ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
 
+        /// Handle the "Pause" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Pause a sandbox: checkpoint it to disk under the same ID, then
+        /// > release its runtime resources (VM, network, CoW overlay). The
+        /// > record survives as PAUSED and Resume restores it in place — the
+        /// > origin VM is gone by construction, which sidesteps the direct-mode
+        /// > relocation constraint documented in `snapshot.proto` (CORE-21).
+        /// > Returns once the sandbox reaches PAUSED; requires READY (no active
+        /// > execution). Trades RAM for disk: a paused sandbox keeps paying
+        /// > `storage_bytes` until removed.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_PauseSandboxRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A response containing a single `SwiftProtobuf.Google_Protobuf_Empty` message.
+        func pause(
+            request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_PauseSandboxRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "Resume" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Resume a PAUSED sandbox in place under the same ID; returns once
+        /// > it is READY again. Explicit resume is for control-plane callers:
+        /// > data-plane RPCs (executions, files) targeting a PAUSED sandbox
+        /// > resume it transparently before proceeding, so clients see a
+        /// > latency blip rather than an error. Callers that want the honest
+        /// > state machine instead set the reserved `x-arcbox-no-auto-resume`
+        /// > request header (not yet honored) and receive SANDBOX_PAUSED
+        /// > (`errors.proto`). Inspect and List never resume.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_ResumeSandboxRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A response containing a single `SwiftProtobuf.Google_Protobuf_Empty` message.
+        func resume(
+            request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_ResumeSandboxRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "SetLifecycle" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Replace a sandbox's lifecycle deadlines: the hard maximum lifetime
+        /// > (`ttl_seconds`, re-armed from now — CORE-60) and/or the idle
+        /// > timeout and its policy. Fields left unset are unchanged.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_SetLifecycleRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A response containing a single `SwiftProtobuf.Google_Protobuf_Empty` message.
+        func setLifecycle(
+            request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_SetLifecycleRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "GetCapabilities" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Report what this daemon can do: version, sandbox protocol level,
+        /// > feature flags, and whether nested virtualization is available.
+        /// > Serves the SDK's lazy version handshake and the fail-fast
+        /// > capability check (CORE-13): creating a sandbox on an unsupported
+        /// > host fails immediately with NESTED_VIRT_UNSUPPORTED instead of a
+        /// > boot that wedges.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_GetCapabilitiesRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A response containing a single `Arcbox_Sandbox_V1_GetCapabilitiesResponse` message.
+        func getCapabilities(
+            request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_GetCapabilitiesRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.ServerResponse<Arcbox_Sandbox_V1_GetCapabilitiesResponse>
+
         /// Handle the "Inspect" method.
         ///
         /// > Source IDL Documentation:
@@ -560,6 +798,99 @@ extension Arcbox_Sandbox_V1_SandboxService {
             context: GRPCCore.ServerContext
         ) async throws -> SwiftProtobuf.Google_Protobuf_Empty
 
+        /// Handle the "Pause" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Pause a sandbox: checkpoint it to disk under the same ID, then
+        /// > release its runtime resources (VM, network, CoW overlay). The
+        /// > record survives as PAUSED and Resume restores it in place — the
+        /// > origin VM is gone by construction, which sidesteps the direct-mode
+        /// > relocation constraint documented in `snapshot.proto` (CORE-21).
+        /// > Returns once the sandbox reaches PAUSED; requires READY (no active
+        /// > execution). Trades RAM for disk: a paused sandbox keeps paying
+        /// > `storage_bytes` until removed.
+        ///
+        /// - Parameters:
+        ///   - request: A `Arcbox_Sandbox_V1_PauseSandboxRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A `SwiftProtobuf.Google_Protobuf_Empty` to respond with.
+        func pause(
+            request: Arcbox_Sandbox_V1_PauseSandboxRequest,
+            context: GRPCCore.ServerContext
+        ) async throws -> SwiftProtobuf.Google_Protobuf_Empty
+
+        /// Handle the "Resume" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Resume a PAUSED sandbox in place under the same ID; returns once
+        /// > it is READY again. Explicit resume is for control-plane callers:
+        /// > data-plane RPCs (executions, files) targeting a PAUSED sandbox
+        /// > resume it transparently before proceeding, so clients see a
+        /// > latency blip rather than an error. Callers that want the honest
+        /// > state machine instead set the reserved `x-arcbox-no-auto-resume`
+        /// > request header (not yet honored) and receive SANDBOX_PAUSED
+        /// > (`errors.proto`). Inspect and List never resume.
+        ///
+        /// - Parameters:
+        ///   - request: A `Arcbox_Sandbox_V1_ResumeSandboxRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A `SwiftProtobuf.Google_Protobuf_Empty` to respond with.
+        func resume(
+            request: Arcbox_Sandbox_V1_ResumeSandboxRequest,
+            context: GRPCCore.ServerContext
+        ) async throws -> SwiftProtobuf.Google_Protobuf_Empty
+
+        /// Handle the "SetLifecycle" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Replace a sandbox's lifecycle deadlines: the hard maximum lifetime
+        /// > (`ttl_seconds`, re-armed from now — CORE-60) and/or the idle
+        /// > timeout and its policy. Fields left unset are unchanged.
+        ///
+        /// - Parameters:
+        ///   - request: A `Arcbox_Sandbox_V1_SetLifecycleRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A `SwiftProtobuf.Google_Protobuf_Empty` to respond with.
+        func setLifecycle(
+            request: Arcbox_Sandbox_V1_SetLifecycleRequest,
+            context: GRPCCore.ServerContext
+        ) async throws -> SwiftProtobuf.Google_Protobuf_Empty
+
+        /// Handle the "GetCapabilities" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Report what this daemon can do: version, sandbox protocol level,
+        /// > feature flags, and whether nested virtualization is available.
+        /// > Serves the SDK's lazy version handshake and the fail-fast
+        /// > capability check (CORE-13): creating a sandbox on an unsupported
+        /// > host fails immediately with NESTED_VIRT_UNSUPPORTED instead of a
+        /// > boot that wedges.
+        ///
+        /// - Parameters:
+        ///   - request: A `Arcbox_Sandbox_V1_GetCapabilitiesRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A `Arcbox_Sandbox_V1_GetCapabilitiesResponse` to respond with.
+        func getCapabilities(
+            request: Arcbox_Sandbox_V1_GetCapabilitiesRequest,
+            context: GRPCCore.ServerContext
+        ) async throws -> Arcbox_Sandbox_V1_GetCapabilitiesResponse
+
         /// Handle the "Inspect" method.
         ///
         /// > Source IDL Documentation:
@@ -695,6 +1026,50 @@ extension Arcbox_Sandbox_V1_SandboxService.StreamingServiceProtocol {
             }
         )
         router.registerHandler(
+            forMethod: Arcbox_Sandbox_V1_SandboxService.Method.Pause.descriptor,
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_PauseSandboxRequest>(),
+            serializer: GRPCProtobuf.ProtobufSerializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            handler: { request, context in
+                try await self.pause(
+                    request: request,
+                    context: context
+                )
+            }
+        )
+        router.registerHandler(
+            forMethod: Arcbox_Sandbox_V1_SandboxService.Method.Resume.descriptor,
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_ResumeSandboxRequest>(),
+            serializer: GRPCProtobuf.ProtobufSerializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            handler: { request, context in
+                try await self.resume(
+                    request: request,
+                    context: context
+                )
+            }
+        )
+        router.registerHandler(
+            forMethod: Arcbox_Sandbox_V1_SandboxService.Method.SetLifecycle.descriptor,
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_SetLifecycleRequest>(),
+            serializer: GRPCProtobuf.ProtobufSerializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            handler: { request, context in
+                try await self.setLifecycle(
+                    request: request,
+                    context: context
+                )
+            }
+        )
+        router.registerHandler(
+            forMethod: Arcbox_Sandbox_V1_SandboxService.Method.GetCapabilities.descriptor,
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_GetCapabilitiesRequest>(),
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_GetCapabilitiesResponse>(),
+            handler: { request, context in
+                try await self.getCapabilities(
+                    request: request,
+                    context: context
+                )
+            }
+        )
+        router.registerHandler(
             forMethod: Arcbox_Sandbox_V1_SandboxService.Method.Inspect.descriptor,
             deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_InspectSandboxRequest>(),
             serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_SandboxInfo>(),
@@ -782,6 +1157,50 @@ extension Arcbox_Sandbox_V1_SandboxService.ServiceProtocol {
         context: GRPCCore.ServerContext
     ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
         let response = try await self.remove(
+            request: GRPCCore.ServerRequest(stream: request),
+            context: context
+        )
+        return GRPCCore.StreamingServerResponse(single: response)
+    }
+
+    public func pause(
+        request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_PauseSandboxRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        let response = try await self.pause(
+            request: GRPCCore.ServerRequest(stream: request),
+            context: context
+        )
+        return GRPCCore.StreamingServerResponse(single: response)
+    }
+
+    public func resume(
+        request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_ResumeSandboxRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        let response = try await self.resume(
+            request: GRPCCore.ServerRequest(stream: request),
+            context: context
+        )
+        return GRPCCore.StreamingServerResponse(single: response)
+    }
+
+    public func setLifecycle(
+        request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_SetLifecycleRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        let response = try await self.setLifecycle(
+            request: GRPCCore.ServerRequest(stream: request),
+            context: context
+        )
+        return GRPCCore.StreamingServerResponse(single: response)
+    }
+
+    public func getCapabilities(
+        request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_GetCapabilitiesRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_GetCapabilitiesResponse> {
+        let response = try await self.getCapabilities(
             request: GRPCCore.ServerRequest(stream: request),
             context: context
         )
@@ -879,6 +1298,58 @@ extension Arcbox_Sandbox_V1_SandboxService.SimpleServiceProtocol {
     ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
         return GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>(
             message: try await self.remove(
+                request: request.message,
+                context: context
+            ),
+            metadata: [:]
+        )
+    }
+
+    public func pause(
+        request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_PauseSandboxRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        return GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>(
+            message: try await self.pause(
+                request: request.message,
+                context: context
+            ),
+            metadata: [:]
+        )
+    }
+
+    public func resume(
+        request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_ResumeSandboxRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        return GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>(
+            message: try await self.resume(
+                request: request.message,
+                context: context
+            ),
+            metadata: [:]
+        )
+    }
+
+    public func setLifecycle(
+        request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_SetLifecycleRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        return GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>(
+            message: try await self.setLifecycle(
+                request: request.message,
+                context: context
+            ),
+            metadata: [:]
+        )
+    }
+
+    public func getCapabilities(
+        request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_GetCapabilitiesRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.ServerResponse<Arcbox_Sandbox_V1_GetCapabilitiesResponse> {
+        return GRPCCore.ServerResponse<Arcbox_Sandbox_V1_GetCapabilitiesResponse>(
+            message: try await self.getCapabilities(
                 request: request.message,
                 context: context
             ),
@@ -1038,6 +1509,119 @@ extension Arcbox_Sandbox_V1_SandboxService {
             deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
             options: GRPCCore.CallOptions,
             onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result
+        ) async throws -> Result where Result: Sendable
+
+        /// Call the "Pause" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Pause a sandbox: checkpoint it to disk under the same ID, then
+        /// > release its runtime resources (VM, network, CoW overlay). The
+        /// > record survives as PAUSED and Resume restores it in place — the
+        /// > origin VM is gone by construction, which sidesteps the direct-mode
+        /// > relocation constraint documented in `snapshot.proto` (CORE-21).
+        /// > Returns once the sandbox reaches PAUSED; requires READY (no active
+        /// > execution). Trades RAM for disk: a paused sandbox keeps paying
+        /// > `storage_bytes` until removed.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_PauseSandboxRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_PauseSandboxRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        func pause<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_PauseSandboxRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_PauseSandboxRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result
+        ) async throws -> Result where Result: Sendable
+
+        /// Call the "Resume" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Resume a PAUSED sandbox in place under the same ID; returns once
+        /// > it is READY again. Explicit resume is for control-plane callers:
+        /// > data-plane RPCs (executions, files) targeting a PAUSED sandbox
+        /// > resume it transparently before proceeding, so clients see a
+        /// > latency blip rather than an error. Callers that want the honest
+        /// > state machine instead set the reserved `x-arcbox-no-auto-resume`
+        /// > request header (not yet honored) and receive SANDBOX_PAUSED
+        /// > (`errors.proto`). Inspect and List never resume.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_ResumeSandboxRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_ResumeSandboxRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        func resume<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_ResumeSandboxRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_ResumeSandboxRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result
+        ) async throws -> Result where Result: Sendable
+
+        /// Call the "SetLifecycle" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Replace a sandbox's lifecycle deadlines: the hard maximum lifetime
+        /// > (`ttl_seconds`, re-armed from now — CORE-60) and/or the idle
+        /// > timeout and its policy. Fields left unset are unchanged.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_SetLifecycleRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_SetLifecycleRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        func setLifecycle<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_SetLifecycleRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_SetLifecycleRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result
+        ) async throws -> Result where Result: Sendable
+
+        /// Call the "GetCapabilities" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Report what this daemon can do: version, sandbox protocol level,
+        /// > feature flags, and whether nested virtualization is available.
+        /// > Serves the SDK's lazy version handshake and the fail-fast
+        /// > capability check (CORE-13): creating a sandbox on an unsupported
+        /// > host fails immediately with NESTED_VIRT_UNSUPPORTED instead of a
+        /// > boot that wedges.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_GetCapabilitiesRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_GetCapabilitiesRequest` messages.
+        ///   - deserializer: A deserializer for `Arcbox_Sandbox_V1_GetCapabilitiesResponse` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        func getCapabilities<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_GetCapabilitiesRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_GetCapabilitiesRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<Arcbox_Sandbox_V1_GetCapabilitiesResponse>,
+            options: GRPCCore.CallOptions,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_GetCapabilitiesResponse>) async throws -> Result
         ) async throws -> Result where Result: Sendable
 
         /// Call the "Inspect" method.
@@ -1277,6 +1861,163 @@ extension Arcbox_Sandbox_V1_SandboxService {
             try await self.client.unary(
                 request: request,
                 descriptor: Arcbox_Sandbox_V1_SandboxService.Method.Remove.descriptor,
+                serializer: serializer,
+                deserializer: deserializer,
+                options: options,
+                onResponse: handleResponse
+            )
+        }
+
+        /// Call the "Pause" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Pause a sandbox: checkpoint it to disk under the same ID, then
+        /// > release its runtime resources (VM, network, CoW overlay). The
+        /// > record survives as PAUSED and Resume restores it in place — the
+        /// > origin VM is gone by construction, which sidesteps the direct-mode
+        /// > relocation constraint documented in `snapshot.proto` (CORE-21).
+        /// > Returns once the sandbox reaches PAUSED; requires READY (no active
+        /// > execution). Trades RAM for disk: a paused sandbox keeps paying
+        /// > `storage_bytes` until removed.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_PauseSandboxRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_PauseSandboxRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        public func pause<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_PauseSandboxRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_PauseSandboxRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions = .defaults,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+                try response.message
+            }
+        ) async throws -> Result where Result: Sendable {
+            try await self.client.unary(
+                request: request,
+                descriptor: Arcbox_Sandbox_V1_SandboxService.Method.Pause.descriptor,
+                serializer: serializer,
+                deserializer: deserializer,
+                options: options,
+                onResponse: handleResponse
+            )
+        }
+
+        /// Call the "Resume" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Resume a PAUSED sandbox in place under the same ID; returns once
+        /// > it is READY again. Explicit resume is for control-plane callers:
+        /// > data-plane RPCs (executions, files) targeting a PAUSED sandbox
+        /// > resume it transparently before proceeding, so clients see a
+        /// > latency blip rather than an error. Callers that want the honest
+        /// > state machine instead set the reserved `x-arcbox-no-auto-resume`
+        /// > request header (not yet honored) and receive SANDBOX_PAUSED
+        /// > (`errors.proto`). Inspect and List never resume.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_ResumeSandboxRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_ResumeSandboxRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        public func resume<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_ResumeSandboxRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_ResumeSandboxRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions = .defaults,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+                try response.message
+            }
+        ) async throws -> Result where Result: Sendable {
+            try await self.client.unary(
+                request: request,
+                descriptor: Arcbox_Sandbox_V1_SandboxService.Method.Resume.descriptor,
+                serializer: serializer,
+                deserializer: deserializer,
+                options: options,
+                onResponse: handleResponse
+            )
+        }
+
+        /// Call the "SetLifecycle" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Replace a sandbox's lifecycle deadlines: the hard maximum lifetime
+        /// > (`ttl_seconds`, re-armed from now — CORE-60) and/or the idle
+        /// > timeout and its policy. Fields left unset are unchanged.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_SetLifecycleRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_SetLifecycleRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        public func setLifecycle<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_SetLifecycleRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_SetLifecycleRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions = .defaults,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+                try response.message
+            }
+        ) async throws -> Result where Result: Sendable {
+            try await self.client.unary(
+                request: request,
+                descriptor: Arcbox_Sandbox_V1_SandboxService.Method.SetLifecycle.descriptor,
+                serializer: serializer,
+                deserializer: deserializer,
+                options: options,
+                onResponse: handleResponse
+            )
+        }
+
+        /// Call the "GetCapabilities" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Report what this daemon can do: version, sandbox protocol level,
+        /// > feature flags, and whether nested virtualization is available.
+        /// > Serves the SDK's lazy version handshake and the fail-fast
+        /// > capability check (CORE-13): creating a sandbox on an unsupported
+        /// > host fails immediately with NESTED_VIRT_UNSUPPORTED instead of a
+        /// > boot that wedges.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_GetCapabilitiesRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_GetCapabilitiesRequest` messages.
+        ///   - deserializer: A deserializer for `Arcbox_Sandbox_V1_GetCapabilitiesResponse` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        public func getCapabilities<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_GetCapabilitiesRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_GetCapabilitiesRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<Arcbox_Sandbox_V1_GetCapabilitiesResponse>,
+            options: GRPCCore.CallOptions = .defaults,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_GetCapabilitiesResponse>) async throws -> Result = { response in
+                try response.message
+            }
+        ) async throws -> Result where Result: Sendable {
+            try await self.client.unary(
+                request: request,
+                descriptor: Arcbox_Sandbox_V1_SandboxService.Method.GetCapabilities.descriptor,
                 serializer: serializer,
                 deserializer: deserializer,
                 options: options,
@@ -1550,6 +2291,143 @@ extension Arcbox_Sandbox_V1_SandboxService.ClientProtocol {
         )
     }
 
+    /// Call the "Pause" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Pause a sandbox: checkpoint it to disk under the same ID, then
+    /// > release its runtime resources (VM, network, CoW overlay). The
+    /// > record survives as PAUSED and Resume restores it in place — the
+    /// > origin VM is gone by construction, which sidesteps the direct-mode
+    /// > relocation constraint documented in `snapshot.proto` (CORE-21).
+    /// > Returns once the sandbox reaches PAUSED; requires READY (no active
+    /// > execution). Trades RAM for disk: a paused sandbox keeps paying
+    /// > `storage_bytes` until removed.
+    ///
+    /// - Parameters:
+    ///   - request: A request containing a single `Arcbox_Sandbox_V1_PauseSandboxRequest` message.
+    ///   - options: Options to apply to this RPC.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func pause<Result>(
+        request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_PauseSandboxRequest>,
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        try await self.pause(
+            request: request,
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_PauseSandboxRequest>(),
+            deserializer: GRPCProtobuf.ProtobufDeserializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "Resume" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Resume a PAUSED sandbox in place under the same ID; returns once
+    /// > it is READY again. Explicit resume is for control-plane callers:
+    /// > data-plane RPCs (executions, files) targeting a PAUSED sandbox
+    /// > resume it transparently before proceeding, so clients see a
+    /// > latency blip rather than an error. Callers that want the honest
+    /// > state machine instead set the reserved `x-arcbox-no-auto-resume`
+    /// > request header (not yet honored) and receive SANDBOX_PAUSED
+    /// > (`errors.proto`). Inspect and List never resume.
+    ///
+    /// - Parameters:
+    ///   - request: A request containing a single `Arcbox_Sandbox_V1_ResumeSandboxRequest` message.
+    ///   - options: Options to apply to this RPC.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func resume<Result>(
+        request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_ResumeSandboxRequest>,
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        try await self.resume(
+            request: request,
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_ResumeSandboxRequest>(),
+            deserializer: GRPCProtobuf.ProtobufDeserializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "SetLifecycle" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Replace a sandbox's lifecycle deadlines: the hard maximum lifetime
+    /// > (`ttl_seconds`, re-armed from now — CORE-60) and/or the idle
+    /// > timeout and its policy. Fields left unset are unchanged.
+    ///
+    /// - Parameters:
+    ///   - request: A request containing a single `Arcbox_Sandbox_V1_SetLifecycleRequest` message.
+    ///   - options: Options to apply to this RPC.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func setLifecycle<Result>(
+        request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_SetLifecycleRequest>,
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        try await self.setLifecycle(
+            request: request,
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_SetLifecycleRequest>(),
+            deserializer: GRPCProtobuf.ProtobufDeserializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "GetCapabilities" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Report what this daemon can do: version, sandbox protocol level,
+    /// > feature flags, and whether nested virtualization is available.
+    /// > Serves the SDK's lazy version handshake and the fail-fast
+    /// > capability check (CORE-13): creating a sandbox on an unsupported
+    /// > host fails immediately with NESTED_VIRT_UNSUPPORTED instead of a
+    /// > boot that wedges.
+    ///
+    /// - Parameters:
+    ///   - request: A request containing a single `Arcbox_Sandbox_V1_GetCapabilitiesRequest` message.
+    ///   - options: Options to apply to this RPC.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func getCapabilities<Result>(
+        request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_GetCapabilitiesRequest>,
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_GetCapabilitiesResponse>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        try await self.getCapabilities(
+            request: request,
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_GetCapabilitiesRequest>(),
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_GetCapabilitiesResponse>(),
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
     /// Call the "Inspect" method.
     ///
     /// > Source IDL Documentation:
@@ -1796,6 +2674,159 @@ extension Arcbox_Sandbox_V1_SandboxService.ClientProtocol {
             metadata: metadata
         )
         return try await self.remove(
+            request: request,
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "Pause" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Pause a sandbox: checkpoint it to disk under the same ID, then
+    /// > release its runtime resources (VM, network, CoW overlay). The
+    /// > record survives as PAUSED and Resume restores it in place — the
+    /// > origin VM is gone by construction, which sidesteps the direct-mode
+    /// > relocation constraint documented in `snapshot.proto` (CORE-21).
+    /// > Returns once the sandbox reaches PAUSED; requires READY (no active
+    /// > execution). Trades RAM for disk: a paused sandbox keeps paying
+    /// > `storage_bytes` until removed.
+    ///
+    /// - Parameters:
+    ///   - message: request message to send.
+    ///   - metadata: Additional metadata to send, defaults to empty.
+    ///   - options: Options to apply to this RPC, defaults to `.defaults`.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func pause<Result>(
+        _ message: Arcbox_Sandbox_V1_PauseSandboxRequest,
+        metadata: GRPCCore.Metadata = [:],
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        let request = GRPCCore.ClientRequest<Arcbox_Sandbox_V1_PauseSandboxRequest>(
+            message: message,
+            metadata: metadata
+        )
+        return try await self.pause(
+            request: request,
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "Resume" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Resume a PAUSED sandbox in place under the same ID; returns once
+    /// > it is READY again. Explicit resume is for control-plane callers:
+    /// > data-plane RPCs (executions, files) targeting a PAUSED sandbox
+    /// > resume it transparently before proceeding, so clients see a
+    /// > latency blip rather than an error. Callers that want the honest
+    /// > state machine instead set the reserved `x-arcbox-no-auto-resume`
+    /// > request header (not yet honored) and receive SANDBOX_PAUSED
+    /// > (`errors.proto`). Inspect and List never resume.
+    ///
+    /// - Parameters:
+    ///   - message: request message to send.
+    ///   - metadata: Additional metadata to send, defaults to empty.
+    ///   - options: Options to apply to this RPC, defaults to `.defaults`.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func resume<Result>(
+        _ message: Arcbox_Sandbox_V1_ResumeSandboxRequest,
+        metadata: GRPCCore.Metadata = [:],
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        let request = GRPCCore.ClientRequest<Arcbox_Sandbox_V1_ResumeSandboxRequest>(
+            message: message,
+            metadata: metadata
+        )
+        return try await self.resume(
+            request: request,
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "SetLifecycle" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Replace a sandbox's lifecycle deadlines: the hard maximum lifetime
+    /// > (`ttl_seconds`, re-armed from now — CORE-60) and/or the idle
+    /// > timeout and its policy. Fields left unset are unchanged.
+    ///
+    /// - Parameters:
+    ///   - message: request message to send.
+    ///   - metadata: Additional metadata to send, defaults to empty.
+    ///   - options: Options to apply to this RPC, defaults to `.defaults`.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func setLifecycle<Result>(
+        _ message: Arcbox_Sandbox_V1_SetLifecycleRequest,
+        metadata: GRPCCore.Metadata = [:],
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        let request = GRPCCore.ClientRequest<Arcbox_Sandbox_V1_SetLifecycleRequest>(
+            message: message,
+            metadata: metadata
+        )
+        return try await self.setLifecycle(
+            request: request,
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "GetCapabilities" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Report what this daemon can do: version, sandbox protocol level,
+    /// > feature flags, and whether nested virtualization is available.
+    /// > Serves the SDK's lazy version handshake and the fail-fast
+    /// > capability check (CORE-13): creating a sandbox on an unsupported
+    /// > host fails immediately with NESTED_VIRT_UNSUPPORTED instead of a
+    /// > boot that wedges.
+    ///
+    /// - Parameters:
+    ///   - message: request message to send.
+    ///   - metadata: Additional metadata to send, defaults to empty.
+    ///   - options: Options to apply to this RPC, defaults to `.defaults`.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func getCapabilities<Result>(
+        _ message: Arcbox_Sandbox_V1_GetCapabilitiesRequest,
+        metadata: GRPCCore.Metadata = [:],
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_GetCapabilitiesResponse>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        let request = GRPCCore.ClientRequest<Arcbox_Sandbox_V1_GetCapabilitiesRequest>(
+            message: message,
+            metadata: metadata
+        )
+        return try await self.getCapabilities(
             request: request,
             options: options,
             onResponse: handleResponse

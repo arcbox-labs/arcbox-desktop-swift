@@ -107,7 +107,7 @@ struct ContentView: View {
     /// zero-width middle pane in the three-column split leaves two internal
     /// dividers stacked beside the sidebar.
     private var usesFullWidthDetail: Bool {
-        appVM.currentNav == .activity || appVM.currentNav == .templates
+        appVM.currentNav == .activity
     }
 
     // MARK: - Content column
@@ -145,10 +145,6 @@ struct ContentView: View {
         case .sandboxes:
             SandboxesListView()
                 .environment(sandboxesVM)
-        case .templates:
-            // Rendered by the two-column branch.
-            Color.clear
-                .navigationTitle("Templates")
         case nil:
             ContainersListView()
                 .environment(containersVM)
@@ -190,8 +186,6 @@ struct ContentView: View {
         case .sandboxes:
             SandboxDetailView()
                 .environment(sandboxesVM)
-        case .templates:
-            Color.clear
         case nil:
             ContainerDetailView()
                 .environment(containersVM)

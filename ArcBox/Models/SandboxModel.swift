@@ -10,6 +10,8 @@ enum SandboxState: String, CaseIterable {
     case stopping
     case stopped
     case failed
+    case pausing
+    case paused
     case unknown
 
     var label: String {
@@ -20,6 +22,8 @@ enum SandboxState: String, CaseIterable {
         case .stopping: "Stopping"
         case .stopped: "Stopped"
         case .failed: "Failed"
+        case .pausing: "Pausing"
+        case .paused: "Paused"
         case .unknown: "Unknown"
         }
     }
@@ -44,7 +48,7 @@ enum SandboxState: String, CaseIterable {
     }
 
     var canRemove: Bool {
-        self == .stopped || self == .failed
+        self == .stopped || self == .failed || self == .paused
     }
 
     init(apiState: Arcbox_Sandbox_V1_SandboxState) {
@@ -55,6 +59,8 @@ enum SandboxState: String, CaseIterable {
         case .stopping: self = .stopping
         case .stopped: self = .stopped
         case .failed: self = .failed
+        case .pausing: self = .pausing
+        case .paused: self = .paused
         case .unspecified, .UNRECOGNIZED: self = .unknown
         }
     }
@@ -231,6 +237,9 @@ enum SandboxEventKind: Hashable {
     case stopped
     case failed
     case removed
+    case pausing
+    case paused
+    case resumed
     case unknown
 
     var label: String {
@@ -243,6 +252,9 @@ enum SandboxEventKind: Hashable {
         case .stopped: "stopped"
         case .failed: "failed"
         case .removed: "removed"
+        case .pausing: "pausing"
+        case .paused: "paused"
+        case .resumed: "resumed"
         case .unknown: "unknown"
         }
     }
@@ -257,6 +269,9 @@ enum SandboxEventKind: Hashable {
         case .stopped: self = .stopped
         case .failed: self = .failed
         case .removed: self = .removed
+        case .pausing: self = .pausing
+        case .paused: self = .paused
+        case .resumed: self = .resumed
         case .unspecified, .UNRECOGNIZED: self = .unknown
         }
     }
