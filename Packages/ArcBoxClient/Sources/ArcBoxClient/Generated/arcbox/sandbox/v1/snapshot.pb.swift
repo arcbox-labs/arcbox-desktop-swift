@@ -79,17 +79,15 @@ public struct Arcbox_Sandbox_V1_CheckpointResponse: Sendable {
 
 /// Request to restore a sandbox from a snapshot.
 ///
-/// Direct-mode (non-jailer) limitation: the snapshot's vmstate records the
-/// origin sandbox's absolute vsock socket path, so concurrent restores from
-/// the same snapshot — or restoring while the origin sandbox is still
-/// running — fail with FAILED_PRECONDITION on the vsock conflict. Jailer
-/// mode restores into per-sandbox chroots and has no such constraint.
+/// Restore requires jailer mode. Direct-mode vmstate records origin sandbox
+/// paths and cannot be safely relocated to a new sandbox ID.
 public struct Arcbox_Sandbox_V1_RestoreRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// Caller-supplied ID for the new sandbox (empty = auto-generated).
+  /// Caller-supplied ID for durable retry idempotency. Empty asks the daemon
+  /// to generate a fresh UUID for every attempt.
   public var id: String = String()
 
   /// Source snapshot ID.

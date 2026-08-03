@@ -395,8 +395,8 @@ public struct Arcbox_Sandbox_V1_CreateSandboxRequest: Sendable {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// Caller-supplied unique ID for idempotent creation.
-  /// If empty the daemon generates a UUID.
+  /// Caller-supplied unique ID for durable retry idempotency.
+  /// If empty the daemon generates a fresh UUID for every attempt.
   public var id: String = String()
 
   /// Arbitrary key-value metadata (used for filtering in List / Events).
