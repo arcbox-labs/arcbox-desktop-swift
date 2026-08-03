@@ -1330,7 +1330,13 @@ public struct Arcbox_V1_SetupStatus: Sendable {
   /// Whether the container subnet route is installed.
   public var routeInstalled: Bool = false
 
-  /// Whether the default VM is running.
+  /// Whether the System VM is up with its guest agent answering — the point
+  /// at which RPCs against it succeed. Mirrors the VM's lifecycle state for
+  /// the daemon's whole life, so it falls on a lifecycle-managed stop (idle
+  /// stop, backend switch, shutdown) and rises again on the next boot. A
+  /// guest that dies without the lifecycle noticing keeps it true: there is
+  /// no crash detection yet, so treat it as "the daemon believes the VM is
+  /// up", not as a liveness probe.
   public var vmRunning: Bool = false
 
   /// Human-readable status message.
@@ -1346,18 +1352,58 @@ public struct Arcbox_V1_SetupStatus: Sendable {
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  /// Daemon startup phases, ordered by progression.
+  /// Daemon startup phases.
+  ///
+  /// Numbers follow the order phases were introduced, NOT the order they
+  /// occur in (DOWNLOADING_ASSETS = 8 precedes READY = 6), so match on the
+  /// value and never compare ordinals. The happy path is:
+  ///
+  ///   INITIALIZING -> [CLEANING_UP -> INITIALIZING] -> [DOWNLOADING_ASSETS]
+  ///   -> ASSETS_READY -> [VM_STARTING -> VM_READY] -> NETWORK_READY -> READY
+  ///
+  /// Bracketed steps are conditional: CLEANING_UP only when a displaced
+  /// daemon's resources must be released, DOWNLOADING_ASSETS only when boot
+  /// assets are missing, and the VM pair only when the Linux VM is enabled
+  /// (a --no-linux-vm daemon boots no guest and publishes neither). FAILED
+  /// can replace any of them. A phase already passed before a client
+  /// subscribes is simply never seen, so treat an unobserved phase as
+  /// unknown rather than waiting for it.
   public enum Phase: SwiftProtobuf.Enum, Swift.CaseIterable {
     public typealias RawValue = Int
     case unspecified // = 0
+
+    /// Host directories, config, and sockets are being prepared.
     case initializing // = 1
+
+    /// Kernel, rootfs, and guest binaries are present and verified.
     case assetsReady // = 2
+
+    /// The System VM is booting. Guest binaries are already staged by
+    /// this point, so the phase covers the guest boot and nothing else.
     case vmStarting // = 3
+
+    /// The System VM booted and its guest agent answered, so the VM
+    /// accepts commands. Its container runtime may still be starting.
     case vmReady // = 4
+
+    /// The host services this daemon runs are up: the DNS server and,
+    /// with a Linux VM, the Docker API are bound (a --no-linux-vm daemon
+    /// runs no Docker API). Both fail startup rather than reaching this
+    /// phase if they cannot bind. The Kubernetes proxy is started here
+    /// too but is best-effort — a port 16443 already in use is tolerated
+    /// — so it is the one service this phase does not promise.
     case networkReady // = 5
+
+    /// Startup complete.
     case ready // = 6
+
+    /// Reserved; never published.
     case degraded // = 7
+
+    /// Boot assets are being downloaded.
     case downloadingAssets // = 8
+
+    /// Waiting for a displaced daemon to release its disk images.
     case cleaningUp // = 9
 
     /// Startup failed fatally; the daemon exits shortly after

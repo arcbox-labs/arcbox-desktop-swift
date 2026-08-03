@@ -1,6 +1,6 @@
 import ArcBoxClient
-import DockerClient
 import Foundation
+import GRPCCore
 import OSLog
 
 extension SandboxesViewModel {
@@ -24,12 +24,22 @@ extension SandboxesViewModel {
         let existingByID = Dictionary(uniqueKeysWithValues: sandboxes.map { ($0.id, $0) })
         let metadata = SandboxMetadata.forMachine(activeMachineID)
         do {
-            let response = try await client.sandboxes.list(
-                Sandbox_V1_ListSandboxesRequest(),
-                metadata: metadata,
-                options: ArcBoxClient.defaultCallOptions
-            )
-            var viewModels = response.sandboxes.map { summary -> SandboxViewModel in
+            var summaries: [Arcbox_Sandbox_V1_SandboxSummary] = []
+            var pageToken = ""
+            repeat {
+                var request = Arcbox_Sandbox_V1_ListSandboxesRequest()
+                request.pageSize = 1_000
+                request.pageToken = pageToken
+                let response = try await client.sandboxes.list(
+                    request,
+                    metadata: metadata,
+                    options: ArcBoxClient.defaultCallOptions
+                )
+                summaries.append(contentsOf: response.sandboxes)
+                pageToken = response.nextPageToken
+            } while !pageToken.isEmpty
+
+            var viewModels = summaries.map { summary -> SandboxViewModel in
                 var vm = SandboxViewModel(from: summary)
                 // Preserve detail fields loaded by a prior Inspect so the list
                 // refresh does not wipe data the summary endpoint doesn't return.
@@ -60,7 +70,7 @@ extension SandboxesViewModel {
     func loadSandboxDetails(_ id: String, client: ArcBoxClient?) async {
         guard let client else { return }
         let metadata = SandboxMetadata.forMachine(activeMachineID)
-        var request = Sandbox_V1_InspectSandboxRequest()
+        var request = Arcbox_Sandbox_V1_InspectSandboxRequest()
         request.id = id
         do {
             let info = try await client.sandboxes.inspect(
@@ -71,6 +81,8 @@ extension SandboxesViewModel {
             updateSandbox(id) { sandbox in
                 sandbox.applyDetails(from: info)
             }
+        } catch is CancellationError {
+            return
         } catch {
             reportError(error, operation: "inspect", surface: false)
         }
@@ -80,23 +92,17 @@ extension SandboxesViewModel {
     @discardableResult
     func createSandbox(
         _ spec: SandboxCreateSpec,
-        client: ArcBoxClient?,
-        docker: DockerClient? = nil
+        client: ArcBoxClient?
     ) async -> String? {
         lastError = nil
         guard let client else {
             lastError = "ArcBox daemon is unavailable."
             return nil
         }
-        if !spec.image.isEmpty, docker == nil {
-            lastError = "Docker client unavailable. The selected image cannot be resolved."
-            return nil
-        }
         let metadata = SandboxMetadata.forMachine(activeMachineID)
-        var request = Sandbox_V1_CreateSandboxRequest()
+        var request = Arcbox_Sandbox_V1_CreateSandboxRequest()
+        request.id = UUID().uuidString
         request.labels = spec.labels
-        request.kernel = spec.kernel
-        request.bootArgs = spec.bootArgs
         if spec.vcpus > 0 || spec.memoryMiB > 0 {
             request.limits.vcpus = spec.vcpus
             request.limits.memoryMib = spec.memoryMiB
@@ -105,46 +111,50 @@ extension SandboxesViewModel {
         request.env = spec.env
         request.workingDir = spec.workingDir
         request.user = spec.user
-        if !spec.networkMode.isEmpty {
+        if spec.networkMode != .unspecified {
             request.network.mode = spec.networkMode
         }
         request.ttlSeconds = spec.ttlSeconds
+        if !spec.image.isEmpty {
+            request.template = "docker:\(spec.image)"
+        }
 
-        // Resolve a Docker image to its overlay2 layer directory. The path is
-        // guest-visible (Docker runs inside the machine), and the guest agent
-        // builds the sandbox rootfs from it (same as CLI --from-image).
-        if !spec.image.isEmpty, let docker {
+        for attempt in 0..<3 {
             do {
-                let snapshot = try await docker.inspectImageSnapshot(id: spec.image)
-                guard let layerDir = snapshot.overlayChainDirectory else {
-                    lastError = "Image \(spec.image) has no overlay2 layer directory"
+                let response = try await client.sandboxes.create(
+                    request,
+                    metadata: metadata,
+                    options: ArcBoxClient.sandboxCreateCallOptions
+                )
+                Log.sandbox.info("Created sandbox \(response.id, privacy: .public)")
+                return response.id
+            } catch is CancellationError {
+                return nil
+            } catch {
+                if attempt > 0,
+                    let rpcError = error as? RPCError,
+                    rpcError.code == .alreadyExists
+                {
+                    Log.sandbox.warning(
+                        "Sandbox create outcome is uncertain for ID \(request.id, privacy: .public)"
+                    )
+                    lastError =
+                        "Sandbox creation may still be completing. Close this sheet and check the list before retrying."
                     return nil
                 }
-                request.rootfs = layerDir
-                Log.sandbox.info(
-                    "Resolved image \(spec.image, privacy: .public) to layer \(layerDir, privacy: .public)"
-                )
-            } catch {
-                reportError(error, operation: "resolve_image")
-                return nil
-            }
-        } else if !spec.rootfs.isEmpty {
-            request.rootfs = spec.rootfs
-        }
 
-        do {
-            let response = try await client.sandboxes.create(
-                request,
-                metadata: metadata,
-                options: ArcBoxClient.defaultCallOptions
-            )
-            Log.sandbox.info("Created sandbox \(response.id, privacy: .public)")
-            await loadSandboxes(client: client)
-            return response.id
-        } catch {
-            reportError(error, operation: "create")
-            return nil
+                guard attempt < 2, Self.isRetryableTransportError(error) else {
+                    reportError(error, operation: "create")
+                    return nil
+                }
+                do {
+                    try await Task.sleep(for: .milliseconds(250))
+                } catch {
+                    return nil
+                }
+            }
         }
+        return nil
     }
 
     /// Stop a sandbox gracefully. The event monitor delivers the final state.
@@ -157,11 +167,13 @@ extension SandboxesViewModel {
         // state arrives via the event stream — setting .stopping after the
         // await would clobber it and could wedge the row at "Stopping".
         updateSandbox(id) { $0.state = .stopping }
-        var request = Sandbox_V1_StopSandboxRequest()
+        var request = Arcbox_Sandbox_V1_StopSandboxRequest()
         request.id = id
         do {
             // No per-call timeout: Stop drains the active workload server-side.
             _ = try await client.sandboxes.stop(request, metadata: metadata)
+        } catch is CancellationError {
+            // The view initiating the operation went away.
         } catch {
             reportError(error, operation: "stop")
             // Stop failed — the optimistic .stopping is stale; resync from the daemon.
@@ -175,7 +187,7 @@ extension SandboxesViewModel {
         guard let client else { return }
         let metadata = SandboxMetadata.forMachine(activeMachineID)
         setTransitioning(id, true)
-        var request = Sandbox_V1_RemoveSandboxRequest()
+        var request = Arcbox_Sandbox_V1_RemoveSandboxRequest()
         request.id = id
         request.force = force
         do {
@@ -185,9 +197,23 @@ extension SandboxesViewModel {
                 options: ArcBoxClient.defaultCallOptions
             )
             removeSandboxLocally(id)
+        } catch is CancellationError {
+            setTransitioning(id, false)
         } catch {
             reportError(error, operation: "remove")
             setTransitioning(id, false)
+        }
+    }
+}
+
+extension SandboxesViewModel {
+    fileprivate static func isRetryableTransportError(_ error: Error) -> Bool {
+        guard let rpcError = error as? RPCError else { return true }
+        switch rpcError.code {
+        case .cancelled, .deadlineExceeded, .unavailable:
+            return true
+        default:
+            return false
         }
     }
 }

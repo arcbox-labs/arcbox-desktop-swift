@@ -3,15 +3,22 @@ import SwiftUI
 
 /// Network mode options for sandbox creation
 enum SandboxNetworkMode: String, CaseIterable, Identifiable {
-    case tap
+    case enabled
     case none
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .tap: "TAP (default)"
+        case .enabled: "Enabled (default)"
         case .none: "None"
+        }
+    }
+
+    var protobufValue: Arcbox_Sandbox_V1_NetworkMode {
+        switch self {
+        case .enabled: .enabled
+        case .none: .none
         }
     }
 }
@@ -30,7 +37,7 @@ struct NewSandboxSheet: View {
     // Count
     @State private var count: Int = 1
 
-    // Image — empty string means "use the daemon default rootfs"
+    // Image — empty string selects the daemon's built-in minimal template.
     @State private var image = ""
 
     // Resources
@@ -43,7 +50,7 @@ struct NewSandboxSheet: View {
     @State private var user = ""
 
     // Network
-    @State private var networkMode: SandboxNetworkMode = .tap
+    @State private var networkMode: SandboxNetworkMode = .enabled
 
     // Lifecycle
     @State private var ttlSeconds: Int = 0
@@ -79,7 +86,7 @@ struct NewSandboxSheet: View {
 
                 Section("Image") {
                     Picker("Image", selection: $image) {
-                        Text("Default rootfs").tag("")
+                        Text("Built-in minimal").tag("")
                         ForEach(availableImages, id: \.self) { name in
                             Text(name).tag(name)
                         }
@@ -184,12 +191,12 @@ struct NewSandboxSheet: View {
         spec.cmd = trimmedCommand.isEmpty ? [] : trimmedCommand.split(separator: " ").map(String.init)
         spec.workingDir = workingDir.trimmingCharacters(in: .whitespaces)
         spec.user = user.trimmingCharacters(in: .whitespaces)
-        spec.networkMode = networkMode.rawValue
+        spec.networkMode = networkMode.protobufValue
         spec.ttlSeconds = UInt32(ttlSeconds)
 
         var createdCount = 0
         for _ in 0..<requestedCount {
-            let id = await vm.createSandbox(spec, client: client, docker: docker)
+            let id = await vm.createSandbox(spec, client: client)
             guard id != nil else {
                 let failure = vm.lastError ?? "Sandbox creation failed."
                 vm.clearError()
@@ -203,6 +210,7 @@ struct NewSandboxSheet: View {
             }
             createdCount += 1
         }
+        await vm.loadSandboxes(client: client)
         return createdCount
     }
 }

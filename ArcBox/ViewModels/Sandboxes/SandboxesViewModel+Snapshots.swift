@@ -27,19 +27,32 @@ extension SandboxesViewModel {
         snapshotsLoadToken = loadToken
         let isRefresh = snapshotsLoadState.beginLoading()
         let metadata = SandboxMetadata.forMachine(activeMachineID)
-        var request = Sandbox_V1_ListSnapshotsRequest()
-        request.sandboxID = sandboxID
         do {
-            let response = try await client.snapshots.listSnapshots(
-                request,
-                metadata: metadata,
-                options: ArcBoxClient.defaultCallOptions
-            )
+            var summaries: [Arcbox_Sandbox_V1_SnapshotSummary] = []
+            var pageToken = ""
+            repeat {
+                var request = Arcbox_Sandbox_V1_ListSnapshotsRequest()
+                request.sandboxID = sandboxID
+                request.pageSize = 1_000
+                request.pageToken = pageToken
+                let response = try await client.snapshots.listSnapshots(
+                    request,
+                    metadata: metadata,
+                    options: ArcBoxClient.defaultCallOptions
+                )
+                summaries.append(contentsOf: response.snapshots)
+                pageToken = response.nextPageToken
+            } while !pageToken.isEmpty
+
             guard snapshotsLoadToken == loadToken, snapshotsSandboxID == sandboxID else { return }
             snapshotsLoadToken = nil
-            snapshots = response.snapshots.map(SandboxSnapshotViewModel.init(from:))
+            snapshots = summaries.map(SandboxSnapshotViewModel.init(from:))
             snapshotsLoadState = .loaded
             snapshotsRefreshError = nil
+        } catch is CancellationError {
+            guard snapshotsLoadToken == loadToken, snapshotsSandboxID == sandboxID else { return }
+            snapshotsLoadToken = nil
+            snapshotsLoadState = isRefresh ? .loaded : .waiting
         } catch {
             guard snapshotsLoadToken == loadToken, snapshotsSandboxID == sandboxID else { return }
             snapshotsLoadToken = nil
@@ -57,13 +70,13 @@ extension SandboxesViewModel {
         }
     }
 
-    /// Checkpoint a ready/idle sandbox into a reusable snapshot.
+    /// Checkpoint a ready sandbox into a reusable snapshot.
     /// The sandbox is paused, snapshotted, then resumed by the daemon.
     func checkpointSandbox(_ id: String, name: String, client: ArcBoxClient?) async {
         guard let client else { return }
         let metadata = SandboxMetadata.forMachine(activeMachineID)
         setTransitioning(id, true)
-        var request = Sandbox_V1_CheckpointRequest()
+        var request = Arcbox_Sandbox_V1_CheckpointRequest()
         request.sandboxID = id
         request.name = name
         do {
@@ -72,6 +85,8 @@ extension SandboxesViewModel {
             let response = try await client.snapshots.checkpoint(request, metadata: metadata)
             Log.sandbox.info("Checkpointed \(id, privacy: .public) → \(response.snapshotID, privacy: .public)")
             await loadSnapshots(for: id, client: client)
+        } catch is CancellationError {
+            // The view initiating the operation went away.
         } catch {
             reportError(error, operation: "checkpoint")
         }
@@ -92,7 +107,7 @@ extension SandboxesViewModel {
     ) async -> String? {
         guard let client else { return nil }
         let metadata = SandboxMetadata.forMachine(activeMachineID)
-        var request = Sandbox_V1_RestoreRequest()
+        var request = Arcbox_Sandbox_V1_RestoreRequest()
         request.snapshotID = snapshotID
         request.networkOverride = freshNetwork
         do {
@@ -104,6 +119,8 @@ extension SandboxesViewModel {
             Log.sandbox.info("Restored \(snapshotID, privacy: .public) → \(response.id, privacy: .public)")
             await loadSandboxes(client: client)
             return response.id
+        } catch is CancellationError {
+            return nil
         } catch {
             reportError(error, operation: "restore")
             return nil
@@ -114,7 +131,7 @@ extension SandboxesViewModel {
     func deleteSnapshot(_ snapshotID: String, client: ArcBoxClient?) async {
         guard let client else { return }
         let metadata = SandboxMetadata.forMachine(activeMachineID)
-        var request = Sandbox_V1_DeleteSnapshotRequest()
+        var request = Arcbox_Sandbox_V1_DeleteSnapshotRequest()
         request.snapshotID = snapshotID
         do {
             _ = try await client.snapshots.deleteSnapshot(
@@ -124,6 +141,8 @@ extension SandboxesViewModel {
             )
             snapshotsLoadToken = nil
             snapshots.removeAll { $0.id == snapshotID }
+        } catch is CancellationError {
+            return
         } catch {
             reportError(error, operation: "delete_snapshot")
         }

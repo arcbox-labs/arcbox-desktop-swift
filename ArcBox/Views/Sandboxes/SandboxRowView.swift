@@ -13,12 +13,11 @@ struct SandboxRowView: View {
     private var stateColor: Color {
         switch sandbox.state {
         case .starting: AppColors.warning
-        case .ready, .idle: AppColors.running
-        case .running: AppColors.running
+        case .ready, .running: AppColors.running
         case .stopping: AppColors.warning
         case .stopped: AppColors.stopped
         case .failed: AppColors.error
-        case .removed, .unknown: AppColors.stopped
+        case .unknown: AppColors.stopped
         }
     }
 
@@ -61,7 +60,7 @@ struct SandboxRowView: View {
                         action: { onStop?() },
                         color: isSelected ? AppColors.onAccent : AppColors.textSecondary
                     )
-                } else {
+                } else if sandbox.state.canRemove {
                     IconButton(
                         symbol: "trash.fill",
                         action: { onRemove?() },

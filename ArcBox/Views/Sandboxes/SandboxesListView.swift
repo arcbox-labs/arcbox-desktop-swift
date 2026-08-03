@@ -49,6 +49,9 @@ struct SandboxesListView: View {
             guard daemonManager.setupPhase.isDockerReady, client != nil else { return }
             Task {
                 await vm.loadSandboxes(client: client)
+                if let id = vm.selectedID, vm.sandboxes.contains(where: { $0.id == id }) {
+                    await vm.loadSandboxDetails(id, client: client)
+                }
             }
         }
         .confirmationDialog(

@@ -1,5 +1,6 @@
 import ArcBoxClient
 import DockerClient
+import SwiftProtobuf
 import XCTest
 
 @testable import ArcBox
@@ -429,10 +430,10 @@ final class ContainersViewModelTests: XCTestCase {
 @MainActor
 final class SandboxesLoadStateTests: XCTestCase {
     func testDescendingSortUsesIDAsTieBreaker() {
-        var alpha = Sandbox_V1_SandboxSummary()
+        var alpha = Arcbox_Sandbox_V1_SandboxSummary()
         alpha.id = "alpha"
         alpha.labels = ["name": "same"]
-        var beta = Sandbox_V1_SandboxSummary()
+        var beta = Arcbox_Sandbox_V1_SandboxSummary()
         beta.id = "beta"
         beta.labels = ["name": "same"]
 
@@ -462,7 +463,7 @@ final class SandboxesLoadStateTests: XCTestCase {
     }
 
     func testUnavailableClientClearsStaleSnapshotsAndWaitsForNewTarget() async {
-        var summary = Sandbox_V1_SnapshotSummary()
+        var summary = Arcbox_Sandbox_V1_SnapshotSummary()
         summary.id = "snapshot-1"
         summary.sandboxID = "old-sandbox"
         summary.name = "old"
@@ -479,5 +480,52 @@ final class SandboxesLoadStateTests: XCTestCase {
         XCTAssertEqual(vm.snapshotsLoadState, .waiting)
         XCTAssertNil(vm.snapshotsRefreshError)
         XCTAssertTrue(vm.snapshots.isEmpty)
+    }
+
+    func testSandboxModelMapsTypedStateTimestampAndSignalExit() throws {
+        let createdAt = Date(timeIntervalSince1970: 1_756_700_123.25)
+        var info = Arcbox_Sandbox_V1_SandboxInfo()
+        info.id = "sandbox-1"
+        info.state = .running
+        info.createdAt = .init(date: createdAt)
+        info.lastExitedAt = .init(date: createdAt.addingTimeInterval(30))
+        info.lastExitStatus.signal = 9
+
+        let sandbox = SandboxViewModel(from: info)
+        let mappedCreatedAt = try XCTUnwrap(sandbox.createdAt)
+
+        XCTAssertEqual(sandbox.state, .running)
+        XCTAssertTrue(sandbox.state.isDataPlaneReady)
+        XCTAssertFalse(sandbox.state.canRemove)
+        XCTAssertEqual(mappedCreatedAt.timeIntervalSince1970, createdAt.timeIntervalSince1970, accuracy: 0.001)
+        XCTAssertEqual(sandbox.lastExitStatus, .signal(9))
+    }
+
+    func testSandboxModelKeepsAbsentTimestampNilAndUnknownState() {
+        var summary = Arcbox_Sandbox_V1_SandboxSummary()
+        summary.id = "sandbox-1"
+        summary.state = .UNRECOGNIZED(99)
+
+        let sandbox = SandboxViewModel(from: summary)
+
+        XCTAssertEqual(sandbox.state, .unknown)
+        XCTAssertFalse(sandbox.state.isActive)
+        XCTAssertFalse(sandbox.state.isDataPlaneReady)
+        XCTAssertFalse(sandbox.state.canRemove)
+        XCTAssertNil(sandbox.createdAt)
+    }
+
+    func testSandboxEventMapsTypedKindAndTimestamp() {
+        let timestamp = Date(timeIntervalSince1970: 1_756_700_456.5)
+        var event = Arcbox_Sandbox_V1_SandboxEvent()
+        event.sandboxID = "sandbox-1"
+        event.kind = .idle
+        event.time = .init(date: timestamp)
+
+        let record = SandboxEventRecord(from: event)
+
+        XCTAssertEqual(record.sandboxID, "sandbox-1")
+        XCTAssertEqual(record.kind, .idle)
+        XCTAssertEqual(record.timestamp.timeIntervalSince1970, timestamp.timeIntervalSince1970, accuracy: 0.001)
     }
 }

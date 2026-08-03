@@ -66,7 +66,7 @@ struct SandboxSnapshotsTab: View {
                 .help(
                     sandbox.state.isAcceptingCommands
                         ? "Pause, snapshot, and resume this sandbox"
-                        : "Sandbox must be ready or idle to checkpoint")
+                        : "Sandbox must be ready to checkpoint")
 
             Spacer()
 
@@ -166,7 +166,7 @@ struct SandboxSnapshotsTab: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(snapshot.displayName)
                     .font(.system(size: 13))
-                Text("\(String(snapshot.id.prefix(12)))  ·  \(snapshot.createdAt)")
+                Text("\(String(snapshot.id.prefix(12)))  ·  \(snapshot.createdAgo)")
                     .font(.system(size: 11))
                     .foregroundStyle(AppColors.textSecondary)
                     .lineLimit(1)
