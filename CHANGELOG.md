@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.34.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.33.0...v1.34.0) (2026-08-03)
+
+
+### Features
+
+* **sandbox:** migrate Desktop to Sandbox v1 APIs ([#356](https://github.com/arcboxlabs/arcbox-desktop/issues/356)) ([1f361a2](https://github.com/arcboxlabs/arcbox-desktop/commit/1f361a2f3cfd0a7f733e705ee9bab7ed4041d4d8))
+
+
+### Miscellaneous
+
+* bump arcbox version to v0.6.2 ([#360](https://github.com/arcboxlabs/arcbox-desktop/issues/360)) ([7d849f0](https://github.com/arcboxlabs/arcbox-desktop/commit/7d849f0dfcacadb60c8d67ddb4c4b78d275e2465))
+
 ## [1.33.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.32.1...v1.33.0) (2026-08-02)
 
 
