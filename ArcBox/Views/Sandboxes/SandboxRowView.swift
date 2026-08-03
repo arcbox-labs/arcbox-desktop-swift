@@ -14,8 +14,8 @@ struct SandboxRowView: View {
         switch sandbox.state {
         case .starting: AppColors.warning
         case .ready, .running: AppColors.running
-        case .stopping: AppColors.warning
-        case .stopped: AppColors.stopped
+        case .stopping, .pausing: AppColors.warning
+        case .stopped, .paused: AppColors.stopped
         case .failed: AppColors.error
         case .unknown: AppColors.stopped
         }

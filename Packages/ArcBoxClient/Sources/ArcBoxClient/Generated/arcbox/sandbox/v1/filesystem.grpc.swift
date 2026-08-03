@@ -1,12 +1,14 @@
 // Sandbox filesystem data plane.
 //
-// File transfer in and out of a running sandbox. **Data plane**: the calls
-// carry file bytes and address one specific sandbox, so they are served by
-// whatever is co-located with it rather than routed through the
-// control-plane entry point. See `sandbox.proto` for the control plane.
+// File transfer and path operations inside a running sandbox. **Data
+// plane**: the calls carry file bytes and address one specific sandbox,
+// so they are served by whatever is co-located with it rather than
+// routed through the control-plane entry point. See `sandbox.proto` for
+// the control plane.
 //
-// Directory operations (stat, list, mkdir, move, remove, watch) are not here
-// yet — the surface is whole-file-only in V1 (CORE-62).
+// Every verb is a real RPC into the guest agent — never a shelled-out
+// `ls`/`stat` parse. The path verbs (CORE-62) are contract-only until
+// the guest side lands; whole-file read/write are live.
 
 // DO NOT EDIT.
 // swift-format-ignore-file
@@ -55,10 +57,88 @@ public enum Arcbox_Sandbox_V1_SandboxFilesystemService {
                 method: "WriteFile"
             )
         }
+        /// Namespace for "Stat" metadata.
+        public enum Stat {
+            /// Request type for "Stat".
+            public typealias Input = Arcbox_Sandbox_V1_StatFileRequest
+            /// Response type for "Stat".
+            public typealias Output = Arcbox_Sandbox_V1_FileStat
+            /// Descriptor for "Stat".
+            public static let descriptor = GRPCCore.MethodDescriptor(
+                service: GRPCCore.ServiceDescriptor(fullyQualifiedService: "arcbox.sandbox.v1.SandboxFilesystemService"),
+                method: "Stat"
+            )
+        }
+        /// Namespace for "ListDir" metadata.
+        public enum ListDir {
+            /// Request type for "ListDir".
+            public typealias Input = Arcbox_Sandbox_V1_ListDirRequest
+            /// Response type for "ListDir".
+            public typealias Output = Arcbox_Sandbox_V1_ListDirResponse
+            /// Descriptor for "ListDir".
+            public static let descriptor = GRPCCore.MethodDescriptor(
+                service: GRPCCore.ServiceDescriptor(fullyQualifiedService: "arcbox.sandbox.v1.SandboxFilesystemService"),
+                method: "ListDir"
+            )
+        }
+        /// Namespace for "MakeDir" metadata.
+        public enum MakeDir {
+            /// Request type for "MakeDir".
+            public typealias Input = Arcbox_Sandbox_V1_MakeDirRequest
+            /// Response type for "MakeDir".
+            public typealias Output = SwiftProtobuf.Google_Protobuf_Empty
+            /// Descriptor for "MakeDir".
+            public static let descriptor = GRPCCore.MethodDescriptor(
+                service: GRPCCore.ServiceDescriptor(fullyQualifiedService: "arcbox.sandbox.v1.SandboxFilesystemService"),
+                method: "MakeDir"
+            )
+        }
+        /// Namespace for "Remove" metadata.
+        public enum Remove {
+            /// Request type for "Remove".
+            public typealias Input = Arcbox_Sandbox_V1_RemoveEntryRequest
+            /// Response type for "Remove".
+            public typealias Output = SwiftProtobuf.Google_Protobuf_Empty
+            /// Descriptor for "Remove".
+            public static let descriptor = GRPCCore.MethodDescriptor(
+                service: GRPCCore.ServiceDescriptor(fullyQualifiedService: "arcbox.sandbox.v1.SandboxFilesystemService"),
+                method: "Remove"
+            )
+        }
+        /// Namespace for "Move" metadata.
+        public enum Move {
+            /// Request type for "Move".
+            public typealias Input = Arcbox_Sandbox_V1_MoveEntryRequest
+            /// Response type for "Move".
+            public typealias Output = SwiftProtobuf.Google_Protobuf_Empty
+            /// Descriptor for "Move".
+            public static let descriptor = GRPCCore.MethodDescriptor(
+                service: GRPCCore.ServiceDescriptor(fullyQualifiedService: "arcbox.sandbox.v1.SandboxFilesystemService"),
+                method: "Move"
+            )
+        }
+        /// Namespace for "WatchDir" metadata.
+        public enum WatchDir {
+            /// Request type for "WatchDir".
+            public typealias Input = Arcbox_Sandbox_V1_WatchDirRequest
+            /// Response type for "WatchDir".
+            public typealias Output = Arcbox_Sandbox_V1_WatchDirResponse
+            /// Descriptor for "WatchDir".
+            public static let descriptor = GRPCCore.MethodDescriptor(
+                service: GRPCCore.ServiceDescriptor(fullyQualifiedService: "arcbox.sandbox.v1.SandboxFilesystemService"),
+                method: "WatchDir"
+            )
+        }
         /// Descriptors for all methods in the "arcbox.sandbox.v1.SandboxFilesystemService" service.
         public static let descriptors: [GRPCCore.MethodDescriptor] = [
             ReadFile.descriptor,
-            WriteFile.descriptor
+            WriteFile.descriptor,
+            Stat.descriptor,
+            ListDir.descriptor,
+            MakeDir.descriptor,
+            Remove.descriptor,
+            Move.descriptor,
+            WatchDir.descriptor
         ]
     }
 }
@@ -86,7 +166,8 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService {
     ///
     /// > Source IDL Documentation:
     /// >
-    /// > SandboxFilesystemService moves files in and out of a sandbox.
+    /// > SandboxFilesystemService moves files in and out of a sandbox and
+    /// > operates on its paths.
     public protocol StreamingServiceProtocol: GRPCCore.RegistrableRPCService {
         /// Handle the "ReadFile" method.
         ///
@@ -128,6 +209,121 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService {
             request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_WriteFileRequest>,
             context: GRPCCore.ServerContext
         ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "Stat" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Return metadata for one path. Symlinks are reported, not followed.
+        ///
+        /// - Parameters:
+        ///   - request: A streaming request of `Arcbox_Sandbox_V1_StatFileRequest` messages.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A streaming response of `Arcbox_Sandbox_V1_FileStat` messages.
+        func stat(
+            request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_StatFileRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_FileStat>
+
+        /// Handle the "ListDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > List a directory's entries, non-recursively. Every entry carries
+        /// > a full FileStat, so no per-entry Stat round-trips are needed.
+        ///
+        /// - Parameters:
+        ///   - request: A streaming request of `Arcbox_Sandbox_V1_ListDirRequest` messages.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A streaming response of `Arcbox_Sandbox_V1_ListDirResponse` messages.
+        func listDir(
+            request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_ListDirRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_ListDirResponse>
+
+        /// Handle the "MakeDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Create a directory, including missing parents (`mkdir -p`
+        /// > semantics — never the non-recursive trap). Succeeds when the
+        /// > directory already exists.
+        ///
+        /// - Parameters:
+        ///   - request: A streaming request of `Arcbox_Sandbox_V1_MakeDirRequest` messages.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A streaming response of `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        func makeDir(
+            request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_MakeDirRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "Remove" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Remove a file, symlink, or directory. A non-empty directory
+        /// > requires `recursive`.
+        ///
+        /// - Parameters:
+        ///   - request: A streaming request of `Arcbox_Sandbox_V1_RemoveEntryRequest` messages.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A streaming response of `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        func remove(
+            request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_RemoveEntryRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "Move" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Rename / move a file or directory within the sandbox.
+        ///
+        /// - Parameters:
+        ///   - request: A streaming request of `Arcbox_Sandbox_V1_MoveEntryRequest` messages.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A streaming response of `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        func move(
+            request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_MoveEntryRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "WatchDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Stream filesystem events under a path — push-based, never a
+        /// > polling fallback. KeepAlive frames are interleaved while idle so
+        /// > proxies do not cut the connection; the stream ends only on
+        /// > cancellation or sandbox stop.
+        ///
+        /// - Parameters:
+        ///   - request: A streaming request of `Arcbox_Sandbox_V1_WatchDirRequest` messages.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A streaming response of `Arcbox_Sandbox_V1_WatchDirResponse` messages.
+        func watchDir(
+            request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_WatchDirRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_WatchDirResponse>
     }
 
     /// Service protocol for the "arcbox.sandbox.v1.SandboxFilesystemService" service.
@@ -140,7 +336,8 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService {
     ///
     /// > Source IDL Documentation:
     /// >
-    /// > SandboxFilesystemService moves files in and out of a sandbox.
+    /// > SandboxFilesystemService moves files in and out of a sandbox and
+    /// > operates on its paths.
     public protocol ServiceProtocol: Arcbox_Sandbox_V1_SandboxFilesystemService.StreamingServiceProtocol {
         /// Handle the "ReadFile" method.
         ///
@@ -182,6 +379,121 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService {
             request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_WriteFileRequest>,
             context: GRPCCore.ServerContext
         ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "Stat" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Return metadata for one path. Symlinks are reported, not followed.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_StatFileRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A response containing a single `Arcbox_Sandbox_V1_FileStat` message.
+        func stat(
+            request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_StatFileRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.ServerResponse<Arcbox_Sandbox_V1_FileStat>
+
+        /// Handle the "ListDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > List a directory's entries, non-recursively. Every entry carries
+        /// > a full FileStat, so no per-entry Stat round-trips are needed.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_ListDirRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A response containing a single `Arcbox_Sandbox_V1_ListDirResponse` message.
+        func listDir(
+            request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_ListDirRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.ServerResponse<Arcbox_Sandbox_V1_ListDirResponse>
+
+        /// Handle the "MakeDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Create a directory, including missing parents (`mkdir -p`
+        /// > semantics — never the non-recursive trap). Succeeds when the
+        /// > directory already exists.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_MakeDirRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A response containing a single `SwiftProtobuf.Google_Protobuf_Empty` message.
+        func makeDir(
+            request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_MakeDirRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "Remove" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Remove a file, symlink, or directory. A non-empty directory
+        /// > requires `recursive`.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_RemoveEntryRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A response containing a single `SwiftProtobuf.Google_Protobuf_Empty` message.
+        func remove(
+            request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_RemoveEntryRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "Move" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Rename / move a file or directory within the sandbox.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_MoveEntryRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A response containing a single `SwiftProtobuf.Google_Protobuf_Empty` message.
+        func move(
+            request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_MoveEntryRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>
+
+        /// Handle the "WatchDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Stream filesystem events under a path — push-based, never a
+        /// > polling fallback. KeepAlive frames are interleaved while idle so
+        /// > proxies do not cut the connection; the stream ends only on
+        /// > cancellation or sandbox stop.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_WatchDirRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A streaming response of `Arcbox_Sandbox_V1_WatchDirResponse` messages.
+        func watchDir(
+            request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_WatchDirRequest>,
+            context: GRPCCore.ServerContext
+        ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_WatchDirResponse>
     }
 
     /// Simple service protocol for the "arcbox.sandbox.v1.SandboxFilesystemService" service.
@@ -192,7 +504,8 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService {
     ///
     /// > Source IDL Documentation:
     /// >
-    /// > SandboxFilesystemService moves files in and out of a sandbox.
+    /// > SandboxFilesystemService moves files in and out of a sandbox and
+    /// > operates on its paths.
     public protocol SimpleServiceProtocol: Arcbox_Sandbox_V1_SandboxFilesystemService.ServiceProtocol {
         /// Handle the "ReadFile" method.
         ///
@@ -235,6 +548,122 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService {
             request: GRPCCore.RPCAsyncSequence<Arcbox_Sandbox_V1_WriteFileRequest, any Swift.Error>,
             context: GRPCCore.ServerContext
         ) async throws -> SwiftProtobuf.Google_Protobuf_Empty
+
+        /// Handle the "Stat" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Return metadata for one path. Symlinks are reported, not followed.
+        ///
+        /// - Parameters:
+        ///   - request: A `Arcbox_Sandbox_V1_StatFileRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A `Arcbox_Sandbox_V1_FileStat` to respond with.
+        func stat(
+            request: Arcbox_Sandbox_V1_StatFileRequest,
+            context: GRPCCore.ServerContext
+        ) async throws -> Arcbox_Sandbox_V1_FileStat
+
+        /// Handle the "ListDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > List a directory's entries, non-recursively. Every entry carries
+        /// > a full FileStat, so no per-entry Stat round-trips are needed.
+        ///
+        /// - Parameters:
+        ///   - request: A `Arcbox_Sandbox_V1_ListDirRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A `Arcbox_Sandbox_V1_ListDirResponse` to respond with.
+        func listDir(
+            request: Arcbox_Sandbox_V1_ListDirRequest,
+            context: GRPCCore.ServerContext
+        ) async throws -> Arcbox_Sandbox_V1_ListDirResponse
+
+        /// Handle the "MakeDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Create a directory, including missing parents (`mkdir -p`
+        /// > semantics — never the non-recursive trap). Succeeds when the
+        /// > directory already exists.
+        ///
+        /// - Parameters:
+        ///   - request: A `Arcbox_Sandbox_V1_MakeDirRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A `SwiftProtobuf.Google_Protobuf_Empty` to respond with.
+        func makeDir(
+            request: Arcbox_Sandbox_V1_MakeDirRequest,
+            context: GRPCCore.ServerContext
+        ) async throws -> SwiftProtobuf.Google_Protobuf_Empty
+
+        /// Handle the "Remove" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Remove a file, symlink, or directory. A non-empty directory
+        /// > requires `recursive`.
+        ///
+        /// - Parameters:
+        ///   - request: A `Arcbox_Sandbox_V1_RemoveEntryRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A `SwiftProtobuf.Google_Protobuf_Empty` to respond with.
+        func remove(
+            request: Arcbox_Sandbox_V1_RemoveEntryRequest,
+            context: GRPCCore.ServerContext
+        ) async throws -> SwiftProtobuf.Google_Protobuf_Empty
+
+        /// Handle the "Move" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Rename / move a file or directory within the sandbox.
+        ///
+        /// - Parameters:
+        ///   - request: A `Arcbox_Sandbox_V1_MoveEntryRequest` message.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        /// - Returns: A `SwiftProtobuf.Google_Protobuf_Empty` to respond with.
+        func move(
+            request: Arcbox_Sandbox_V1_MoveEntryRequest,
+            context: GRPCCore.ServerContext
+        ) async throws -> SwiftProtobuf.Google_Protobuf_Empty
+
+        /// Handle the "WatchDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Stream filesystem events under a path — push-based, never a
+        /// > polling fallback. KeepAlive frames are interleaved while idle so
+        /// > proxies do not cut the connection; the stream ends only on
+        /// > cancellation or sandbox stop.
+        ///
+        /// - Parameters:
+        ///   - request: A `Arcbox_Sandbox_V1_WatchDirRequest` message.
+        ///   - response: A response stream of `Arcbox_Sandbox_V1_WatchDirResponse` messages.
+        ///   - context: Context providing information about the RPC.
+        /// - Throws: Any error which occurred during the processing of the request. Thrown errors
+        ///     of type `RPCError` are mapped to appropriate statuses. All other errors are converted
+        ///     to an internal error.
+        func watchDir(
+            request: Arcbox_Sandbox_V1_WatchDirRequest,
+            response: GRPCCore.RPCWriter<Arcbox_Sandbox_V1_WatchDirResponse>,
+            context: GRPCCore.ServerContext
+        ) async throws
     }
 }
 
@@ -259,6 +688,72 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService.StreamingServiceProtocol {
             serializer: GRPCProtobuf.ProtobufSerializer<SwiftProtobuf.Google_Protobuf_Empty>(),
             handler: { request, context in
                 try await self.writeFile(
+                    request: request,
+                    context: context
+                )
+            }
+        )
+        router.registerHandler(
+            forMethod: Arcbox_Sandbox_V1_SandboxFilesystemService.Method.Stat.descriptor,
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_StatFileRequest>(),
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_FileStat>(),
+            handler: { request, context in
+                try await self.stat(
+                    request: request,
+                    context: context
+                )
+            }
+        )
+        router.registerHandler(
+            forMethod: Arcbox_Sandbox_V1_SandboxFilesystemService.Method.ListDir.descriptor,
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_ListDirRequest>(),
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_ListDirResponse>(),
+            handler: { request, context in
+                try await self.listDir(
+                    request: request,
+                    context: context
+                )
+            }
+        )
+        router.registerHandler(
+            forMethod: Arcbox_Sandbox_V1_SandboxFilesystemService.Method.MakeDir.descriptor,
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_MakeDirRequest>(),
+            serializer: GRPCProtobuf.ProtobufSerializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            handler: { request, context in
+                try await self.makeDir(
+                    request: request,
+                    context: context
+                )
+            }
+        )
+        router.registerHandler(
+            forMethod: Arcbox_Sandbox_V1_SandboxFilesystemService.Method.Remove.descriptor,
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_RemoveEntryRequest>(),
+            serializer: GRPCProtobuf.ProtobufSerializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            handler: { request, context in
+                try await self.remove(
+                    request: request,
+                    context: context
+                )
+            }
+        )
+        router.registerHandler(
+            forMethod: Arcbox_Sandbox_V1_SandboxFilesystemService.Method.Move.descriptor,
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_MoveEntryRequest>(),
+            serializer: GRPCProtobuf.ProtobufSerializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            handler: { request, context in
+                try await self.move(
+                    request: request,
+                    context: context
+                )
+            }
+        )
+        router.registerHandler(
+            forMethod: Arcbox_Sandbox_V1_SandboxFilesystemService.Method.WatchDir.descriptor,
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_WatchDirRequest>(),
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_WatchDirResponse>(),
+            handler: { request, context in
+                try await self.watchDir(
                     request: request,
                     context: context
                 )
@@ -290,6 +785,72 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService.ServiceProtocol {
             context: context
         )
         return GRPCCore.StreamingServerResponse(single: response)
+    }
+
+    public func stat(
+        request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_StatFileRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_FileStat> {
+        let response = try await self.stat(
+            request: GRPCCore.ServerRequest(stream: request),
+            context: context
+        )
+        return GRPCCore.StreamingServerResponse(single: response)
+    }
+
+    public func listDir(
+        request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_ListDirRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_ListDirResponse> {
+        let response = try await self.listDir(
+            request: GRPCCore.ServerRequest(stream: request),
+            context: context
+        )
+        return GRPCCore.StreamingServerResponse(single: response)
+    }
+
+    public func makeDir(
+        request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_MakeDirRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        let response = try await self.makeDir(
+            request: GRPCCore.ServerRequest(stream: request),
+            context: context
+        )
+        return GRPCCore.StreamingServerResponse(single: response)
+    }
+
+    public func remove(
+        request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_RemoveEntryRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        let response = try await self.remove(
+            request: GRPCCore.ServerRequest(stream: request),
+            context: context
+        )
+        return GRPCCore.StreamingServerResponse(single: response)
+    }
+
+    public func move(
+        request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_MoveEntryRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.StreamingServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        let response = try await self.move(
+            request: GRPCCore.ServerRequest(stream: request),
+            context: context
+        )
+        return GRPCCore.StreamingServerResponse(single: response)
+    }
+
+    public func watchDir(
+        request: GRPCCore.StreamingServerRequest<Arcbox_Sandbox_V1_WatchDirRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_WatchDirResponse> {
+        let response = try await self.watchDir(
+            request: GRPCCore.ServerRequest(stream: request),
+            context: context
+        )
+        return response
     }
 }
 
@@ -325,6 +886,88 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService.SimpleServiceProtocol {
             metadata: [:]
         )
     }
+
+    public func stat(
+        request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_StatFileRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.ServerResponse<Arcbox_Sandbox_V1_FileStat> {
+        return GRPCCore.ServerResponse<Arcbox_Sandbox_V1_FileStat>(
+            message: try await self.stat(
+                request: request.message,
+                context: context
+            ),
+            metadata: [:]
+        )
+    }
+
+    public func listDir(
+        request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_ListDirRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.ServerResponse<Arcbox_Sandbox_V1_ListDirResponse> {
+        return GRPCCore.ServerResponse<Arcbox_Sandbox_V1_ListDirResponse>(
+            message: try await self.listDir(
+                request: request.message,
+                context: context
+            ),
+            metadata: [:]
+        )
+    }
+
+    public func makeDir(
+        request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_MakeDirRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        return GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>(
+            message: try await self.makeDir(
+                request: request.message,
+                context: context
+            ),
+            metadata: [:]
+        )
+    }
+
+    public func remove(
+        request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_RemoveEntryRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        return GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>(
+            message: try await self.remove(
+                request: request.message,
+                context: context
+            ),
+            metadata: [:]
+        )
+    }
+
+    public func move(
+        request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_MoveEntryRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty> {
+        return GRPCCore.ServerResponse<SwiftProtobuf.Google_Protobuf_Empty>(
+            message: try await self.move(
+                request: request.message,
+                context: context
+            ),
+            metadata: [:]
+        )
+    }
+
+    public func watchDir(
+        request: GRPCCore.ServerRequest<Arcbox_Sandbox_V1_WatchDirRequest>,
+        context: GRPCCore.ServerContext
+    ) async throws -> GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_WatchDirResponse> {
+        return GRPCCore.StreamingServerResponse<Arcbox_Sandbox_V1_WatchDirResponse>(
+            metadata: [:],
+            producer: { writer in
+                try await self.watchDir(
+                    request: request.message,
+                    response: writer,
+                    context: context
+                )
+                return [:]
+            }
+        )
+    }
 }
 
 // MARK: arcbox.sandbox.v1.SandboxFilesystemService (client)
@@ -338,7 +981,8 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService {
     ///
     /// > Source IDL Documentation:
     /// >
-    /// > SandboxFilesystemService moves files in and out of a sandbox.
+    /// > SandboxFilesystemService moves files in and out of a sandbox and
+    /// > operates on its paths.
     public protocol ClientProtocol: Sendable {
         /// Call the "ReadFile" method.
         ///
@@ -390,6 +1034,151 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService {
             options: GRPCCore.CallOptions,
             onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result
         ) async throws -> Result where Result: Sendable
+
+        /// Call the "Stat" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Return metadata for one path. Symlinks are reported, not followed.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_StatFileRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_StatFileRequest` messages.
+        ///   - deserializer: A deserializer for `Arcbox_Sandbox_V1_FileStat` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        func stat<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_StatFileRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_StatFileRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<Arcbox_Sandbox_V1_FileStat>,
+            options: GRPCCore.CallOptions,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_FileStat>) async throws -> Result
+        ) async throws -> Result where Result: Sendable
+
+        /// Call the "ListDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > List a directory's entries, non-recursively. Every entry carries
+        /// > a full FileStat, so no per-entry Stat round-trips are needed.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_ListDirRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_ListDirRequest` messages.
+        ///   - deserializer: A deserializer for `Arcbox_Sandbox_V1_ListDirResponse` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        func listDir<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_ListDirRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_ListDirRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<Arcbox_Sandbox_V1_ListDirResponse>,
+            options: GRPCCore.CallOptions,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_ListDirResponse>) async throws -> Result
+        ) async throws -> Result where Result: Sendable
+
+        /// Call the "MakeDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Create a directory, including missing parents (`mkdir -p`
+        /// > semantics — never the non-recursive trap). Succeeds when the
+        /// > directory already exists.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_MakeDirRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_MakeDirRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        func makeDir<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_MakeDirRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_MakeDirRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result
+        ) async throws -> Result where Result: Sendable
+
+        /// Call the "Remove" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Remove a file, symlink, or directory. A non-empty directory
+        /// > requires `recursive`.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_RemoveEntryRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_RemoveEntryRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        func remove<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_RemoveEntryRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_RemoveEntryRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result
+        ) async throws -> Result where Result: Sendable
+
+        /// Call the "Move" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Rename / move a file or directory within the sandbox.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_MoveEntryRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_MoveEntryRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        func move<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_MoveEntryRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_MoveEntryRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result
+        ) async throws -> Result where Result: Sendable
+
+        /// Call the "WatchDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Stream filesystem events under a path — push-based, never a
+        /// > polling fallback. KeepAlive frames are interleaved while idle so
+        /// > proxies do not cut the connection; the stream ends only on
+        /// > cancellation or sandbox stop.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_WatchDirRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_WatchDirRequest` messages.
+        ///   - deserializer: A deserializer for `Arcbox_Sandbox_V1_WatchDirResponse` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        func watchDir<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_WatchDirRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_WatchDirRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<Arcbox_Sandbox_V1_WatchDirResponse>,
+            options: GRPCCore.CallOptions,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.StreamingClientResponse<Arcbox_Sandbox_V1_WatchDirResponse>) async throws -> Result
+        ) async throws -> Result where Result: Sendable
     }
 
     /// Generated client for the "arcbox.sandbox.v1.SandboxFilesystemService" service.
@@ -400,7 +1189,8 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService {
     ///
     /// > Source IDL Documentation:
     /// >
-    /// > SandboxFilesystemService moves files in and out of a sandbox.
+    /// > SandboxFilesystemService moves files in and out of a sandbox and
+    /// > operates on its paths.
     public struct Client<Transport>: ClientProtocol where Transport: GRPCCore.ClientTransport {
         private let client: GRPCCore.GRPCClient<Transport>
 
@@ -482,6 +1272,215 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService {
                 onResponse: handleResponse
             )
         }
+
+        /// Call the "Stat" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Return metadata for one path. Symlinks are reported, not followed.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_StatFileRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_StatFileRequest` messages.
+        ///   - deserializer: A deserializer for `Arcbox_Sandbox_V1_FileStat` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        public func stat<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_StatFileRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_StatFileRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<Arcbox_Sandbox_V1_FileStat>,
+            options: GRPCCore.CallOptions = .defaults,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_FileStat>) async throws -> Result = { response in
+                try response.message
+            }
+        ) async throws -> Result where Result: Sendable {
+            try await self.client.unary(
+                request: request,
+                descriptor: Arcbox_Sandbox_V1_SandboxFilesystemService.Method.Stat.descriptor,
+                serializer: serializer,
+                deserializer: deserializer,
+                options: options,
+                onResponse: handleResponse
+            )
+        }
+
+        /// Call the "ListDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > List a directory's entries, non-recursively. Every entry carries
+        /// > a full FileStat, so no per-entry Stat round-trips are needed.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_ListDirRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_ListDirRequest` messages.
+        ///   - deserializer: A deserializer for `Arcbox_Sandbox_V1_ListDirResponse` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        public func listDir<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_ListDirRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_ListDirRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<Arcbox_Sandbox_V1_ListDirResponse>,
+            options: GRPCCore.CallOptions = .defaults,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_ListDirResponse>) async throws -> Result = { response in
+                try response.message
+            }
+        ) async throws -> Result where Result: Sendable {
+            try await self.client.unary(
+                request: request,
+                descriptor: Arcbox_Sandbox_V1_SandboxFilesystemService.Method.ListDir.descriptor,
+                serializer: serializer,
+                deserializer: deserializer,
+                options: options,
+                onResponse: handleResponse
+            )
+        }
+
+        /// Call the "MakeDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Create a directory, including missing parents (`mkdir -p`
+        /// > semantics — never the non-recursive trap). Succeeds when the
+        /// > directory already exists.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_MakeDirRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_MakeDirRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        public func makeDir<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_MakeDirRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_MakeDirRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions = .defaults,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+                try response.message
+            }
+        ) async throws -> Result where Result: Sendable {
+            try await self.client.unary(
+                request: request,
+                descriptor: Arcbox_Sandbox_V1_SandboxFilesystemService.Method.MakeDir.descriptor,
+                serializer: serializer,
+                deserializer: deserializer,
+                options: options,
+                onResponse: handleResponse
+            )
+        }
+
+        /// Call the "Remove" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Remove a file, symlink, or directory. A non-empty directory
+        /// > requires `recursive`.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_RemoveEntryRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_RemoveEntryRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        public func remove<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_RemoveEntryRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_RemoveEntryRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions = .defaults,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+                try response.message
+            }
+        ) async throws -> Result where Result: Sendable {
+            try await self.client.unary(
+                request: request,
+                descriptor: Arcbox_Sandbox_V1_SandboxFilesystemService.Method.Remove.descriptor,
+                serializer: serializer,
+                deserializer: deserializer,
+                options: options,
+                onResponse: handleResponse
+            )
+        }
+
+        /// Call the "Move" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Rename / move a file or directory within the sandbox.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_MoveEntryRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_MoveEntryRequest` messages.
+        ///   - deserializer: A deserializer for `SwiftProtobuf.Google_Protobuf_Empty` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        public func move<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_MoveEntryRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_MoveEntryRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<SwiftProtobuf.Google_Protobuf_Empty>,
+            options: GRPCCore.CallOptions = .defaults,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+                try response.message
+            }
+        ) async throws -> Result where Result: Sendable {
+            try await self.client.unary(
+                request: request,
+                descriptor: Arcbox_Sandbox_V1_SandboxFilesystemService.Method.Move.descriptor,
+                serializer: serializer,
+                deserializer: deserializer,
+                options: options,
+                onResponse: handleResponse
+            )
+        }
+
+        /// Call the "WatchDir" method.
+        ///
+        /// > Source IDL Documentation:
+        /// >
+        /// > Stream filesystem events under a path — push-based, never a
+        /// > polling fallback. KeepAlive frames are interleaved while idle so
+        /// > proxies do not cut the connection; the stream ends only on
+        /// > cancellation or sandbox stop.
+        ///
+        /// - Parameters:
+        ///   - request: A request containing a single `Arcbox_Sandbox_V1_WatchDirRequest` message.
+        ///   - serializer: A serializer for `Arcbox_Sandbox_V1_WatchDirRequest` messages.
+        ///   - deserializer: A deserializer for `Arcbox_Sandbox_V1_WatchDirResponse` messages.
+        ///   - options: Options to apply to this RPC.
+        ///   - handleResponse: A closure which handles the response, the result of which is
+        ///       returned to the caller. Returning from the closure will cancel the RPC if it
+        ///       hasn't already finished.
+        /// - Returns: The result of `handleResponse`.
+        public func watchDir<Result>(
+            request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_WatchDirRequest>,
+            serializer: some GRPCCore.MessageSerializer<Arcbox_Sandbox_V1_WatchDirRequest>,
+            deserializer: some GRPCCore.MessageDeserializer<Arcbox_Sandbox_V1_WatchDirResponse>,
+            options: GRPCCore.CallOptions = .defaults,
+            onResponse handleResponse: @Sendable @escaping (GRPCCore.StreamingClientResponse<Arcbox_Sandbox_V1_WatchDirResponse>) async throws -> Result
+        ) async throws -> Result where Result: Sendable {
+            try await self.client.serverStreaming(
+                request: request,
+                descriptor: Arcbox_Sandbox_V1_SandboxFilesystemService.Method.WatchDir.descriptor,
+                serializer: serializer,
+                deserializer: deserializer,
+                options: options,
+                onResponse: handleResponse
+            )
+        }
     }
 }
 
@@ -544,6 +1543,185 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService.ClientProtocol {
             request: request,
             serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_WriteFileRequest>(),
             deserializer: GRPCProtobuf.ProtobufDeserializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "Stat" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Return metadata for one path. Symlinks are reported, not followed.
+    ///
+    /// - Parameters:
+    ///   - request: A request containing a single `Arcbox_Sandbox_V1_StatFileRequest` message.
+    ///   - options: Options to apply to this RPC.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func stat<Result>(
+        request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_StatFileRequest>,
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_FileStat>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        try await self.stat(
+            request: request,
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_StatFileRequest>(),
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_FileStat>(),
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "ListDir" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > List a directory's entries, non-recursively. Every entry carries
+    /// > a full FileStat, so no per-entry Stat round-trips are needed.
+    ///
+    /// - Parameters:
+    ///   - request: A request containing a single `Arcbox_Sandbox_V1_ListDirRequest` message.
+    ///   - options: Options to apply to this RPC.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func listDir<Result>(
+        request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_ListDirRequest>,
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_ListDirResponse>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        try await self.listDir(
+            request: request,
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_ListDirRequest>(),
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_ListDirResponse>(),
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "MakeDir" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Create a directory, including missing parents (`mkdir -p`
+    /// > semantics — never the non-recursive trap). Succeeds when the
+    /// > directory already exists.
+    ///
+    /// - Parameters:
+    ///   - request: A request containing a single `Arcbox_Sandbox_V1_MakeDirRequest` message.
+    ///   - options: Options to apply to this RPC.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func makeDir<Result>(
+        request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_MakeDirRequest>,
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        try await self.makeDir(
+            request: request,
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_MakeDirRequest>(),
+            deserializer: GRPCProtobuf.ProtobufDeserializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "Remove" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Remove a file, symlink, or directory. A non-empty directory
+    /// > requires `recursive`.
+    ///
+    /// - Parameters:
+    ///   - request: A request containing a single `Arcbox_Sandbox_V1_RemoveEntryRequest` message.
+    ///   - options: Options to apply to this RPC.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func remove<Result>(
+        request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_RemoveEntryRequest>,
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        try await self.remove(
+            request: request,
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_RemoveEntryRequest>(),
+            deserializer: GRPCProtobuf.ProtobufDeserializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "Move" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Rename / move a file or directory within the sandbox.
+    ///
+    /// - Parameters:
+    ///   - request: A request containing a single `Arcbox_Sandbox_V1_MoveEntryRequest` message.
+    ///   - options: Options to apply to this RPC.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func move<Result>(
+        request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_MoveEntryRequest>,
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        try await self.move(
+            request: request,
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_MoveEntryRequest>(),
+            deserializer: GRPCProtobuf.ProtobufDeserializer<SwiftProtobuf.Google_Protobuf_Empty>(),
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "WatchDir" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Stream filesystem events under a path — push-based, never a
+    /// > polling fallback. KeepAlive frames are interleaved while idle so
+    /// > proxies do not cut the connection; the stream ends only on
+    /// > cancellation or sandbox stop.
+    ///
+    /// - Parameters:
+    ///   - request: A request containing a single `Arcbox_Sandbox_V1_WatchDirRequest` message.
+    ///   - options: Options to apply to this RPC.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func watchDir<Result>(
+        request: GRPCCore.ClientRequest<Arcbox_Sandbox_V1_WatchDirRequest>,
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.StreamingClientResponse<Arcbox_Sandbox_V1_WatchDirResponse>) async throws -> Result
+    ) async throws -> Result where Result: Sendable {
+        try await self.watchDir(
+            request: request,
+            serializer: GRPCProtobuf.ProtobufSerializer<Arcbox_Sandbox_V1_WatchDirRequest>(),
+            deserializer: GRPCProtobuf.ProtobufDeserializer<Arcbox_Sandbox_V1_WatchDirResponse>(),
             options: options,
             onResponse: handleResponse
         )
@@ -617,6 +1795,209 @@ extension Arcbox_Sandbox_V1_SandboxFilesystemService.ClientProtocol {
             producer: producer
         )
         return try await self.writeFile(
+            request: request,
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "Stat" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Return metadata for one path. Symlinks are reported, not followed.
+    ///
+    /// - Parameters:
+    ///   - message: request message to send.
+    ///   - metadata: Additional metadata to send, defaults to empty.
+    ///   - options: Options to apply to this RPC, defaults to `.defaults`.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func stat<Result>(
+        _ message: Arcbox_Sandbox_V1_StatFileRequest,
+        metadata: GRPCCore.Metadata = [:],
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_FileStat>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        let request = GRPCCore.ClientRequest<Arcbox_Sandbox_V1_StatFileRequest>(
+            message: message,
+            metadata: metadata
+        )
+        return try await self.stat(
+            request: request,
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "ListDir" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > List a directory's entries, non-recursively. Every entry carries
+    /// > a full FileStat, so no per-entry Stat round-trips are needed.
+    ///
+    /// - Parameters:
+    ///   - message: request message to send.
+    ///   - metadata: Additional metadata to send, defaults to empty.
+    ///   - options: Options to apply to this RPC, defaults to `.defaults`.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func listDir<Result>(
+        _ message: Arcbox_Sandbox_V1_ListDirRequest,
+        metadata: GRPCCore.Metadata = [:],
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<Arcbox_Sandbox_V1_ListDirResponse>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        let request = GRPCCore.ClientRequest<Arcbox_Sandbox_V1_ListDirRequest>(
+            message: message,
+            metadata: metadata
+        )
+        return try await self.listDir(
+            request: request,
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "MakeDir" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Create a directory, including missing parents (`mkdir -p`
+    /// > semantics — never the non-recursive trap). Succeeds when the
+    /// > directory already exists.
+    ///
+    /// - Parameters:
+    ///   - message: request message to send.
+    ///   - metadata: Additional metadata to send, defaults to empty.
+    ///   - options: Options to apply to this RPC, defaults to `.defaults`.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func makeDir<Result>(
+        _ message: Arcbox_Sandbox_V1_MakeDirRequest,
+        metadata: GRPCCore.Metadata = [:],
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        let request = GRPCCore.ClientRequest<Arcbox_Sandbox_V1_MakeDirRequest>(
+            message: message,
+            metadata: metadata
+        )
+        return try await self.makeDir(
+            request: request,
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "Remove" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Remove a file, symlink, or directory. A non-empty directory
+    /// > requires `recursive`.
+    ///
+    /// - Parameters:
+    ///   - message: request message to send.
+    ///   - metadata: Additional metadata to send, defaults to empty.
+    ///   - options: Options to apply to this RPC, defaults to `.defaults`.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func remove<Result>(
+        _ message: Arcbox_Sandbox_V1_RemoveEntryRequest,
+        metadata: GRPCCore.Metadata = [:],
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        let request = GRPCCore.ClientRequest<Arcbox_Sandbox_V1_RemoveEntryRequest>(
+            message: message,
+            metadata: metadata
+        )
+        return try await self.remove(
+            request: request,
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "Move" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Rename / move a file or directory within the sandbox.
+    ///
+    /// - Parameters:
+    ///   - message: request message to send.
+    ///   - metadata: Additional metadata to send, defaults to empty.
+    ///   - options: Options to apply to this RPC, defaults to `.defaults`.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func move<Result>(
+        _ message: Arcbox_Sandbox_V1_MoveEntryRequest,
+        metadata: GRPCCore.Metadata = [:],
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.ClientResponse<SwiftProtobuf.Google_Protobuf_Empty>) async throws -> Result = { response in
+            try response.message
+        }
+    ) async throws -> Result where Result: Sendable {
+        let request = GRPCCore.ClientRequest<Arcbox_Sandbox_V1_MoveEntryRequest>(
+            message: message,
+            metadata: metadata
+        )
+        return try await self.move(
+            request: request,
+            options: options,
+            onResponse: handleResponse
+        )
+    }
+
+    /// Call the "WatchDir" method.
+    ///
+    /// > Source IDL Documentation:
+    /// >
+    /// > Stream filesystem events under a path — push-based, never a
+    /// > polling fallback. KeepAlive frames are interleaved while idle so
+    /// > proxies do not cut the connection; the stream ends only on
+    /// > cancellation or sandbox stop.
+    ///
+    /// - Parameters:
+    ///   - message: request message to send.
+    ///   - metadata: Additional metadata to send, defaults to empty.
+    ///   - options: Options to apply to this RPC, defaults to `.defaults`.
+    ///   - handleResponse: A closure which handles the response, the result of which is
+    ///       returned to the caller. Returning from the closure will cancel the RPC if it
+    ///       hasn't already finished.
+    /// - Returns: The result of `handleResponse`.
+    public func watchDir<Result>(
+        _ message: Arcbox_Sandbox_V1_WatchDirRequest,
+        metadata: GRPCCore.Metadata = [:],
+        options: GRPCCore.CallOptions = .defaults,
+        onResponse handleResponse: @Sendable @escaping (GRPCCore.StreamingClientResponse<Arcbox_Sandbox_V1_WatchDirResponse>) async throws -> Result
+    ) async throws -> Result where Result: Sendable {
+        let request = GRPCCore.ClientRequest<Arcbox_Sandbox_V1_WatchDirRequest>(
+            message: message,
+            metadata: metadata
+        )
+        return try await self.watchDir(
             request: request,
             options: options,
             onResponse: handleResponse
