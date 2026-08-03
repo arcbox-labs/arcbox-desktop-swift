@@ -186,6 +186,9 @@ final class MachinesListViewControllerTests: XCTestCase {
 
     @MainActor
     private func hasText(_ text: String, in view: NSView) -> Bool {
+        if hostedStateViewDisplays(text, in: view) {
+            return true
+        }
         if let textField = view as? NSTextField, textField.stringValue == text {
             return true
         }

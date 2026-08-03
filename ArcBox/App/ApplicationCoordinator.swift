@@ -44,7 +44,6 @@ final class ApplicationCoordinator: NSObject {
     private var startupTask: Task<Void, Never>?
     private var connectionTask: Task<Void, Never>?
     private var lastDaemonState: DaemonState?
-    private var lastValidNavigation: NavItem = .containers
     private var lastShowInMenuBar: Bool
     private var lastUpdateChannel: String
     private var isOnboarding: Bool
@@ -86,7 +85,6 @@ final class ApplicationCoordinator: NSObject {
         observeStartupPhase()
 
         installWindows()
-        observeNavigation()
         if !isOnboarding {
             configureDeepLinks()
         }
@@ -135,6 +133,20 @@ final class ApplicationCoordinator: NSObject {
         }
         if let tab {
             appVM.settingsTab = tab
+        }
+        if settingsWindowController == nil {
+            let screen =
+                NSApp.keyWindow?.screen
+                ?? NSApp.mainWindow?.screen
+                ?? mainWindowController?.window?.screen
+                ?? NSScreen.main
+            let host = NSHostingController(rootView: makeSettingsRoot())
+            host.sceneBridgingOptions = .all
+            settingsHost = host
+            settingsWindowController = SettingsWindowController(
+                contentViewController: host,
+                screen: screen
+            )
         }
         activate()
         settingsWindowController?.window?.deminiaturize(nil)
@@ -231,15 +243,11 @@ final class ApplicationCoordinator: NSObject {
     private func installWindows() {
         let mainHost = NSHostingController(rootView: makeMainRoot())
         mainHost.sceneBridgingOptions = .all
-        let settingsHost = NSHostingController(rootView: makeSettingsRoot())
-        settingsHost.sceneBridgingOptions = .all
         let menuBarHost = NSHostingController(rootView: makeMenuBarRoot())
 
         self.mainHost = mainHost
-        self.settingsHost = settingsHost
         self.menuBarHost = menuBarHost
         mainWindowController = MainWindowController(contentViewController: mainHost)
-        settingsWindowController = SettingsWindowController(contentViewController: settingsHost)
         statusItemController = StatusItemController(contentViewController: menuBarHost)
         statusItemController?.setVisible(!isOnboarding && lastShowInMenuBar)
     }
@@ -282,6 +290,11 @@ final class ApplicationCoordinator: NSObject {
     private func showOnboarding(startingAt initialStep: OnboardingStep? = nil) {
         guard !isTerminating, let orchestrator = startupOrchestrator else { return }
 
+        let screen =
+            NSApp.keyWindow?.screen
+            ?? NSApp.mainWindow?.screen
+            ?? mainWindowController?.window?.screen
+            ?? NSScreen.main
         isOnboarding = true
         mainWindowController?.window?.orderOut(nil)
         settingsWindowController?.window?.orderOut(nil)
@@ -306,6 +319,7 @@ final class ApplicationCoordinator: NSObject {
                 ))
             onboardingWindowController = OnboardingWindowController(
                 contentViewController: host,
+                screen: screen,
                 onClose: { [weak self] in
                     self?.requestQuit()
                 }
@@ -350,35 +364,6 @@ final class ApplicationCoordinator: NSObject {
     private func observeDaemonState() {
         lastDaemonState = daemonManager.state
         trackDaemonState()
-    }
-
-    private func observeNavigation() {
-        if let navigation = appVM.currentNav, !navigation.isComingSoon {
-            lastValidNavigation = navigation
-        }
-        trackNavigation()
-    }
-
-    private func trackNavigation() {
-        withObservationTracking {
-            _ = appVM.currentNav
-        } onChange: { [weak self] in
-            Task { @MainActor in
-                self?.navigationDidChange()
-            }
-        }
-    }
-
-    private func navigationDidChange() {
-        guard !isTerminating else { return }
-        trackNavigation()
-        guard let navigation = appVM.currentNav else { return }
-        guard !navigation.isComingSoon else {
-            showComingSoonPanel()
-            appVM.currentNav = lastValidNavigation
-            return
-        }
-        lastValidNavigation = navigation
     }
 
     private func trackDaemonState() {

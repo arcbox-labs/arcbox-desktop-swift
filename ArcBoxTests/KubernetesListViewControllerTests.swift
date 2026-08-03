@@ -22,13 +22,11 @@ final class KubernetesListViewControllerTests: XCTestCase {
         let tableView = try XCTUnwrap(findTableView(in: rootView))
 
         XCTAssertFalse(hasText("Loading pods…", in: rootView))
-        XCTAssertEqual(
-            try XCTUnwrap(
-                visibleView(identifier: "StatePlaceholderProgress", in: rootView)
-                    as? NSProgressIndicator
-            ).controlSize,
-            .small
-        )
+        let loadingPlaceholder = try XCTUnwrap(hostedStateView(in: rootView))
+        guard case .loading(let loadingTitle) = loadingPlaceholder.rootView.state else {
+            return XCTFail("Expected the hosted loading state")
+        }
+        XCTAssertNil(loadingTitle)
 
         viewModel.streamPhase = .live
         try await waitUntil { self.hasText("No pods", in: rootView) }
@@ -38,9 +36,9 @@ final class KubernetesListViewControllerTests: XCTestCase {
 
         viewModel.streamPhase = .reconnecting(attempt: 2, lastError: "Connection lost")
         try await waitUntil {
-            self.visibleButton(titled: "Retry", in: rootView) != nil
+            hostedStateViewAction(titled: "Retry", in: rootView) != nil
         }
-        visibleButton(titled: "Retry", in: rootView)?.performClick(nil)
+        try XCTUnwrap(hostedStateViewAction(titled: "Retry", in: rootView))()
         XCTAssertTrue(didRetry)
 
         viewModel.pods = [
@@ -238,10 +236,13 @@ final class KubernetesListViewControllerTests: XCTestCase {
         )
         let loadingServicesRoot = loadingServicesController.view
         XCTAssertFalse(hasText("Loading services…", in: loadingServicesRoot))
-        XCTAssertNotNil(
-            visibleView(identifier: "StatePlaceholderProgress", in: loadingServicesRoot)
-                as? NSProgressIndicator
+        let loadingServicesPlaceholder = try XCTUnwrap(
+            hostedStateView(in: loadingServicesRoot)
         )
+        guard case .loading(let loadingTitle) = loadingServicesPlaceholder.rootView.state else {
+            return XCTFail("Expected the hosted loading state")
+        }
+        XCTAssertNil(loadingTitle)
 
         let emptyServicesModel = ServicesViewModel()
         emptyServicesModel.streamPhase = .live
@@ -346,6 +347,9 @@ final class KubernetesListViewControllerTests: XCTestCase {
     @MainActor
     private func hasText(_ text: String, in view: NSView) -> Bool {
         guard !view.isHiddenOrHasHiddenAncestor else { return false }
+        if hostedStateViewDisplays(text, in: view) {
+            return true
+        }
         if let textField = view as? NSTextField, textField.stringValue == text {
             return true
         }

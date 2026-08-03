@@ -1,3 +1,4 @@
+import AppKit
 import ArcBoxClient
 import PostHog
 import ServiceManagement
@@ -23,6 +24,7 @@ struct GeneralSettingsView: View {
     @State private var isExportingDiagnostics = false
     @State private var externalTerminalApps = ExternalTerminalDiscovery.availableTerminals()
     @State private var externalTerminalSelection = ExternalTerminalApp.terminalBundleIdentifier
+    @State private var isShowingExternalTerminalImporter = false
     @State private var isShowingExternalTerminalSelectionError = false
     @State private var externalTerminalSelectionErrorMessage = ""
 
@@ -116,12 +118,14 @@ struct GeneralSettingsView: View {
 
             Section("Troubleshooting") {
                 Button("Export Diagnostic Report...") {
+                    guard let presentingWindow = NSApp.keyWindow else { return }
                     isExportingDiagnostics = true
                     Task {
                         await DiagnosticBundleExporter.exportInteractively(
                             daemonManager: daemonManager,
                             containersVM: containersVM,
-                            imagesVM: imagesVM
+                            imagesVM: imagesVM,
+                            presentingWindow: presentingWindow
                         )
                         isExportingDiagnostics = false
                     }
@@ -144,6 +148,14 @@ struct GeneralSettingsView: View {
             syncLoginItemState()
             refreshExternalTerminalApps()
         }
+        .fileImporter(
+            isPresented: $isShowingExternalTerminalImporter,
+            allowedContentTypes: [.applicationBundle]
+        ) { result in
+            handleExternalTerminalSelection(result)
+        }
+        .fileDialogDefaultDirectory(URL(fileURLWithPath: "/Applications", isDirectory: true))
+        .fileDialogConfirmationLabel("Choose")
         .alert("External terminal not available", isPresented: $isShowingExternalTerminalSelectionError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -172,7 +184,7 @@ struct GeneralSettingsView: View {
 
     private func updateExternalTerminalSelection(_ selection: String) {
         guard selection != Self.chooseExternalTerminalID else {
-            chooseExternalTerminal()
+            isShowingExternalTerminalImporter = true
             return
         }
 
@@ -180,25 +192,20 @@ struct GeneralSettingsView: View {
         refreshExternalTerminalApps()
     }
 
-    private func chooseExternalTerminal() {
-        let panel = NSOpenPanel()
-        panel.title = "Choose External Terminal"
-        panel.prompt = "Choose"
-        panel.directoryURL = URL(fileURLWithPath: "/Applications", isDirectory: true)
-        panel.allowedContentTypes = [.applicationBundle]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-
-        guard panel.runModal() == .OK else {
+    private func handleExternalTerminalSelection(_ result: Result<URL, Error>) {
+        guard case .success(let appURL) = result else {
             externalTerminalSelection = externalTerminal
+            if case .failure(let error) = result,
+                (error as? CocoaError)?.code != .userCancelled
+            {
+                showExternalTerminalSelectionError(error.localizedDescription)
+            }
             return
         }
 
-        guard let appURL = panel.url else {
-            externalTerminalSelection = externalTerminal
-            showExternalTerminalSelectionError("No application was selected.")
-            return
+        let hasAccess = appURL.startAccessingSecurityScopedResource()
+        defer {
+            if hasAccess { appURL.stopAccessingSecurityScopedResource() }
         }
 
         let commandHandlerBundleIDs = Set(

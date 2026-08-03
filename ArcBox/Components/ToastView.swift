@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Lightweight toast banner that slides in from the top and auto-dismisses.
+/// Lightweight toast banner that slides in from the top.
 struct ToastView: View {
     let message: String
     var icon: String = "exclamationmark.triangle.fill"
@@ -47,6 +47,7 @@ struct ToastView: View {
 /// View modifier that shows a toast when `message` is non-nil.
 struct ToastModifier: ViewModifier {
     @Binding var message: String?
+    var dismissAfter: Duration? = .seconds(4)
 
     func body(content: Content) -> some View {
         content.overlay(alignment: .top) {
@@ -56,8 +57,9 @@ struct ToastModifier: ViewModifier {
                         message = nil
                     }
                 }
-                .task(id: msg) {
-                    try? await Task.sleep(for: .seconds(4))
+                .task(id: dismissAfter == nil ? nil : msg) {
+                    guard let dismissAfter else { return }
+                    try? await Task.sleep(for: dismissAfter)
                     if !Task.isCancelled {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             message = nil
@@ -96,6 +98,10 @@ extension View {
                 refreshError.wrappedValue = nil
             }
         }
-        return errorToast(message: message)
+        return modifier(
+            ToastModifier(
+                message: message,
+                dismissAfter: operationError.wrappedValue == nil ? .seconds(4) : nil
+            ))
     }
 }

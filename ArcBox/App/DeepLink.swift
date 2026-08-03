@@ -7,7 +7,7 @@ import Foundation
 /// - `arcbox://settings` — open the Settings window
 /// - `arcbox://<section>[/<id>]` — navigate to a sidebar section, where
 ///   `<section>` is a `NavItem` raw value (`containers`, `volumes`, `images`,
-///   `networks`, `pods`, `services`, `machines`, `sandboxes`, `templates`)
+///   `networks`, `pods`, `services`, `machines`, `sandboxes`)
 ///   and the optional `<id>` selects the item with that exact ID.
 enum DeepLink: Equatable {
     static let scheme = "arcbox"

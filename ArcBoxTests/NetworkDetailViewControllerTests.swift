@@ -44,11 +44,11 @@ final class NetworkDetailViewControllerTests: XCTestCase {
 
         try await waitUntil {
             self.hasText("Failed to inspect network", in: rootView)
-                && self.visibleButton(titled: "Retry", in: rootView) != nil
+                && hostedStateViewAction(titled: "Retry", in: rootView) != nil
         }
         XCTAssertFalse(hasText("No containers connected", in: rootView))
 
-        visibleButton(titled: "Retry", in: rootView)?.performClick(nil)
+        try XCTUnwrap(hostedStateViewAction(titled: "Retry", in: rootView))()
         try await waitUntil {
             self.hasText("No containers connected", in: rootView)
         }
@@ -114,20 +114,13 @@ final class NetworkDetailViewControllerTests: XCTestCase {
 
     @MainActor
     private func hasText(_ text: String, in view: NSView) -> Bool {
+        if hostedStateViewDisplays(text, in: view) {
+            return true
+        }
         if let textField = view as? NSTextField, textField.stringValue == text {
             return true
         }
         return view.subviews.contains { hasText(text, in: $0) }
-    }
-
-    @MainActor
-    private func visibleButton(titled title: String, in view: NSView) -> NSButton? {
-        if let button = view as? NSButton, button.title == title, !button.isHidden {
-            return button
-        }
-        return view.subviews.lazy.compactMap {
-            self.visibleButton(titled: title, in: $0)
-        }.first
     }
 
     private func network(containerCount: Int = 0) -> NetworkViewModel {
