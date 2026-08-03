@@ -296,8 +296,8 @@ final class ContainersViewModelTests: XCTestCase {
 
     func testHostDomainPlainContainer() {
         let c = makeContainer(id: "1", name: "nginx")
-        XCTAssertEqual(c.hostDomain(useDNS: true), "nginx.arcbox.local")
-        XCTAssertEqual(c.hostDomain(useDNS: false), "localhost")
+        XCTAssertEqual(c.hostDomain, "nginx.arcbox.local")
+        XCTAssertEqual(c.connectionHost(useDNS: false), "localhost")
     }
 
     func testHostDomainComposeContainer() {
@@ -305,13 +305,13 @@ final class ContainersViewModelTests: XCTestCase {
             id: "1", name: "myapp-web-1",
             composeProject: "myapp", composeService: "web"
         )
-        XCTAssertEqual(c.hostDomain(useDNS: true), "web.myapp.arcbox.local")
-        XCTAssertEqual(c.hostDomain(useDNS: false), "localhost")
+        XCTAssertEqual(c.hostDomain, "web.myapp.arcbox.local")
+        XCTAssertEqual(c.connectionHost(useDNS: false), "localhost")
     }
 
     func testAllDomainsPlainContainer() {
         let c = makeContainer(id: "1", name: "redis")
-        let domains = c.allDomains(useDNS: true)
+        let domains = c.allDomains
         XCTAssertEqual(domains, ["redis.arcbox.local"])
     }
 
@@ -320,7 +320,7 @@ final class ContainersViewModelTests: XCTestCase {
             id: "1", name: "myapp-web-1",
             composeProject: "myapp", composeService: "web"
         )
-        let domains = c.allDomains(useDNS: true)
+        let domains = c.allDomains
         XCTAssertEqual(
             domains,
             [
@@ -329,12 +329,15 @@ final class ContainersViewModelTests: XCTestCase {
             ])
     }
 
-    func testAllDomainsDNSDisabled() {
+    func testAllDomainsRemainStableWhenDNSIsUnavailable() {
         let c = makeContainer(
             id: "1", name: "myapp-web-1",
             composeProject: "myapp", composeService: "web"
         )
-        XCTAssertEqual(c.allDomains(useDNS: false), ["localhost"])
+        XCTAssertEqual(
+            c.allDomains,
+            ["web.myapp.arcbox.local", "myapp-web-1.arcbox.local"]
+        )
     }
 
     func testIsComposeFlag() {
