@@ -50,6 +50,9 @@ struct ContainerInfoTab: View {
                             )
                         }
                     }
+                    if let domain = container.domain {
+                        InfoRow(label: "Container Domain", value: domain)
+                    }
                     if let ip = container.ipAddress {
                         InfoRow(label: "IP", value: ip)
                     }
