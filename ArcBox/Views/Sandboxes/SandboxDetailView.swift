@@ -16,23 +16,27 @@ struct SandboxDetailView: View {
                 case .info:
                     infoTab(sandbox)
                 case .terminal:
-                    if sandbox.state.isAcceptingCommands {
-                        SandboxTerminalTab(sandboxID: sandbox.id)
+                    if sandbox.state.isActive {
+                        SandboxTerminalTab(
+                            sandboxID: sandbox.id,
+                            canStartExecution: sandbox.state.isAcceptingCommands,
+                            session: vm.terminalSession
+                        )
+                        .id(sandbox.id)
                     } else {
-                        tabUnavailable(
-                            "Sandbox must be in ready or idle state for terminal access")
+                        tabUnavailable("Sandbox must be alive for terminal access")
                     }
                 case .files:
-                    if sandbox.state.isActive {
+                    if sandbox.state.isDataPlaneReady {
                         SandboxFilesTab(sandbox: sandbox)
                     } else {
-                        tabUnavailable("Sandbox must be alive for file transfer")
+                        tabUnavailable("Sandbox must be ready for file transfer")
                     }
                 case .ports:
-                    if sandbox.state.isActive {
+                    if sandbox.state.isDataPlaneReady {
                         SandboxPortsTab(sandbox: sandbox)
                     } else {
-                        tabUnavailable("Sandbox must be alive to expose ports")
+                        tabUnavailable("Sandbox must be ready to expose ports")
                     }
                 case .snapshots:
                     SandboxSnapshotsTab(sandbox: sandbox)
@@ -72,8 +76,16 @@ struct SandboxDetailView: View {
                 if let readyAt = sandbox.readyAt {
                     InfoRow(label: "Ready", value: relativeTime(from: readyAt))
                 }
-                if sandbox.lastExitedAt != nil {
-                    InfoRow(label: "Last Exit Code", value: "\(sandbox.lastExitCode)")
+                if let lastExitedAt = sandbox.lastExitedAt {
+                    InfoRow(label: "Last Exited", value: relativeTime(from: lastExitedAt))
+                }
+                if let status = sandbox.lastExitStatus {
+                    switch status {
+                    case .code(let code):
+                        InfoRow(label: "Exit Code", value: "\(code)")
+                    case .signal(let signal):
+                        InfoRow(label: "Exit Signal", value: "\(signal)")
+                    }
                 }
                 if !sandbox.error.isEmpty {
                     InfoRow(label: "Error", value: sandbox.error)

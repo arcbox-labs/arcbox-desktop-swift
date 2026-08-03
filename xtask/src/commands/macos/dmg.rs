@@ -605,7 +605,7 @@ fn embed_boot_assets(app_bundle: &Path, arcbox_dir: &Path, profile: BundleProfil
     let boot_dest = assets_dest.join(&boot_version);
     std::fs::create_dir_all(&boot_dest)
         .with_context(|| format!("creating {}", boot_dest.display()))?;
-    for name in BUNDLED_BOOT_ASSETS {
+    for name in boot_asset_files(&boot_cache.join("manifest.json"))? {
         std::fs::copy(boot_cache.join(name), boot_dest.join(name))
             .with_context(|| format!("copying boot asset {name}"))?;
     }
@@ -1362,8 +1362,12 @@ fn verify_runnable_bundle(app_bundle: &Path, profile: BundleProfile) -> Result<(
     }
 
     let boot_version = read_boot_version(&resources.join("assets.lock"))?;
-    let boot_dir = resources.join("assets").join(boot_version);
-    require_files(BUNDLED_BOOT_ASSETS.map(|name| boot_dir.join(name)))?;
+    let boot_dir = resources.join("assets").join(&boot_version);
+    require_files(
+        boot_asset_files(&boot_dir.join("manifest.json"))?
+            .into_iter()
+            .map(|name| boot_dir.join(name)),
+    )?;
     let runtime_image = boot_dir.join("runtime.erofs");
     if runtime_image.exists() {
         bail!(
@@ -1385,7 +1389,11 @@ fn verify_runnable_bundle(app_bundle: &Path, profile: BundleProfile) -> Result<(
                 .as_str()
                 .context("boot manifest binary is missing its name")?;
             let install_dir = binary["install_dir"].as_str().unwrap_or("bin");
-            Ok(resources.join("runtime").join(install_dir).join(name))
+            Ok(resources
+                .join("runtime")
+                .join(&boot_version)
+                .join(install_dir)
+                .join(name))
         })
         .collect::<Result<Vec<_>>>()?;
     require_files(runtime_names)?;

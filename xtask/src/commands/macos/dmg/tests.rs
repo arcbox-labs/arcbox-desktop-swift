@@ -110,3 +110,25 @@ fn embedded_boot_assets_replace_stale_assets_without_runtime_image() {
     assert!(!embedded.join("runtime.erofs").exists());
     assert!(!resources.join("assets").join("old").exists());
 }
+
+#[test]
+fn embedded_boot_assets_require_the_host_target() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = dir.path().join("ArcBox.app");
+    std::fs::create_dir_all(app.join("Contents").join("Resources")).unwrap();
+
+    let arcbox = dir.path().join("arcbox");
+    std::fs::create_dir_all(&arcbox).unwrap();
+    std::fs::write(arcbox.join("assets.lock"), "[boot]\nversion = \"test\"\n").unwrap();
+    let cache = arcbox.join("target").join("boot-assets").join("test");
+    std::fs::create_dir_all(&cache).unwrap();
+    std::fs::write(
+        cache.join("manifest.json"),
+        r#"{"targets":{"x86_64":{"kernel":{},"rootfs":{}}}}"#,
+    )
+    .unwrap();
+
+    let error = embed_boot_assets(&app, &arcbox, BundleProfile::Production).unwrap_err();
+
+    assert!(error.to_string().contains("missing the host target"));
+}

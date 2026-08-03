@@ -142,6 +142,14 @@ public final class ArcBoxClient: Sendable {
         return options
     }
 
+    /// Call options for sandbox creation, which may materialize a Docker
+    /// template inside the System VM on first use.
+    public static var sandboxCreateCallOptions: GRPCCore.CallOptions {
+        var options = CallOptions.defaults
+        options.timeout = .seconds(600)
+        return options
+    }
+
     /// Container lifecycle operations.
     public var containers: Arcbox_V1_ContainerService.Client<HTTP2ClientTransport.TransportServices> {
         .init(wrapping: grpcClient)
@@ -187,14 +195,26 @@ public final class ArcBoxClient: Sendable {
         .init(wrapping: grpcClient)
     }
 
-    /// Sandbox lifecycle operations. All RPCs require `SandboxMetadata.forMachine`.
-    public var sandboxes: Sandbox_V1_SandboxService.Client<HTTP2ClientTransport.TransportServices> {
+    /// Sandbox lifecycle operations routed with `SandboxMetadata.forMachine`.
+    public var sandboxes: Arcbox_Sandbox_V1_SandboxService.Client<HTTP2ClientTransport.TransportServices> {
         .init(wrapping: grpcClient)
     }
 
-    /// Sandbox snapshot (checkpoint / restore) operations. All RPCs require
-    /// `SandboxMetadata.forMachine`.
-    public var snapshots: Sandbox_V1_SandboxSnapshotService.Client<HTTP2ClientTransport.TransportServices> {
+    /// Addressable sandbox execution operations.
+    public var sandboxProcesses: Arcbox_Sandbox_V1_SandboxProcessService.Client<HTTP2ClientTransport.TransportServices>
+    {
+        .init(wrapping: grpcClient)
+    }
+
+    /// Sandbox file transfer operations.
+    public var sandboxFilesystem:
+        Arcbox_Sandbox_V1_SandboxFilesystemService.Client<HTTP2ClientTransport.TransportServices>
+    {
+        .init(wrapping: grpcClient)
+    }
+
+    /// Sandbox snapshot (checkpoint / restore) operations.
+    public var snapshots: Arcbox_Sandbox_V1_SandboxSnapshotService.Client<HTTP2ClientTransport.TransportServices> {
         .init(wrapping: grpcClient)
     }
 
