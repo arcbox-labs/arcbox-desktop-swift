@@ -152,4 +152,25 @@ final class DeepLinkTests: XCTestCase {
         )
         return (router, appVM)
     }
+
+    // MARK: - URL round-trip
+
+    /// Notifications carry their destination as a URL string, so every link
+    /// must survive the trip back through the parser.
+    @MainActor func testURLRoundTrips() {
+        let links: [DeepLink] = [
+            .main,
+            .settings,
+            .section(.sandboxes, id: nil),
+            .section(.containers, id: "abc123"),
+        ]
+        for link in links {
+            XCTAssertEqual(DeepLink(link.url), link, "\(link.url) did not round-trip")
+        }
+    }
+
+    @MainActor func testURLEscapesIDs() {
+        let link = DeepLink.section(.containers, id: "a b/c")
+        XCTAssertEqual(DeepLink(link.url), .section(.containers, id: "a b"))
+    }
 }
