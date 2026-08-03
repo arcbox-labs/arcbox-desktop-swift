@@ -42,7 +42,7 @@ AppDelegate
 | 状态与异步任务 | 现有 `@Observable` ViewModel／service |
 | macOS 26 视觉 | 系统 toolbar、Sidebar、material 与 glass API |
 | Sandbox Monitoring | 源码保留但禁用；ABXD-133 接入真实 metrics 前不显示假 `LIVE` |
-| Templates 等未实现功能 | 明确 Coming Soon 或隐藏，不展示可点击的死 UI |
+| Templates 等未实现功能 | 功能可用前不建立导航、deep link 或占位窗口 |
 
 ### 1.3 完成定义
 
@@ -165,14 +165,12 @@ flowchart TD
     SW["SettingsWindowController<br/>两栏 NSSplitViewController"]
     ST["StatusItemController<br/>NSStatusItem + NSPopover"]
     AB["AboutPanelController"]
-    CS["ComingSoonPanelController"]
 
     AD --> AC
     AC --> MW
     AC --> SW
     AC --> ST
     AC --> AB
-    AC --> CS
     MW --> MS
     MS --> SB
     MS --> CL
@@ -225,13 +223,12 @@ Kubernetes、Machines、Sandboxes stores 由 `MainWindowController` 持有。Tem
 | 设置 | 普通 SwiftUI `Window` | 单例 `SettingsWindowController` | 默认 `700 × 580`；内容尺寸控制 |
 | 菜单栏 | `MenuBarExtra(.window)` | `NSStatusItem` + transient `NSPopover` | 内容宽 260；容器最多 8 行 |
 | 关于 | `NSPanel` + `NSHostingView` | 保留 panel，换原生 content controller | `500 × 660`；单例；Esc 关闭 |
-| Coming Soon | floating `NSPanel` + `NSHostingView` | 保留 panel，换原生 content controller | `280 × 260`；失焦隐藏；Esc／OK 关闭 |
+| Templates 占位 | 已删除 | 无窗口 | 功能可用后再建立真实入口 |
 
 证据：
 
 - [`ArcBoxApp.swift`](../ArcBox/ArcBoxApp.swift#L57)
 - [`AboutWindow.swift`](../ArcBox/Views/About/AboutWindow.swift#L18)
-- [`ComingSoonPanel.swift`](../ArcBox/Views/ComingSoonPanel.swift#L18)
 
 主窗口和设置不再通过标题扫描 `NSApp.windows`。Coordinator 强持有 controller，并提供
 `showMainWindow()`、`showSettings(tab:)`、`showAbout()`。
@@ -262,7 +259,7 @@ Sidebar IA：
 | Docker | Containers、Volumes、Images、Networks |
 | Kubernetes | Pods、Services |
 | Linux | Machines |
-| Sandbox | Sandboxes；Templates 在功能可用前隐藏 |
+| Sandbox | Sandboxes；Templates 在功能可用前不进入导航模型 |
 
 Feature IA：
 
@@ -277,7 +274,6 @@ Feature IA：
 | Services | 列表 | Info | 主窗口 Kubernetes owner |
 | Machines | Running／Stopped | Info／Terminal | 主窗口 |
 | Sandboxes | List | Info／Terminal／Files／Ports／Snapshots／Events | 主窗口 |
-| Templates | 隐藏 | 后端与产品流程完成后再接入 | 无 store |
 
 Image Terminal 当前切换 tab 时只改变可见性、不销毁 terminal。AppKit child controller 必须同样常驻。
 
@@ -714,7 +710,7 @@ hover／selection 时参与 layout，隐藏后不保留宽度。
 | `NSOpenPanel`／`NSSavePanel` | 保留 |
 | `NSWorkspace`／`NSPasteboard` | 保留 |
 | Sparkle updater 与 models | 保留 |
-| About／Coming Soon `NSPanel` 外壳 | 保留，替换 content |
+| About `NSPanel` 外壳 | 保留，替换 content |
 | `AppColors` 的 semantic `NSColor` 来源 | 改为直接暴露 `NSColor` |
 
 ### 7.6 无 1:1 等价的高风险点
@@ -749,14 +745,15 @@ hover／selection 时参与 layout，隐藏后不保留宽度。
 | Settings | split + form controllers | defaults registration、visible errors | updater／system models | permissions／rollback |
 | Auth | Account controller + web auth owner | restoring／signing out | AuthSession | presentation context |
 | Menu bar | status item + popover | shared Activity、Docker readiness | shared stores | popover task lifecycle |
-| About／Coming Soon | native panel content | 无 | panel lifecycle | 低 |
-| Templates | 不迁移 | 无 | 只保留 Coming Soon | dead UI 已删除 |
+| About | native panel content | 无 | panel lifecycle | 低 |
+| Templates | 不迁移 | 无 | 无入口 | dead UI 与占位 panel 已删除 |
 
 ## 9. 不迁移、直接删除
 
 「全部迁移」不包括翻译不可达或无调用代码：
 
 - `ArcBox/Views/Templates/*`、`TemplatesViewModel`、`TemplateViewModel` 与 `SampleData`（已删除）
+- `ComingSoonPanel` 与未实现的 `arcbox://templates` deep link（已删除）
 - `NetworkSettingsView`、`ListResizeHandle`、`CardModifier`、`BadgeModifier`、`SectionHeaderStyle`（已删除）
 - `RemoteIconView`、`ListLoadErrorView`（已删除）
 - `TerminalLine`
@@ -765,7 +762,7 @@ hover／selection 时参与 layout，隐藏后不保留宽度。
 - `EnvironmentValues+Clients.swift`
 - `SwiftTermView` 的 representable 壳
 - `LocalRootFSOutlineView` 的 representable 壳
-- About／Coming Soon 中的 `NSHostingView`
+- About 中的 `NSHostingView`
 - 自定义 Activity table column JSON；改用 `NSTableView` autosave
 
 删除前再用 `rg` 检查调用者；如果当前工作树在迁移开始前重新接通其中任何功能，应从此清单移除。
@@ -790,7 +787,7 @@ hover／selection 时参与 layout，隐藏后不保留宽度。
    同时迁移 list、detail、sheet、menu 和可见状态，不留下半套跨框架状态。
 
 5. **外围窗口**
-   Settings／Auth → menu bar → About／Coming Soon。
+   Settings／Auth → menu bar → About。
 
 6. **Activity 与清场**
    最后实现 chart；删除 SwiftUI、Charts、hosts、previews 和 dead UI；再生成 Xcode project。

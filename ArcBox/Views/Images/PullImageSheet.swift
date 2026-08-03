@@ -1,4 +1,3 @@
-import AppKit
 import DockerClient
 import SwiftUI
 import UniformTypeIdentifiers
@@ -25,6 +24,13 @@ struct PullImageSheet: View {
     @State private var errorMessage: String?
     @State private var image = ""
     @State private var platform: ImagePlatform = .auto
+    @State private var isShowingImporter = false
+
+    private var archiveContentTypes: [UTType] {
+        var types: [UTType] = [.gzip]
+        if let tar = UTType(filenameExtension: "tar") { types.insert(tar, at: 0) }
+        return types
+    }
 
     private var imageIsEmpty: Bool {
         image.trimmingCharacters(in: .whitespaces).isEmpty
@@ -65,19 +71,7 @@ struct PullImageSheet: View {
             HStack {
                 Button("Import...") {
                     guard !isPulling else { return }
-                    let panel = NSOpenPanel()
-                    var types: [UTType] = [.gzip]
-                    if let tar = UTType(filenameExtension: "tar") { types.insert(tar, at: 0) }
-                    panel.allowedContentTypes = types
-                    panel.allowsMultipleSelection = false
-                    panel.canChooseDirectories = false
-                    guard panel.runModal() == .OK, let url = panel.url else { return }
-                    isPulling = true
-                    Task {
-                        let ok = await vm.importImage(tarURL: url, docker: docker)
-                        isPulling = false
-                        if ok { dismiss() } else { errorMessage = vm.lastError }
-                    }
+                    isShowingImporter = true
                 }
                 .disabled(isPulling)
 
@@ -110,5 +104,30 @@ struct PullImageSheet: View {
         }
         .frame(width: AppMetrics.sheetWidth, height: 270)
         .interactiveDismissDisabled(isPulling)
+        .fileImporter(
+            isPresented: $isShowingImporter,
+            allowedContentTypes: archiveContentTypes
+        ) { result in
+            switch result {
+            case .success(let url):
+                importImage(from: url)
+            case .failure(let error):
+                guard (error as? CocoaError)?.code != .userCancelled else { return }
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func importImage(from url: URL) {
+        isPulling = true
+        Task {
+            let hasAccess = url.startAccessingSecurityScopedResource()
+            defer {
+                if hasAccess { url.stopAccessingSecurityScopedResource() }
+            }
+            let ok = await vm.importImage(tarURL: url, docker: docker)
+            isPulling = false
+            if ok { dismiss() } else { errorMessage = vm.lastError }
+        }
     }
 }

@@ -10,6 +10,7 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     init(
         title: String = "Welcome to ArcBox",
         contentViewController: NSViewController,
+        screen: NSScreen? = nil,
         allowsClosing: Bool = false,
         onClose: @escaping () -> Void
     ) {
@@ -20,7 +21,8 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
             contentRect: NSRect(origin: .zero, size: Self.windowSize),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
-            defer: false
+            defer: false,
+            screen: screen
         )
         window.title = title
         window.titleVisibility = .hidden
@@ -31,7 +33,7 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
         window.tabbingMode = .disallowed
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.setFrame(NSRect(origin: .zero, size: Self.windowSize), display: false)
+        window.setFrame(NSRect(origin: window.frame.origin, size: Self.windowSize), display: false)
         window.center()
 
         super.init(window: window)

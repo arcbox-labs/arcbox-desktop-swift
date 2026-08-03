@@ -9,19 +9,8 @@ enum NavItem: String, CaseIterable, Identifiable {
     case services
     case machines
     case sandboxes
-    case templates
 
     var id: String { rawValue }
-
-    /// Whether this item belongs to a not-yet-implemented section.
-    var isComingSoon: Bool {
-        switch self {
-        case .templates:
-            true
-        default:
-            false
-        }
-    }
 
     var label: String {
         switch self {
@@ -34,7 +23,6 @@ enum NavItem: String, CaseIterable, Identifiable {
         case .services: "Services"
         case .machines: "Machines"
         case .sandboxes: "Sandboxes"
-        case .templates: "Templates"
         }
     }
 
@@ -49,7 +37,6 @@ enum NavItem: String, CaseIterable, Identifiable {
         case .services: "gearshape.2"
         case .machines: "desktopcomputer"
         case .sandboxes: "server.rack"
-        case .templates: "doc.on.doc"
         }
     }
 

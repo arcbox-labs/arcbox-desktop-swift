@@ -18,8 +18,10 @@ final class ContainersListViewControllerTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(outlineView.enclosingScrollView).isHidden)
 
         viewModel.loadState = .failed("Docker unavailable")
-        try await waitUntil { self.visibleButton(titled: "Retry", in: rootView) != nil }
-        visibleButton(titled: "Retry", in: rootView)?.performClick(nil)
+        try await waitUntil {
+            hostedStateViewAction(titled: "Retry", in: rootView) != nil
+        }
+        try XCTUnwrap(hostedStateViewAction(titled: "Retry", in: rootView))()
         XCTAssertTrue(didRetry)
 
         viewModel.loadState = .loaded
@@ -264,19 +266,11 @@ final class ContainersListViewControllerTests: XCTestCase {
     }
 
     @MainActor
-    private func visibleButton(titled title: String, in view: NSView) -> NSButton? {
-        guard !view.isHiddenOrHasHiddenAncestor else { return nil }
-        if let button = view as? NSButton, button.title == title {
-            return button
-        }
-        return view.subviews.lazy.compactMap {
-            self.visibleButton(titled: title, in: $0)
-        }.first
-    }
-
-    @MainActor
     private func hasText(_ text: String, in view: NSView) -> Bool {
         guard !view.isHiddenOrHasHiddenAncestor else { return false }
+        if hostedStateViewDisplays(text, in: view) {
+            return true
+        }
         if let textField = view as? NSTextField, textField.stringValue == text {
             return true
         }
