@@ -483,7 +483,7 @@ final class ContainerTableCellView: NSTableCellView, ResourceListActionDisplayin
         statusColor = Self.color(for: container.state)
 
         self.useDNS = useDNS
-        hostDomain = container.hostDomain(useDNS: useDNS)
+        hostDomain = container.connectionHost(useDNS: useDNS)
         ports =
             useDNS
             ? container.ports

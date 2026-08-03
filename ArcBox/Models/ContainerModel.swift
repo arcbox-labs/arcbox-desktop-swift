@@ -142,21 +142,19 @@ struct ContainerViewModel: Identifiable, Hashable {
     /// Whether this container belongs to a compose project with known service name.
     var isCompose: Bool { composeProject != nil && composeService != nil }
 
-    /// The primary display domain for this container given the current DNS state.
+    /// The stable primary domain identity for this container.
     /// Compose containers use the hierarchical format: `<service>.<project>.arcbox.local`.
     /// Plain containers use the flat format: `<name>.arcbox.local`.
-    func hostDomain(useDNS: Bool) -> String {
-        guard useDNS else { return "localhost" }
+    var hostDomain: String {
         if let service = composeService, let project = composeProject {
             return "\(service).\(project).arcbox.local"
         }
         return "\(name).arcbox.local"
     }
 
-    /// All resolvable domains for this container.
+    /// All stable domain identities for this container.
     /// Compose containers have both the hierarchical and flat names.
-    func allDomains(useDNS: Bool) -> [String] {
-        guard useDNS else { return ["localhost"] }
+    var allDomains: [String] {
         if let service = composeService, let project = composeProject {
             return [
                 "\(service).\(project).arcbox.local",
@@ -166,14 +164,19 @@ struct ContainerViewModel: Identifiable, Hashable {
         return ["\(name).arcbox.local"]
     }
 
+    /// Host used for an actionable link under the current network health.
+    func connectionHost(useDNS: Bool) -> String {
+        useDNS ? hostDomain : "localhost"
+    }
+
     /// Build a URL for the container's primary port, respecting DNS mode.
     func domainURL(useDNS: Bool) -> URL? {
         if useDNS {
             if let port = ports.first {
                 let suffix = port.containerPort == 80 ? "" : ":\(port.containerPort)"
-                return URL(string: "http://\(hostDomain(useDNS: true))\(suffix)")
+                return URL(string: "http://\(hostDomain)\(suffix)")
             }
-            return URL(string: "http://\(hostDomain(useDNS: true))")
+            return URL(string: "http://\(hostDomain)")
         } else if let hostPort = hostPorts.first {
             return URL(string: "http://localhost:\(hostPort)")
         }
@@ -184,7 +187,7 @@ struct ContainerViewModel: Identifiable, Hashable {
     func portURL(_ port: PortMapping, useDNS: Bool) -> URL? {
         if useDNS {
             let suffix = port.containerPort == 80 ? "" : ":\(port.containerPort)"
-            return URL(string: "http://\(hostDomain(useDNS: true))\(suffix)")
+            return URL(string: "http://\(hostDomain)\(suffix)")
         } else {
             return URL(string: "http://localhost:\(port.hostPort)")
         }
