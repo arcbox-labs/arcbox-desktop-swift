@@ -438,6 +438,11 @@ jobs:
 
           MANIFEST=$(find "$APP/Contents/Resources/assets" -name manifest.json -print -quit)
           test -n "$MANIFEST"
+          RUNTIME_EROFS=$(find "$APP/Contents/Resources/assets" -name runtime.erofs -print -quit)
+          if [ -n "$RUNTIME_EROFS" ]; then
+            echo "::error::Release app must not contain runtime.erofs: $RUNTIME_EROFS"
+            exit 1
+          fi
           python3 - "$MANIFEST" "$APP/Contents/Resources/runtime" <<'PY'
           import hashlib
           import json
@@ -447,6 +452,7 @@ jobs:
           manifest_path = pathlib.Path(sys.argv[1])
           runtime_root = pathlib.Path(sys.argv[2])
           manifest = json.loads(manifest_path.read_text())
+          runtime_root /= manifest["asset_version"]
           for binary in manifest["binaries"]:
               target = binary["targets"]["arm64"]
               install_dir = binary.get("install_dir") or "bin"

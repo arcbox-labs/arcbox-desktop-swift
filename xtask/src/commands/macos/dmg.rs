@@ -33,6 +33,7 @@ const DOCKER_TOOLS: [&str; 4] = [
     "docker-compose",
     "docker-credential-osxkeychain",
 ];
+const BUNDLED_BOOT_ASSETS: [&str; 3] = ["manifest.json", "kernel", "rootfs.erofs"];
 
 const HOST_ARCH: &str = "arm64";
 
@@ -173,8 +174,11 @@ fn build_swift_app(
     // Packaging re-embeds host/guest binaries after the Swift build. Skipping
     // the Xcode embed phase avoids a second copy/sign pass (and any residual
     // cargo work) during CI release builds.
+    cmd.arg(format!(
+        "SKIP_RUST_BUILD={}",
+        if skip_xcode_embed { "1" } else { "0" }
+    ));
     if skip_xcode_embed {
-        cmd.env("SKIP_RUST_BUILD", "1");
         println!("  SKIP_RUST_BUILD=1 (packaging will embed binaries)");
     }
 
@@ -385,17 +389,56 @@ fn boot_asset_files(manifest_path: &Path) -> Result<Vec<&'static str>> {
             .with_context(|| format!("opening {}", manifest_path.display()))?,
     )
     .with_context(|| format!("parsing {}", manifest_path.display()))?;
-    let target = manifest
+    manifest
         .pointer(&format!("/targets/{HOST_ARCH}"))
         .context("boot manifest is missing the host target")?;
-    let mut files = vec!["manifest.json", "kernel", "rootfs.erofs"];
-    if target
-        .get("runtime")
-        .is_some_and(|runtime| !runtime.is_null())
-    {
-        files.push("runtime.erofs");
+    Ok(BUNDLED_BOOT_ASSETS.to_vec())
+}
+
+fn local_boot_cache_ready(cache_dir: &Path) -> bool {
+    if !boot_cache_ready(cache_dir) {
+        return false;
     }
-    Ok(files)
+    let manifest: serde_json::Value = match std::fs::File::open(cache_dir.join("manifest.json"))
+        .ok()
+        .and_then(|file| serde_json::from_reader(file).ok())
+    {
+        Some(manifest) => manifest,
+        None => return false,
+    };
+    manifest["source_repo"].as_str() == Some("local/boot-assets")
+        && manifest["binaries"].as_array().is_some_and(|binaries| {
+            binaries
+                .iter()
+                .any(|binary| !binary["targets"][HOST_ARCH].is_null())
+        })
+}
+
+fn should_reuse_local_boot_cache(profile: BundleProfile, force: bool, cache_dir: &Path) -> bool {
+    profile == BundleProfile::Development && !force && local_boot_cache_ready(cache_dir)
+}
+
+fn write_binaries_fragment(manifest_path: &Path, output: &Path) -> Result<()> {
+    let manifest: serde_json::Value = serde_json::from_reader(
+        std::fs::File::open(manifest_path)
+            .with_context(|| format!("opening {}", manifest_path.display()))?,
+    )
+    .with_context(|| format!("parsing {}", manifest_path.display()))?;
+    let binaries = manifest["binaries"]
+        .as_array()
+        .context("boot manifest binaries must be an array")?;
+    if !binaries
+        .iter()
+        .any(|binary| !binary["targets"][HOST_ARCH].is_null())
+    {
+        bail!("boot manifest has no runtime binaries for {HOST_ARCH}");
+    }
+    if let Some(parent) = output.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    std::fs::write(output, serde_json::to_vec_pretty(binaries)?)
+        .with_context(|| format!("writing {}", output.display()))
 }
 
 fn build_local_boot_assets(
@@ -417,7 +460,7 @@ fn build_local_boot_assets(
 
     let version = read_boot_version(&arcbox_dir.join("assets.lock"))?;
     let cache_dir = profile_home(profile).join("boot").join(&version);
-    if !opts.force && boot_cache_ready(&cache_dir) {
+    if !opts.force && local_boot_cache_ready(&cache_dir) {
         println!(
             "  Local boot-assets already prepared at {}",
             cache_dir.display()
@@ -434,6 +477,8 @@ fn build_local_boot_assets(
     let tool = build_boot_assets_tool(boot_assets_dir)?;
     let kernel =
         resolve_boot_assets_kernel(desktop_repo, boot_assets_dir, opts.boot_assets_kernel)?;
+    let binaries_json = output_dir.join("binaries.json");
+    write_binaries_fragment(&cache_dir.join("manifest.json"), &binaries_json)?;
     let mut args = vec![
         "build".to_string(),
         "release".to_string(),
@@ -447,6 +492,8 @@ fn build_local_boot_assets(
         output_dir.display().to_string(),
         "--source-repo".to_string(),
         "local/boot-assets".to_string(),
+        "--binaries-json".to_string(),
+        binaries_json.display().to_string(),
     ];
     if let Some(rootfs) = opts.boot_assets_rootfs {
         if !rootfs.is_file() {
@@ -485,6 +532,9 @@ fn prepare_profile_resources(
     opts: &ResourceOptions<'_>,
 ) -> Result<()> {
     println!("--- Preparing profile resources ---");
+    if opts.boot_assets_dir.is_some() && profile != BundleProfile::Development {
+        bail!("local boot-assets require the development profile (--dev)");
+    }
     let abctl = arcbox_dir.join("target").join("release").join("abctl");
     if !abctl.is_file() {
         bail!(
@@ -501,14 +551,20 @@ fn prepare_profile_resources(
         }
     }
 
-    if opts.boot_assets_dir.is_some() {
-        build_local_boot_assets(desktop_repo, arcbox_dir, profile, opts)?;
+    let boot_cache = profile_home(profile)
+        .join("boot")
+        .join(read_boot_version(&arcbox_dir.join("assets.lock"))?);
+    if should_reuse_local_boot_cache(profile, opts.force, &boot_cache) {
+        println!("  Reusing prepared local boot-assets");
     } else {
         let mut boot_args = vec!["boot".to_string(), "prefetch".to_string()];
-        if opts.force {
+        if opts.force || opts.boot_assets_dir.is_some() {
             boot_args.push("--force".to_string());
         }
         run_abctl_profile_command_owned(&abctl, profile, &boot_args, "boot prefetch")?;
+    }
+    if opts.boot_assets_dir.is_some() {
+        build_local_boot_assets(desktop_repo, arcbox_dir, profile, opts)?;
     }
     run_abctl_profile_command(&abctl, profile, &["docker", "setup"], "docker setup")?;
     Ok(())
@@ -520,15 +576,19 @@ fn embed_boot_assets(app_bundle: &Path, arcbox_dir: &Path, profile: BundleProfil
     let boot_version = read_boot_version(&lock_file)?;
     println!("  Boot-asset version: {boot_version}");
 
-    let boot_cache = [
-        arcbox_dir
-            .join("target")
-            .join("boot-assets")
-            .join(&boot_version),
-        profile_home(profile).join("boot").join(&boot_version),
-    ]
-    .into_iter()
-    .find(|c| c.join("manifest.json").is_file());
+    let build_cache = arcbox_dir
+        .join("target")
+        .join("boot-assets")
+        .join(&boot_version);
+    let profile_cache = profile_home(profile).join("boot").join(&boot_version);
+    let candidates = if profile == BundleProfile::Development {
+        [profile_cache, build_cache]
+    } else {
+        [build_cache, profile_cache]
+    };
+    let boot_cache = candidates
+        .into_iter()
+        .find(|c| c.join("manifest.json").is_file());
 
     let boot_cache = boot_cache.with_context(|| {
         format!("boot-assets v{boot_version} not found. Run 'abctl boot prefetch' first.")
@@ -537,7 +597,12 @@ fn embed_boot_assets(app_bundle: &Path, arcbox_dir: &Path, profile: BundleProfil
     let resources = app_bundle.join("Contents").join("Resources");
     std::fs::copy(&lock_file, resources.join("assets.lock")).context("copying assets.lock")?;
 
-    let boot_dest = resources.join("assets").join(&boot_version);
+    let assets_dest = resources.join("assets");
+    if assets_dest.exists() {
+        std::fs::remove_dir_all(&assets_dest)
+            .with_context(|| format!("removing {}", assets_dest.display()))?;
+    }
+    let boot_dest = assets_dest.join(&boot_version);
     std::fs::create_dir_all(&boot_dest)
         .with_context(|| format!("creating {}", boot_dest.display()))?;
     for name in boot_asset_files(&boot_cache.join("manifest.json"))? {
@@ -1297,12 +1362,19 @@ fn verify_runnable_bundle(app_bundle: &Path, profile: BundleProfile) -> Result<(
     }
 
     let boot_version = read_boot_version(&resources.join("assets.lock"))?;
-    let boot_dir = resources.join("assets").join(boot_version);
+    let boot_dir = resources.join("assets").join(&boot_version);
     require_files(
         boot_asset_files(&boot_dir.join("manifest.json"))?
             .into_iter()
             .map(|name| boot_dir.join(name)),
     )?;
+    let runtime_image = boot_dir.join("runtime.erofs");
+    if runtime_image.exists() {
+        bail!(
+            "runnable app must not bundle the runtime image: {}",
+            runtime_image.display()
+        );
+    }
 
     let manifest: serde_json::Value =
         serde_json::from_reader(std::fs::File::open(boot_dir.join("manifest.json"))?)
@@ -1317,7 +1389,11 @@ fn verify_runnable_bundle(app_bundle: &Path, profile: BundleProfile) -> Result<(
                 .as_str()
                 .context("boot manifest binary is missing its name")?;
             let install_dir = binary["install_dir"].as_str().unwrap_or("bin");
-            Ok(resources.join("runtime").join(install_dir).join(name))
+            Ok(resources
+                .join("runtime")
+                .join(&boot_version)
+                .join(install_dir)
+                .join(name))
         })
         .collect::<Result<Vec<_>>>()?;
     require_files(runtime_names)?;
