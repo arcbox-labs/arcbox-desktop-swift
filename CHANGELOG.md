@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.34.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.0...v1.34.1) (2026-08-04)
+
+
+### Bug Fixes
+
+* **app:** use native quit window placement ([#361](https://github.com/arcboxlabs/arcbox-desktop/issues/361)) ([2dbd14e](https://github.com/arcboxlabs/arcbox-desktop/commit/2dbd14e1fcf7c3254306b42f4dd8e706e4b800a3))
+* **containers:** keep ArcBox domains visible ([90eabf8](https://github.com/arcboxlabs/arcbox-desktop/commit/90eabf8cdb78a67a4e550d9a1891ebf3482b2bce))
+* **containers:** show configured domain ([4f12609](https://github.com/arcboxlabs/arcbox-desktop/commit/4f12609bea635bb38e94dfa8145fbea97e96fd4f))
+
+
+### Refactoring
+
+* **ui:** align macOS presentation behavior ([#363](https://github.com/arcboxlabs/arcbox-desktop/issues/363)) ([b386dc0](https://github.com/arcboxlabs/arcbox-desktop/commit/b386dc05ebc7336491a5c215033e43524104799c))
+
+
+### Miscellaneous
+
+* bump arcbox version to v0.6.3 ([#364](https://github.com/arcboxlabs/arcbox-desktop/issues/364)) ([410356f](https://github.com/arcboxlabs/arcbox-desktop/commit/410356f393e0a9d7b0cc714245bd0a9bde7dc8de))
+
 ## [1.34.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.33.0...v1.34.0) (2026-08-03)
 
 
