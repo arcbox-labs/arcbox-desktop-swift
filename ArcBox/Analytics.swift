@@ -11,6 +11,11 @@ import PostHog
 /// Analytics.capture(.containerStarted)
 /// Analytics.capture(.startupCompleted, properties: ["duration_ms": 1200])
 /// ```
+///
+/// Conventions: lifecycle events fire only on success — failures are already
+/// covered by `error_occurred` via `ErrorReporting`.  Properties carry
+/// low-cardinality dimensions only; never IDs, names, image references, or
+/// file paths.
 nonisolated enum Analytics {
 
     /// Record an analytics event.  No-ops when PostHog is not configured.
@@ -21,8 +26,8 @@ nonisolated enum Analytics {
     // MARK: - Event Catalog
 
     enum Event: String {
-        // Startup
-        case appLaunched = "app_launched"
+        // Startup.  App open/install/update are captured by the SDK's
+        // `captureApplicationLifecycleEvents`, so they are not repeated here.
         case startupCompleted = "startup_completed"
         case startupFailed = "startup_failed"
 

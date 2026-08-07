@@ -175,6 +175,7 @@ final class KubernetesState {
         let previousLifecycle = lifecycle
         statusGeneration &+= 1
         lifecycle = .starting
+        let startedAt = CFAbsoluteTimeGetCurrent()
 
         do {
             try await client.startKubernetes()
@@ -185,6 +186,10 @@ final class KubernetesState {
                 }
                 if try await client.kubernetesStatus().isReady {
                     setReady(client: client)
+                    Analytics.capture(
+                        .k8sEnabled,
+                        properties: ["duration_ms": Int((CFAbsoluteTimeGetCurrent() - startedAt) * 1000)]
+                    )
                     return
                 }
             }
@@ -224,6 +229,7 @@ final class KubernetesState {
             try await client.stopKubernetes()
             endSession()
             lifecycle = .disabled
+            Analytics.capture(.k8sDisabled)
         } catch is CancellationError {
             lifecycle = previousLifecycle
         } catch {

@@ -134,6 +134,7 @@ final class ApplicationCoordinator: NSObject {
         if let tab {
             appVM.settingsTab = tab
         }
+        Analytics.capture(.settingsOpened, properties: ["tab": appVM.settingsTab?.rawValue ?? "none"])
         if settingsWindowController == nil {
             let screen =
                 NSApp.keyWindow?.screen
