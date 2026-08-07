@@ -1,4 +1,5 @@
 import PostHog
+import os
 
 /// Centralized product analytics event catalog.
 ///
@@ -38,6 +39,12 @@ nonisolated enum Analytics {
     /// previous person profile.
     static func reset() {
         PostHogSDK.shared.reset()
+        // `reset()` also wipes the registered super properties, which describe
+        // the install rather than the person — put them straight back.
+        superProperties.withLockUnchecked { properties in
+            guard !properties.isEmpty else { return }
+            PostHogSDK.shared.register(properties)
+        }
     }
 
     /// Apply the Settings > Privacy toggle.  While opted out the SDK drops
@@ -52,10 +59,16 @@ nonisolated enum Analytics {
 
     // MARK: - Super Properties
 
+    /// Mirrors what has been registered so `reset()` can restore it.  The
+    /// `unchecked` variants are used only because `[String: Any]` is not
+    /// `Sendable`; mutual exclusion is what makes the access safe.
+    private static let superProperties = OSAllocatedUnfairLock<[String: Any]>(uncheckedState: [:])
+
     /// Attach properties to every subsequent event.  Used for the handful of
     /// slow-moving dimensions worth segmenting the whole dataset by; the SDK
     /// already supplies `$app_version`, `$os_version`, and `$device_type`.
     static func register(_ properties: [String: Any]) {
+        superProperties.withLockUnchecked { $0.merge(properties) { _, new in new } }
         PostHogSDK.shared.register(properties)
     }
 
