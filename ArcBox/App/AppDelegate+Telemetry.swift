@@ -64,6 +64,10 @@ extension AppDelegate {
             config.optOut = true
         #endif
         PostHogSDK.shared.setup(config)
+        Analytics.register([
+            "arcbox_profile": Bundle.main.object(forInfoDictionaryKey: "ArcBoxProfile") as? String ?? "unknown",
+            "update_channel": UserDefaults.standard.string(forKey: "updateChannel") ?? "stable",
+        ])
         Log.startup.info("PostHog initialized (opted \(config.optOut ? "out" : "in", privacy: .public))")
     }
 

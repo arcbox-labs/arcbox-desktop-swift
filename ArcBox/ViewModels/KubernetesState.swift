@@ -146,6 +146,7 @@ final class KubernetesState {
             } else {
                 endSession()
                 lifecycle = .disabled
+                Analytics.register(["k8s_active": false])
             }
         } catch is CancellationError {
             guard statusGeneration == self.statusGeneration else { return }
@@ -229,6 +230,7 @@ final class KubernetesState {
             try await client.stopKubernetes()
             endSession()
             lifecycle = .disabled
+            Analytics.register(["k8s_active": false])
             Analytics.capture(.k8sDisabled)
         } catch is CancellationError {
             lifecycle = previousLifecycle
@@ -251,6 +253,7 @@ final class KubernetesState {
     private func setReady(client: any KubernetesControlClient) {
         let clientID = ObjectIdentifier(client)
         lifecycle = .ready
+        Analytics.register(["k8s_active": true])
         guard sessionClientID != clientID else { return }
         startSession(client: client)
     }
