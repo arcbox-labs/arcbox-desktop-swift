@@ -91,15 +91,11 @@ struct ContentView: View {
                 Section(section.rawValue.capitalized) {
                     ForEach(section.items) { item in
                         Label(item.label, systemImage: item.sfSymbol)
+                            // A zero badge renders nothing, so only the runner
+                            // row shows its in-flight job count.
+                            .badge(item == .runner ? runnersVM.activeJobCount : 0)
                             .tag(item)
                     }
-                }
-            }
-            Section("CI Runners") {
-                ForEach(NavItem.Section.runners.items) { item in
-                    Label(item.label, systemImage: item.sfSymbol)
-                        .badge(runnersVM.activeJobCount)
-                        .tag(item)
                 }
             }
         }
