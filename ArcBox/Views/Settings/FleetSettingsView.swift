@@ -301,23 +301,4 @@ struct FleetSettingsView: View {
     private static func currentImageLabel(_ reference: String) -> String {
         reference.isEmpty ? "Not prepared" : reference
     }
-
-}
-
-#Preview {
-    let fleet = FleetViewModel()
-    fleet.loadState = .ready
-    fleet.agentInfo = FleetAgentInfo(
-        agentVersion: "0.5.0",
-        apiVersion: 1,
-        features: ["vm-settings", "macos-image-prepare"]
-    )
-    fleet.settings = FleetAgentSettings(
-        macosRunnerImage: FleetSetting(current: "tahoe-base", target: "tahoe-base"),
-        vmMode: FleetSetting(current: .auto, target: .auto)
-    )
-
-    return FleetSettingsView()
-        .environment(fleet)
-        .frame(width: 520, height: 580)
 }

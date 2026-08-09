@@ -54,13 +54,3 @@ struct RunnerEmptyState: View {
         }
     }
 }
-
-#Preview {
-    RunnerEmptyState(
-        isWorking: false,
-        canConnect: true,
-        errorMessage: nil,
-        onConnect: {}
-    )
-    .frame(width: 320, height: 520)
-}

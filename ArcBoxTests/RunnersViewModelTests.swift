@@ -284,6 +284,19 @@ final class RunnersViewModelTests: XCTestCase {
         XCTAssertEqual(state, .connecting)
     }
 
+    func testStaleTerminalSnapshotConnectivityWinsOverMissingIdentity() {
+        for enrollment in [FleetEnrollmentState.credentialRejected, .detached] {
+            let state = resolve(
+                snapshot: makeSnapshot(enrollment: enrollment, machineID: nil),
+                loadState: .failed("State stream ended."),
+                enrollmentState: .idle,
+                isSignedIn: true
+            )
+
+            XCTAssertEqual(state, .unavailable("State stream ended."))
+        }
+    }
+
     func testCoordinatorReadyWithoutSnapshotDoesNotSynthesizeHost() {
         XCTAssertEqual(
             resolve(

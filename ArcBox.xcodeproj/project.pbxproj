@@ -43,6 +43,7 @@
 		20C4C1664AC3D1942C7D72CD /* SandboxesViewModel+GRPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829D8DC499E6339D13A2ADE7 /* SandboxesViewModel+GRPC.swift */; };
 		21D545F71EFE312362029E61 /* SandboxPortsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11EB6AEBF371E6B88EF8D08E /* SandboxPortsTab.swift */; };
 		22A38E75CD6CB3074F3BB6D4 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A8FF41635473729BF0A36E /* StatusBadge.swift */; };
+		2437ABD6C32B0F3CE43F3125 /* FleetControlClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB5E3A017A70860929AA45F0 /* FleetControlClientTests.swift */; };
 		245366143B64E30BF77A6BAE /* SandboxFilesTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 920C9CA81449FA23CEC17EF6 /* SandboxFilesTab.swift */; };
 		25E25D58DAE59E9EB433B6F5 /* K8sWatchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F065A1CBDA891A5647FE6F6 /* K8sWatchTests.swift */; };
 		2754C5F694613CA3A06DBC7E /* ContainerLogsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 269B74A3C7704AB81139FA52 /* ContainerLogsModels.swift */; };
@@ -237,6 +238,7 @@
 		D6D1C18BADA9AB8CAE608A7F /* SidebarAccountButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7607A876F6C88A440DA53BE1 /* SidebarAccountButton.swift */; };
 		D7149FCB6052803F6900926B /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = D50E2875839AD5944467DBC0 /* Sentry */; };
 		D745D0D7EF5FF65174C47F28 /* NewVolumeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 903FA72CEF39142ADA5CA378 /* NewVolumeSheet.swift */; };
+		D94E27BE03BF936F525337A1 /* FleetPlatformClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F68891648A774E0E59C3FF7F /* FleetPlatformClientTests.swift */; };
 		DA5B57293BC69B7D95AABBA8 /* ActivityRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0201CD86DCD5E042D07FF66F /* ActivityRow.swift */; };
 		DAA8D86963F68C3BE402619B /* FleetAgentConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A8DB8D7DB7317B7B3E4775C /* FleetAgentConnection.swift */; };
 		DB19F0073D84ED7A7C937D49 /* ContainersListViewControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80010452354615CAC08FAF1D /* ContainersListViewControllerTests.swift */; };
@@ -505,6 +507,7 @@
 		C8FE218992C260511CE601B8 /* FleetControlServicing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FleetControlServicing.swift; sourceTree = "<group>"; };
 		C964312D5336EE55A8E4680B /* ImageLayerChainTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageLayerChainTests.swift; sourceTree = "<group>"; };
 		C9F4E99670A28483DBAA6CC8 /* LayerStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayerStackTests.swift; sourceTree = "<group>"; };
+		CB5E3A017A70860929AA45F0 /* FleetControlClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FleetControlClientTests.swift; sourceTree = "<group>"; };
 		CC7024634F15938CC362E861 /* CommandEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandEmptyStateView.swift; sourceTree = "<group>"; };
 		CC98017408ED56AFF734125A /* AboutView+Sections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AboutView+Sections.swift"; sourceTree = "<group>"; };
 		CDF5B0B3EC77FB12D8B4EA6A /* PodsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodsViewModel.swift; sourceTree = "<group>"; };
@@ -549,6 +552,7 @@
 		F5D8365238BDE73993270477 /* AuthClientConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthClientConfigurationTests.swift; sourceTree = "<group>"; };
 		F5F318A121B0C8EA1A05BFE5 /* InfoRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoRow.swift; sourceTree = "<group>"; };
 		F62FD6244C56EE8E45DF0EC7 /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
+		F68891648A774E0E59C3FF7F /* FleetPlatformClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FleetPlatformClientTests.swift; sourceTree = "<group>"; };
 		F6ABF0A0B6218A3FE504C7DA /* RunnersViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnersViewState.swift; sourceTree = "<group>"; };
 		F707491EC9A47AE534822664 /* AppViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModel.swift; sourceTree = "<group>"; };
 		F734677F8F8EFD08CB32E8B3 /* SystemSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemSettingsView.swift; sourceTree = "<group>"; };
@@ -796,6 +800,15 @@
 			path = Settings;
 			sourceTree = "<group>";
 		};
+		364260061EBD37B89C9CA619 /* FleetPlatformClientTests */ = {
+			isa = PBXGroup;
+			children = (
+				F68891648A774E0E59C3FF7F /* FleetPlatformClientTests.swift */,
+			);
+			name = FleetPlatformClientTests;
+			path = Packages/FleetPlatformClient/Tests/FleetPlatformClientTests;
+			sourceTree = "<group>";
+		};
 		36ACB0A8DEE9F48E74DC42FA /* Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -850,6 +863,8 @@
 				AC4AAD074C3A39ADAB6FAD7B /* ArcBoxAuthTests */,
 				C8B7319F3F54C908E990038A /* ArcBoxClientTests */,
 				F40F93A7C5C0CC3834C9D722 /* ArcBoxTests */,
+				483A99FA686F220DCF359139 /* FleetControlClientTests */,
+				364260061EBD37B89C9CA619 /* FleetPlatformClientTests */,
 				CDE1EC6D82D788262B5E4213 /* LaunchDaemons */,
 				8380053000DF0548E7D5142C /* Packages */,
 				6804CF91CE052A3BE1016137 /* Products */,
@@ -878,6 +893,15 @@
 				50C68609B67AC82FF386CB92 /* SandboxEventMonitor.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		483A99FA686F220DCF359139 /* FleetControlClientTests */ = {
+			isa = PBXGroup;
+			children = (
+				CB5E3A017A70860929AA45F0 /* FleetControlClientTests.swift */,
+			);
+			name = FleetControlClientTests;
+			path = Packages/FleetControlClient/Tests/FleetControlClientTests;
 			sourceTree = "<group>";
 		};
 		4EC21FABED29FDC78DC34D1C /* Fleet */ = {
@@ -1638,7 +1662,9 @@
 				853F2D06A878BE9A867BE3FD /* CreateOperationErrorTests.swift in Sources */,
 				EE2D38BC76500BF768EEE20F /* DeepLinkTests.swift in Sources */,
 				8466B000B68A87CEECA6756F /* DockerEventMonitorTests.swift in Sources */,
+				2437ABD6C32B0F3CE43F3125 /* FleetControlClientTests.swift in Sources */,
 				868F62A98F4BD1023DD79167 /* FleetEnrollmentCoordinatorTests.swift in Sources */,
+				D94E27BE03BF936F525337A1 /* FleetPlatformClientTests.swift in Sources */,
 				0992A10AFBEFE1BC32E351DE /* FleetViewModelTests.swift in Sources */,
 				D2AB4B6BF0723EE12A0DBC83 /* GuestDataMountTests.swift in Sources */,
 				D4FFF718B8B6D79B469D2C3C /* GuestExportFixture.swift in Sources */,

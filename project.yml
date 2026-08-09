@@ -237,6 +237,8 @@ targets:
       # `swift test` nobody runs.
       - path: Packages/ArcBoxClient/Tests/ArcBoxClientTests
       - path: Packages/ArcBoxAuth/Tests/ArcBoxAuthTests
+      - path: Packages/FleetControlClient/Tests/FleetControlClientTests
+      - path: Packages/FleetPlatformClient/Tests/FleetPlatformClientTests
     dependencies:
       - target: ArcBox
       - package: K8sClient

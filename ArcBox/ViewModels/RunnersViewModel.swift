@@ -258,11 +258,11 @@ final class RunnersViewModel {
                     freshness: hostFreshness(loadState: loadState)
                 )
             case .credentialRejected:
-                guard let machineID = normalizedMachineID(snapshot.machineID) else {
-                    return .failed("Fleet Agent reported an invalid machine identity.")
-                }
                 if let override = connectivityOverride(loadState: loadState) {
                     return override
+                }
+                guard let machineID = normalizedMachineID(snapshot.machineID) else {
+                    return .failed("Fleet Agent reported an invalid machine identity.")
                 }
                 return .enrollmentFailed(
                     FleetEnrollmentCoordinator.Failure.credentialRejected(machineID: machineID)
@@ -270,11 +270,11 @@ final class RunnersViewModel {
                     recovery: .unenroll
                 )
             case .detached:
-                guard let machineID = normalizedMachineID(snapshot.machineID) else {
-                    return .failed("Fleet Agent reported an invalid machine identity.")
-                }
                 if let override = connectivityOverride(loadState: loadState) {
                     return override
+                }
+                guard let machineID = normalizedMachineID(snapshot.machineID) else {
+                    return .failed("Fleet Agent reported an invalid machine identity.")
                 }
                 return .enrollmentFailed(
                     FleetEnrollmentCoordinator.Failure.detached(machineID: machineID)

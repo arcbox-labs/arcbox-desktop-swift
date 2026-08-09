@@ -488,8 +488,6 @@ final class ApplicationCoordinator: NSObject {
             .environment(runnersVM)
             .environment(\.arcboxClient, arcboxClient)
             .environment(\.dockerClient, dockerClient)
-            .environment(\.fleetControlClient, fleetAgentConnection.controlClient)
-            .environment(\.fleetPlatformClient, fleetPlatformClient)
             .environment(\.startupOrchestrator, startupOrchestrator)
             .environment(\.accessTokenProvider, authSession)
             .frame(minWidth: 900, minHeight: 600)
@@ -509,8 +507,6 @@ final class ApplicationCoordinator: NSObject {
                 .environment(runnersVM.fleet)
                 .environment(\.arcboxClient, arcboxClient)
                 .environment(\.dockerClient, dockerClient)
-                .environment(\.fleetControlClient, fleetAgentConnection.controlClient)
-                .environment(\.fleetPlatformClient, fleetPlatformClient)
                 .environment(\.accessTokenProvider, authSession)
         )
     }
