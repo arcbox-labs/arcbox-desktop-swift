@@ -257,12 +257,23 @@ final class RunnersViewModel {
                     RunnerHostViewModel(snapshot: snapshot, agentInfo: agentInfo),
                     freshness: hostFreshness(loadState: loadState)
                 )
-            case .detached, .credentialRejected:
-                guard normalizedMachineID(snapshot.machineID) != nil else {
+            case .credentialRejected:
+                guard let machineID = normalizedMachineID(snapshot.machineID) else {
                     return .failed("Fleet Agent reported an invalid machine identity.")
                 }
-                return resolveUnenrolledState(
-                    enrollmentContext: enrollmentContext
+                return .enrollmentFailed(
+                    FleetEnrollmentCoordinator.Failure.credentialRejected(machineID: machineID)
+                        .localizedDescription,
+                    recovery: .unenroll
+                )
+            case .detached:
+                guard let machineID = normalizedMachineID(snapshot.machineID) else {
+                    return .failed("Fleet Agent reported an invalid machine identity.")
+                }
+                return .enrollmentFailed(
+                    FleetEnrollmentCoordinator.Failure.detached(machineID: machineID)
+                        .localizedDescription,
+                    recovery: .unenroll
                 )
             case .unenrolled:
                 guard normalizedMachineID(snapshot.machineID) == nil else {

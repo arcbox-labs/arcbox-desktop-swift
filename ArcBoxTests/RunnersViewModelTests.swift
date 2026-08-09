@@ -154,13 +154,13 @@ final class RunnersViewModelTests: XCTestCase {
         )
     }
 
-    func testCredentialRejectedSnapshotExposesUnenrollRecovery() {
+    func testCredentialRejectedSnapshotOverridesIdleCoordinator() {
         XCTAssertEqual(
             resolve(
                 snapshot: makeSnapshot(enrollment: .credentialRejected),
-                enrollmentState: .failed(.credentialRejected(machineID: "fltm_test")),
+                enrollmentState: .idle,
                 isSignedIn: true,
-                canBeginEnrollment: false
+                canBeginEnrollment: true
             ),
             .enrollmentFailed(
                 "The Fleet gateway rejected this Mac's credential.",
@@ -169,13 +169,40 @@ final class RunnersViewModelTests: XCTestCase {
         )
     }
 
-    func testDetachedSnapshotExposesUnenrollRecovery() {
+    func testDetachedSnapshotOverridesReadyCoordinator() {
         XCTAssertEqual(
             resolve(
                 snapshot: makeSnapshot(enrollment: .detached),
-                enrollmentState: .failed(.detached(machineID: "fltm_test")),
+                enrollmentState: .ready(machineID: "fltm_test"),
                 isSignedIn: true,
                 canBeginEnrollment: false
+            ),
+            .enrollmentFailed(
+                "This Mac is enrolled, but Fleet participation is disabled.",
+                recovery: .unenroll
+            )
+        )
+    }
+
+    func testTerminalSnapshotOverridesInProgressOrMissingCoordinator() {
+        XCTAssertEqual(
+            resolve(
+                snapshot: makeSnapshot(enrollment: .credentialRejected),
+                enrollmentState: .enrolling,
+                isSignedIn: true,
+                canBeginEnrollment: false
+            ),
+            .enrollmentFailed(
+                "The Fleet gateway rejected this Mac's credential.",
+                recovery: .unenroll
+            )
+        )
+        XCTAssertEqual(
+            resolve(
+                snapshot: makeSnapshot(enrollment: .detached),
+                enrollmentState: nil,
+                isSignedIn: nil,
+                canBeginEnrollment: nil
             ),
             .enrollmentFailed(
                 "This Mac is enrolled, but Fleet participation is disabled.",
