@@ -261,6 +261,9 @@ public final class StartupOrchestrator {
     ///   itself an explicit administrator-approval action.
     @available(macOS 15.0, *)
     public func retry(allowingAdministratorPrompt: Bool = false) async {
+        if daemonManager.setupPhase == .failed {
+            await daemonManager.forceReregisterDaemon()
+        }
         await start(allowingAdministratorPrompt: allowingAdministratorPrompt)
     }
 
