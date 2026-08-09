@@ -63,6 +63,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         {
             return coordinator?.canUseMainInterface == true
         }
+        if menuItem.action == #selector(showMigrationAssistant(_:)) {
+            return coordinator?.canShowMigrationAssistant == true
+        }
         return true
     }
 
@@ -80,6 +83,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     @objc private func showGettingStarted(_ sender: Any?) {
         coordinator?.showGettingStarted()
+    }
+
+    @objc private func showMigrationAssistant(_ sender: Any?) {
+        coordinator?.showMigrationAssistant()
     }
 
     private func installMainMenu() {
@@ -230,6 +237,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item(
                 "Getting Started with ArcBox",
                 action: #selector(showGettingStarted(_:))
+            ))
+        menu.addItem(
+            item(
+                "Migrate from Docker Desktop or OrbStack…",
+                action: #selector(showMigrationAssistant(_:))
             ))
         return menu
     }
