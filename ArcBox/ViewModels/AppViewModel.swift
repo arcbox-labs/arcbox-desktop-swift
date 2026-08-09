@@ -4,12 +4,58 @@ import Observation
 @MainActor
 @Observable
 class AppViewModel {
+    struct ResourceDeepLink: Equatable {
+        let section: NavItem
+        let id: String
+        let requestedAt: ContinuousClock.Instant
+        let needsExplicitRefresh: Bool
+    }
+
     var currentNav: NavItem? = .containers
     /// Selected Settings tab, lifted here so other windows can deep-link
     /// (e.g. the sidebar account chip opening Settings > Account).
     var settingsTab: SettingsTab? = .general
+    var pendingResourceDeepLink: ResourceDeepLink?
+    var deepLinkError: String?
+    var dockerContextError: String?
+    var dockerContextRetryValue: Bool?
 
     func navigate(to item: NavItem) {
         currentNav = item
+    }
+
+    func requestResourceDeepLink(
+        section: NavItem,
+        id: String,
+        needsExplicitRefresh: Bool
+    ) {
+        pendingResourceDeepLink = ResourceDeepLink(
+            section: section,
+            id: id,
+            requestedAt: ContinuousClock().now,
+            needsExplicitRefresh: needsExplicitRefresh
+        )
+        deepLinkError = nil
+    }
+
+    func clearResourceDeepLink() {
+        pendingResourceDeepLink = nil
+        deepLinkError = nil
+    }
+
+    @discardableResult
+    func resolveResourceDeepLink(
+        availableIDs: Set<String>,
+        isLoaded: Bool
+    ) -> ResourceDeepLink? {
+        guard let request = pendingResourceDeepLink else { return nil }
+        guard isLoaded else { return nil }
+        if availableIDs.contains(request.id) {
+            pendingResourceDeepLink = nil
+            return request
+        }
+        pendingResourceDeepLink = nil
+        deepLinkError = "Resource “\(request.id)” wasn’t found in \(request.section.label)."
+        return nil
     }
 }

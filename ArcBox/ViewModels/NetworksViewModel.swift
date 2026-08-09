@@ -16,6 +16,7 @@ class NetworksViewModel {
     var networks: [NetworkViewModel] = []
     var loadState: LoadPhase = .waiting
     var refreshError: String?
+    var lastSuccessfulListLoad: ContinuousClock.Instant?
     private let listLoadGate = SingleFlightLoadGate()
     var selectedID: String?
     var showNewNetworkSheet: Bool = false
@@ -91,6 +92,7 @@ class NetworksViewModel {
             Log.network.info("Loaded \(self.networks.count, privacy: .public) networks")
             loadState = .loaded
             refreshError = nil
+            lastSuccessfulListLoad = ContinuousClock().now
         } catch {
             if loadState.cancelLoading(for: error, retainingLoadedContent: isRefresh) {
                 return

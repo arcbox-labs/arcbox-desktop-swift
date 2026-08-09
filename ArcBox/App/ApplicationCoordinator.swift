@@ -43,6 +43,7 @@ final class ApplicationCoordinator: NSObject {
     private var menuBarHost: NSHostingController<AnyView>?
     private var startupTask: Task<Void, Never>?
     private var connectionTask: Task<Void, Never>?
+    private var dockerContextTask: Task<Void, Never>?
     private var lastDaemonState: DaemonState?
     private var lastShowInMenuBar: Bool
     private var lastUpdateChannel: String
@@ -232,7 +233,7 @@ final class ApplicationCoordinator: NSObject {
         sandboxEventMonitor.stop()
         machineEventMonitor.stop()
         sleepWakeManager.stop()
-        DockerContextManager.restorePreviousContext()
+        await updateDockerContext(useArcBox: false).value
         arcboxClient?.close()
         connectionTask?.cancel()
         connectionTask = nil
@@ -258,10 +259,6 @@ final class ApplicationCoordinator: NSObject {
         deepLinkRouter.configure(
             .init(
                 appVM: appVM,
-                containersVM: containersVM,
-                volumesVM: volumesVM,
-                imagesVM: imagesVM,
-                networksVM: networksVM,
                 openMainWindow: { [weak self] in self?.showMainWindow() },
                 openSettingsWindow: { [weak self] in self?.showSettings() },
                 oauthCallbackScheme: OIDCClientConfiguration.redirectURI.scheme,
@@ -397,14 +394,43 @@ final class ApplicationCoordinator: NSObject {
                 sandboxEventMonitor.start(client: arcboxClient, machineID: "default")
                 machineEventMonitor.start(client: arcboxClient)
             }
-            DockerContextManager.switchToArcBox()
+            if UserDefaults.standard.bool(forKey: "switchDockerContextAutomatically") {
+                updateDockerContext(useArcBox: true)
+            }
         } else {
             eventMonitor.stop()
             sandboxEventMonitor.stop()
             machineEventMonitor.stop()
             sleepWakeManager.stop()
-            DockerContextManager.restorePreviousContext()
+            updateDockerContext(useArcBox: false)
         }
+    }
+
+    @discardableResult
+    private func updateDockerContext(useArcBox: Bool) -> Task<Void, Never> {
+        let previousTask = dockerContextTask
+        let task = Task {
+            await previousTask?.value
+            do {
+                if useArcBox {
+                    try await DockerContextManager.switchToArcBox()
+                } else {
+                    try await DockerContextManager.restorePreviousContext()
+                }
+                appVM.dockerContextError = nil
+                appVM.dockerContextRetryValue = nil
+            } catch {
+                Log.context.error(
+                    "Failed to update Docker context: \(error.localizedDescription, privacy: .public)"
+                )
+                appVM.dockerContextError =
+                    "The Docker context was not updated: \(error.localizedDescription) "
+                    + "Check that the Docker CLI is installed and ~/.docker/config.json is writable, then try again."
+                appVM.dockerContextRetryValue = useArcBox
+            }
+        }
+        dockerContextTask = task
+        return task
     }
 
     private func initClientsAndReturn() throws -> ArcBoxClient {

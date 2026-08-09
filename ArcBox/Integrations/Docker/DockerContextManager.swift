@@ -1,6 +1,23 @@
 import Foundation
 import OSLog
 
+nonisolated private enum DockerContextError: LocalizedError {
+    case invalidConfiguration(String)
+    case dockerCLIUnavailable
+    case contextCreationFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidConfiguration(let detail):
+            "~/.docker/config.json is invalid: \(detail) Repair or move the file, then try again."
+        case .dockerCLIUnavailable:
+            "The Docker CLI was not found. Install it in a standard location, then try again."
+        case .contextCreationFailed(let detail):
+            "docker context create failed: \(detail)"
+        }
+    }
+}
+
 /// Manages Docker CLI context switching to point at the ArcBox daemon socket.
 ///
 /// When enabled, sets the Docker context on app startup and restores the
@@ -8,6 +25,8 @@ import OSLog
 nonisolated enum DockerContextManager {
     private static let logger = Log.context
     private static let previousContextKey = "previousDockerContext"
+    // ponytail: One global lock is enough for rare context changes; use an actor if this becomes a frequent API.
+    private static let operationLock = NSLock()
 
     private static var configPath: String {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
@@ -28,107 +47,105 @@ nonisolated enum DockerContextManager {
 
     /// Switch the Docker CLI context to use ArcBox's socket.
     /// Saves the previous context so it can be restored later.
-    static func switchToArcBox() {
-        guard UserDefaults.standard.bool(forKey: "switchDockerContextAutomatically") else { return }
-
-        Task.detached {
-            do {
-                guard let config = try readConfig() else {
-                    logger.error("Failed to parse ~/.docker/config.json, skipping context switch to avoid data loss")
-                    return
+    static func switchToArcBox() async throws {
+        try await Task.detached {
+            try operationLock.withLock {
+                let config = try readConfig()
+                guard let dockerPath = DockerCLIResolver.findDockerCLI() else {
+                    throw DockerContextError.dockerCLIUnavailable
                 }
 
-                // Always save the current context so we can restore it on quit,
-                // even if it's already ArcBox's context (user may have set it intentionally).
-                if let previousContext = config["currentContext"] as? String {
-                    UserDefaults.standard.set(previousContext, forKey: previousContextKey)
+                // Keep the context from before this ArcBox session, including Docker's
+                // implicit "default" context when the key is absent.
+                let hadSavedContext = UserDefaults.standard.string(forKey: previousContextKey) != nil
+                if !hadSavedContext {
+                    UserDefaults.standard.set(
+                        config["currentContext"] as? String ?? "default",
+                        forKey: previousContextKey
+                    )
                 }
 
-                // Ensure the ArcBox context exists in Docker's context store.
-                guard createArcBoxContext() else {
-                    logger.error("Skipping context switch — failed to create ArcBox context")
-                    return
-                }
+                do {
+                    try createArcBoxContext(dockerPath: dockerPath)
 
-                // Set the current context
-                var updatedConfig = config
-                updatedConfig["currentContext"] = arcboxContextName
-                try writeConfig(updatedConfig)
+                    var updatedConfig = config
+                    updatedConfig["currentContext"] = arcboxContextName
+                    try writeConfig(updatedConfig)
+                } catch {
+                    if !hadSavedContext {
+                        UserDefaults.standard.removeObject(forKey: previousContextKey)
+                    }
+                    throw error
+                }
 
                 logger.info("Switched Docker context to \(arcboxContextName, privacy: .public)")
-            } catch {
-                logger.error("Failed to switch Docker context: \(error.localizedDescription, privacy: .public)")
             }
-        }
+        }.value
     }
 
     /// Restore the Docker CLI context to what it was before ArcBox started.
     /// Always restores if a previous context was saved, regardless of the current toggle state,
     /// to avoid leaving the user's Docker CLI pointing at a dead socket.
-    static func restorePreviousContext() {
-        do {
-            guard var config = try readConfig() else {
-                logger.error("Failed to parse ~/.docker/config.json, skipping context restore to avoid data loss")
-                return
+    static func restorePreviousContext() async throws {
+        try await Task.detached {
+            try operationLock.withLock {
+                // Always restore if we previously saved a context — even if the toggle was turned off since.
+                guard let previousContext = UserDefaults.standard.string(forKey: previousContextKey) else {
+                    // No saved context — nothing to restore.
+                    return
+                }
+                var config = try readConfig()
+                config["currentContext"] = previousContext
+                try writeConfig(config)
+                UserDefaults.standard.removeObject(forKey: previousContextKey)
+                logger.info("Restored previous Docker context")
             }
-
-            // Always restore if we previously saved a context — even if the toggle was turned off since.
-            guard let previousContext = UserDefaults.standard.string(forKey: previousContextKey) else {
-                // No saved context — nothing to restore.
-                return
-            }
-            config["currentContext"] = previousContext
-            try writeConfig(config)
-            UserDefaults.standard.removeObject(forKey: previousContextKey)
-            logger.info("Restored previous Docker context")
-        } catch {
-            logger.error("Failed to restore Docker context: \(error.localizedDescription, privacy: .public)")
-        }
+        }.value
     }
 
     /// Creates the ArcBox context in Docker's context meta store.
-    /// Returns true if the context exists (created or already present), false on failure.
-    @discardableResult
-    private static func createArcBoxContext() -> Bool {
+    private static func createArcBoxContext(dockerPath: String) throws {
         let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        proc.executableURL = URL(fileURLWithPath: dockerPath)
         proc.arguments = [
-            "docker", "context", "create", arcboxContextName,
+            "context", "create", arcboxContextName,
             "--docker", "host=\(arcboxSocketPath)",
             "--description", "ArcBox Desktop",
         ]
         proc.standardOutput = FileHandle.nullDevice
         let errPipe = Pipe()
         proc.standardError = errPipe
-        do {
-            try proc.run()
-            proc.waitUntilExit()
-        } catch {
-            logger.error("Failed to launch docker context create: \(error.localizedDescription, privacy: .public)")
-            return false
-        }
+        try proc.run()
+        proc.waitUntilExit()
         // Exit 0 = created, non-zero with "already exists" = OK, otherwise fail
-        if proc.terminationStatus == 0 { return true }
+        if proc.terminationStatus == 0 { return }
         let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-        let errMsg = String(data: errData, encoding: .utf8) ?? ""
-        if errMsg.contains("already exists") { return true }
-        logger.error("docker context create failed (status \(proc.terminationStatus)): \(errMsg, privacy: .public)")
-        return false
+        let errMsg = (String(data: errData, encoding: .utf8) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if errMsg.contains("already exists") { return }
+        throw DockerContextError.contextCreationFailed(
+            errMsg.isEmpty ? "exit status \(proc.terminationStatus)" : errMsg
+        )
     }
 
     // MARK: - Config File I/O
 
     /// Read and parse ~/.docker/config.json.
-    /// Returns nil if the file exists but cannot be parsed as a JSON object (to prevent clobbering).
     /// Returns an empty dictionary if the file does not exist.
-    private static func readConfig() throws -> [String: Any]? {
+    private static func readConfig() throws -> [String: Any] {
         let url = URL(fileURLWithPath: configPath)
         guard FileManager.default.fileExists(atPath: configPath) else {
             return [:]
         }
         let data = try Data(contentsOf: url)
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return nil
+        let object: Any
+        do {
+            object = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            throw DockerContextError.invalidConfiguration(error.localizedDescription)
+        }
+        guard let json = object as? [String: Any] else {
+            throw DockerContextError.invalidConfiguration("expected a JSON object.")
         }
         return json
     }
