@@ -1,6 +1,6 @@
 import Foundation
 
-enum DockerCLIResolver {
+nonisolated enum DockerCLIResolver {
     private static let dockerSearchPaths = [
         "/usr/local/bin/docker",
         "/opt/homebrew/bin/docker",

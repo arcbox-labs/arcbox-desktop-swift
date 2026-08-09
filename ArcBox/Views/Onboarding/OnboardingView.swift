@@ -6,6 +6,7 @@ enum OnboardingStep: Hashable {
     case welcome
     case permission
     case setup
+    case migration
 }
 
 struct OnboardingView: View {
@@ -19,11 +20,14 @@ struct OnboardingView: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var step: OnboardingStep
     @State private var movingForward = true
+    @State private var migration: OnboardingMigrationModel
 
     init(
         orchestrator: StartupOrchestrator,
         initialStep: OnboardingStep,
         isReplay: Bool = false,
+        clientProvider: @escaping @MainActor () -> ArcBoxClient?,
+        onMigrationActivityChanged: @escaping @MainActor (Bool) -> Void,
         onStart: @escaping () -> Void,
         onComplete: @escaping () -> Void,
         onQuit: @escaping () -> Void
@@ -34,6 +38,12 @@ struct OnboardingView: View {
         self.onComplete = onComplete
         self.onQuit = onQuit
         _step = State(initialValue: initialStep)
+        _migration = State(
+            initialValue: OnboardingMigrationModel(
+                clientProvider: clientProvider,
+                onMigrationActivityChanged: onMigrationActivityChanged
+            )
+        )
     }
 
     var body: some View {
@@ -65,6 +75,18 @@ struct OnboardingView: View {
                 Rectangle().fill(.regularMaterial)
             }
         }
+        .task(id: shouldLoadMigrationPreview) {
+            guard shouldLoadMigrationPreview else { return }
+            await migration.loadPreview()
+
+            guard step == .setup else { return }
+            switch migration.state {
+            case .review, .failed:
+                move(to: .migration, forward: true)
+            default:
+                break
+            }
+        }
     }
 
     @ViewBuilder
@@ -76,6 +98,8 @@ struct OnboardingView: View {
             permissionPage
         case .setup:
             setupPage
+        case .migration:
+            OnboardingMigrationPage(state: migration.state)
         }
     }
 
@@ -211,20 +235,36 @@ struct OnboardingView: View {
     @ViewBuilder
     private var setupPage: some View {
         if orchestrator.isReady {
-            VStack(spacing: 16) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 52))
-                    .foregroundStyle(AppColors.running)
-                    .accessibilityHidden(true)
+            switch migration.state {
+            case .idle, .checking:
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .controlSize(.large)
 
-                Text("ArcBox is ready")
-                    .font(.system(size: 24, weight: .semibold))
+                    Text("Checking your Docker environment")
+                        .font(.system(size: 24, weight: .semibold))
 
-                Text("ArcBox and its local runtime are ready to use.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(AppColors.textSecondary)
+                    Text("Looking for workloads that can be brought into ArcBox.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+                .transition(.opacity)
+            default:
+                VStack(spacing: 16) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 52))
+                        .foregroundStyle(AppColors.running)
+                        .accessibilityHidden(true)
+
+                    Text("ArcBox is ready")
+                        .font(.system(size: 24, weight: .semibold))
+
+                    Text("ArcBox and its local runtime are ready to use.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+                .transition(.opacity)
             }
-            .transition(.opacity)
         } else {
             VStack(spacing: 14) {
                 Image(nsImage: NSApp.applicationIconImage)
@@ -281,14 +321,89 @@ struct OnboardingView: View {
                 }
             case .setup:
                 if orchestrator.isReady {
-                    Spacer()
-                    primaryButton("Open ArcBox", action: onComplete)
+                    switch migration.state {
+                    case .idle, .checking:
+                        Button("Skip for Now", action: onComplete)
+                            .buttonStyle(.bordered)
+                            .controlSize(.large)
+                        Spacer()
+                        Button("Checking Docker…") {}
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.large)
+                            .frame(minWidth: 132)
+                            .disabled(true)
+                    case .review, .failed:
+                        Spacer()
+                        Button("Continue") {}
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.large)
+                            .frame(minWidth: 132)
+                            .disabled(true)
+                    default:
+                        Spacer()
+                        primaryButton("Open ArcBox", action: onComplete)
+                    }
                 } else {
                     Button("Quit ArcBox", action: onQuit)
                         .buttonStyle(.bordered)
                         .controlSize(.large)
                     Spacer()
                 }
+            case .migration:
+                migrationFooter
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var migrationFooter: some View {
+        switch migration.state {
+        case .idle, .checking:
+            Button("Skip for Now", action: onComplete)
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+            Spacer()
+            Button("Checking…") {}
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .frame(minWidth: 132)
+                .disabled(true)
+        case .unavailable, .empty:
+            Spacer()
+            primaryButton("Open ArcBox", action: onComplete)
+        case .review(let preview):
+            Button("Not Now", action: onComplete)
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .keyboardShortcut(.cancelAction)
+            Spacer()
+            if preview.canRun {
+                primaryButton("Migrate Now") {
+                    migration.startMigration()
+                }
+            } else {
+                primaryButton("Check Again") {
+                    Task { await migration.loadPreview() }
+                }
+            }
+        case .preparing, .migrating:
+            Spacer()
+            Button("Migrating…") {}
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .frame(minWidth: 132)
+                .disabled(true)
+        case .completed:
+            Spacer()
+            primaryButton("Open ArcBox", action: onComplete)
+        case .failed:
+            Button("Not Now", action: onComplete)
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .keyboardShortcut(.cancelAction)
+            Spacer()
+            primaryButton("Retry") {
+                migration.retry()
             }
         }
     }
@@ -309,6 +424,10 @@ struct OnboardingView: View {
             insertion: .offset(x: movingForward ? 12 : -12).combined(with: .opacity),
             removal: .offset(x: movingForward ? -12 : 12).combined(with: .opacity)
         )
+    }
+
+    private var shouldLoadMigrationPreview: Bool {
+        orchestrator.isReady && (!isReplay || step == .migration)
     }
 
     private func capabilityCell(_ title: String, symbol: String, detail: String) -> some View {

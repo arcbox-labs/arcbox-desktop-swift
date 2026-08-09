@@ -1,6 +1,44 @@
 import Foundation
 import OSLog
 
+nonisolated struct DockerMigrationSource: Equatable, Sendable {
+    enum Kind: String, Sendable {
+        case dockerDesktop = "docker-desktop"
+        case orbStack = "orbstack"
+
+        var displayName: String {
+            switch self {
+            case .dockerDesktop: "Docker Desktop"
+            case .orbStack: "OrbStack"
+            }
+        }
+    }
+
+    let kind: Kind
+    let contextName: String
+    let socketPath: String
+}
+
+nonisolated struct DockerContextDescription: Decodable, Equatable, Sendable {
+    let current: Bool
+    let dockerEndpoint: String
+    let name: String
+
+    enum CodingKeys: String, CodingKey {
+        case current = "Current"
+        case dockerEndpoint = "DockerEndpoint"
+        case name = "Name"
+    }
+}
+
+nonisolated private struct DockerContextInspectionError: LocalizedError {
+    let errorDescription: String?
+
+    init(_ message: String) {
+        errorDescription = message
+    }
+}
+
 /// Manages Docker CLI context switching to point at the ArcBox daemon socket.
 ///
 /// When enabled, sets the Docker context on app startup and restores the
@@ -24,6 +62,176 @@ nonisolated enum DockerContextManager {
     private static var arcboxContextName: String {
         let profile = Bundle.main.object(forInfoDictionaryKey: "ArcBoxProfile") as? String
         return profile?.caseInsensitiveCompare("development") == .orderedSame ? "arcbox-dev" : "arcbox"
+    }
+
+    /// Finds a Docker Desktop or OrbStack candidate without relying on the
+    /// current context, which ArcBox may already have switched to itself.
+    static func detectMigrationSource() async throws -> DockerMigrationSource? {
+        let task = Task.detached(priority: .utility) { () throws -> DockerMigrationSource? in
+            let contexts = try readDockerContexts()
+            let previousContext = UserDefaults.standard.string(forKey: previousContextKey)
+            return try selectMigrationSource(
+                from: contexts,
+                previousContext: previousContext,
+                homeDirectory: FileManager.default.homeDirectoryForCurrentUser.path,
+                socketExists: FileManager.default.fileExists(atPath:)
+            )
+        }
+        return try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    static func decodeDockerContexts(_ data: Data) throws -> [DockerContextDescription] {
+        try data.split(separator: UInt8(ascii: "\n")).map { line in
+            try JSONDecoder().decode(DockerContextDescription.self, from: Data(line))
+        }
+    }
+
+    static func selectMigrationSource(
+        from contexts: [DockerContextDescription],
+        previousContext: String?,
+        homeDirectory: String,
+        socketExists: (String) -> Bool
+    ) throws -> DockerMigrationSource? {
+        let candidates = contexts.compactMap { context -> DockerMigrationSource? in
+            guard
+                let source = migrationSource(from: context, homeDirectory: homeDirectory),
+                socketExists(source.socketPath)
+            else {
+                return nil
+            }
+            return source
+        }
+
+        if let current = contexts.first(where: \.current),
+            let source = candidates.first(where: { $0.contextName == current.name })
+        {
+            return source
+        }
+        if let previousContext,
+            let source = candidates.first(where: { $0.contextName == previousContext })
+        {
+            return source
+        }
+
+        let unique = Dictionary(
+            candidates.map { ("\($0.kind.rawValue):\($0.socketPath)", $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        guard unique.count <= 1 else {
+            throw DockerContextInspectionError(
+                "Both Docker Desktop and OrbStack are available. "
+                    + "Make the environment you want to migrate the current Docker context."
+            )
+        }
+        return unique.values.first
+    }
+
+    private static func migrationSource(
+        from context: DockerContextDescription,
+        homeDirectory: String
+    ) -> DockerMigrationSource? {
+        guard context.dockerEndpoint.hasPrefix("unix://") else { return nil }
+
+        var socketPath = String(context.dockerEndpoint.dropFirst("unix://".count))
+        if socketPath.hasPrefix("~/") {
+            socketPath = "\(homeDirectory)/\(socketPath.dropFirst(2))"
+        }
+        socketPath = URL(fileURLWithPath: socketPath).standardizedFileURL.path
+
+        let knownPaths = migrationSocketPaths(homeDirectory: homeDirectory)
+
+        let kind: DockerMigrationSource.Kind
+        switch socketPath {
+        case knownPaths.dockerDesktop:
+            kind = .dockerDesktop
+        case knownPaths.orbStack:
+            kind = .orbStack
+        default:
+            return nil
+        }
+
+        return DockerMigrationSource(
+            kind: kind,
+            contextName: context.name,
+            socketPath: socketPath
+        )
+    }
+
+    private static func readDockerContexts() throws -> [DockerContextDescription] {
+        guard let dockerCLI = DockerCLIResolver.findDockerCLI() else {
+            let paths = migrationSocketPaths(
+                homeDirectory: FileManager.default.homeDirectoryForCurrentUser.path
+            )
+            if [paths.dockerDesktop, paths.orbStack].contains(
+                where: FileManager.default.fileExists(atPath:)
+            ) {
+                throw DockerContextInspectionError(
+                    "A supported Docker environment is running, but the Docker CLI was not found."
+                )
+            }
+            return []
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: dockerCLI)
+        process.arguments = ["context", "ls", "--format", "{{json .}}"]
+        let output = Pipe()
+        let error = Pipe()
+        process.standardOutput = output
+        process.standardError = error
+
+        do {
+            try process.run()
+        } catch {
+            logger.warning(
+                "Unable to inspect Docker contexts: \(error.localizedDescription, privacy: .private)"
+            )
+            throw error
+        }
+
+        let deadline = Date().addingTimeInterval(3)
+        while process.isRunning, !Task.isCancelled, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        let timedOut = process.isRunning && !Task.isCancelled
+        if process.isRunning {
+            process.terminate()
+            process.waitUntilExit()
+        }
+        try Task.checkCancellation()
+        if timedOut {
+            throw DockerContextInspectionError("Docker context inspection timed out.")
+        }
+        guard process.terminationStatus == 0 else {
+            let message =
+                String(
+                    data: error.fileHandleForReading.readDataToEndOfFile(),
+                    encoding: .utf8
+                ) ?? ""
+            logger.warning("Docker context inspection failed: \(message, privacy: .private)")
+            let detail = message.trimmingCharacters(in: .whitespacesAndNewlines)
+            throw DockerContextInspectionError(
+                detail.isEmpty ? "Docker context inspection failed." : detail
+            )
+        }
+
+        return try decodeDockerContexts(output.fileHandleForReading.readDataToEndOfFile())
+    }
+
+    private static func migrationSocketPaths(
+        homeDirectory: String
+    ) -> (
+        dockerDesktop: String, orbStack: String
+    ) {
+        let home = URL(fileURLWithPath: homeDirectory)
+        return (
+            home.appendingPathComponent(".docker/run/docker.sock").standardizedFileURL.path,
+            home.appendingPathComponent(".orbstack/run/docker.sock").standardizedFileURL.path
+        )
     }
 
     /// Switch the Docker CLI context to use ArcBox's socket.
