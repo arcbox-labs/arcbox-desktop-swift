@@ -106,6 +106,23 @@ nonisolated struct ActivityRowGroup: Identifiable, Equatable, Sendable {
     var id: String { summary.id }
 }
 
+nonisolated struct ActivityRowDisclosureState: Equatable, Sendable {
+    private var expandedGroups: Set<String> = []
+
+    func isExpanded(_ groupID: String, isFiltering: Bool) -> Bool {
+        isFiltering || expandedGroups.contains(groupID)
+    }
+
+    mutating func setExpanded(_ expanded: Bool, for groupID: String, isFiltering: Bool) {
+        guard !isFiltering else { return }
+        if expanded {
+            expandedGroups.insert(groupID)
+        } else {
+            expandedGroups.remove(groupID)
+        }
+    }
+}
+
 nonisolated enum ActivityRowGrouping {
     /// Groups rows by Compose project, matching what the Containers list does:
     /// a project for every container that declares one, standalone rows for the

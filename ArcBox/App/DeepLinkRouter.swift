@@ -8,10 +8,6 @@ import OSLog
 final class DeepLinkRouter {
     struct Target {
         let appVM: AppViewModel
-        let containersVM: ContainersViewModel
-        let volumesVM: VolumesViewModel
-        let imagesVM: ImagesViewModel
-        let networksVM: NetworksViewModel
         let openMainWindow: () -> Void
         let openSettingsWindow: () -> Void
         /// URL scheme of the OAuth redirect (e.g. `com.arcboxlabs.desktop`).
@@ -65,24 +61,23 @@ final class DeepLinkRouter {
             target.openSettingsWindow()
         case .section(let item, let id):
             target.openMainWindow()
+            let needsExplicitRefresh = target.appVM.currentNav == item
             target.appVM.navigate(to: item)
-            if let id {
-                select(id, in: item, with: target)
+            guard let id else {
+                target.appVM.clearResourceDeepLink()
+                break
+            }
+            if item == .activity {
+                target.appVM.clearResourceDeepLink()
+                target.appVM.deepLinkError = "Activity links don’t support resource IDs."
+            } else {
+                target.appVM.requestResourceDeepLink(
+                    section: item,
+                    id: id,
+                    needsExplicitRefresh: needsExplicitRefresh
+                )
             }
         }
         NSApp.activate()
-    }
-
-    /// Item selection is only wired for Docker resources; the other sections'
-    /// view models are local to `ContentView` and not reachable from here.
-    private func select(_ id: String, in item: NavItem, with target: Target) {
-        switch item {
-        case .containers: target.containersVM.selectedID = id
-        case .volumes: target.volumesVM.selectedID = id
-        case .images: target.imagesVM.selectedID = id
-        case .networks: target.networksVM.selectedID = id
-        case .activity, .pods, .services, .machines, .sandboxes:
-            Log.deepLink.info("Item selection unsupported for \(item.rawValue, privacy: .public)")
-        }
     }
 }

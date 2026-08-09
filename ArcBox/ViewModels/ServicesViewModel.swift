@@ -6,7 +6,13 @@ import Observation
 @MainActor
 @Observable
 class ServicesViewModel {
-    var services: [ServiceViewModel] = []
+    var services: [ServiceViewModel] = [] {
+        didSet {
+            if let selectedID, !services.contains(where: { $0.id == selectedID }) {
+                self.selectedID = nil
+            }
+        }
+    }
     var selectedID: String?
     var streamPhase: KubernetesStreamPhase = .connecting
     var searchText: String = ""

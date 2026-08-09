@@ -8,6 +8,7 @@ class ImagesViewModel {
     var images: [ImageViewModel] = []
     var loadState: LoadPhase = .waiting
     var refreshError: String?
+    var lastSuccessfulListLoad: ContinuousClock.Instant?
     let listLoadGate = SingleFlightLoadGate()
     var selectedID: String?
     var activeTab: ImageDetailTab = .info

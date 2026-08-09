@@ -26,6 +26,7 @@ extension VolumesViewModel {
             Log.volume.info("Loaded \(self.volumes.count, privacy: .public) volumes")
             loadState = .loaded
             refreshError = nil
+            lastSuccessfulListLoad = ContinuousClock().now
         } catch {
             if loadState.cancelLoading(for: error, retainingLoadedContent: isRefresh) {
                 return

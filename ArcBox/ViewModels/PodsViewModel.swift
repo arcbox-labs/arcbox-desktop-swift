@@ -6,7 +6,13 @@ import Observation
 @MainActor
 @Observable
 class PodsViewModel {
-    var pods: [PodViewModel] = []
+    var pods: [PodViewModel] = [] {
+        didSet {
+            if let selectedID, !pods.contains(where: { $0.id == selectedID }) {
+                self.selectedID = nil
+            }
+        }
+    }
     var selectedID: String?
     var streamPhase: KubernetesStreamPhase = .connecting
     var searchText: String = ""

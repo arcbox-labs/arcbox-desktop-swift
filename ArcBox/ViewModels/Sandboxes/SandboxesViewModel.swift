@@ -43,6 +43,7 @@ class SandboxesViewModel {
     var sandboxes: [SandboxViewModel] = []
     var loadState: LoadPhase = .waiting
     var refreshError: String?
+    var lastSuccessfulListLoad: ContinuousClock.Instant?
     let listLoadGate = SingleFlightLoadGate()
     @ObservationIgnored let terminalSession = SandboxTerminalSession()
     var selectedID: String?

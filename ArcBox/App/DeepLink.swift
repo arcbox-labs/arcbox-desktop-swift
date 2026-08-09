@@ -6,9 +6,8 @@ import Foundation
 /// - `arcbox://main` (or no host) — open and activate the main window
 /// - `arcbox://settings` — open the Settings window
 /// - `arcbox://<section>[/<id>]` — navigate to a sidebar section, where
-///   `<section>` is a `NavItem` raw value (`containers`, `volumes`, `images`,
-///   `networks`, `pods`, `services`, `machines`, `sandboxes`)
-///   and the optional `<id>` selects the item with that exact ID.
+///   `<section>` is a `NavItem` raw value and the optional `<id>` selects the
+///   resource with that exact ID. Activity does not accept an ID.
 enum DeepLink: Equatable {
     static let scheme = "arcbox"
 
