@@ -25,7 +25,7 @@ nonisolated private enum DockerContextError: LocalizedError {
 nonisolated enum DockerContextManager {
     private static let logger = Log.context
     private static let previousContextKey = "previousDockerContext"
-    @MainActor private static var operationTask: Task<Void, Error>?
+    @MainActor private static var operationTask: Task<Void, Never>?
 
     private static var configPath: String {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
@@ -46,16 +46,25 @@ nonisolated enum DockerContextManager {
 
     /// Serializes every context change in request order, including Settings and app lifecycle calls.
     @MainActor
-    static func update(useArcBox: Bool) -> Task<Void, Error> {
+    @discardableResult
+    static func update(
+        useArcBox: Bool,
+        completion: @escaping @MainActor (Result<Void, Error>) -> Void
+    ) -> Task<Void, Never> {
         let previousTask = operationTask
         let task = Task {
             if let previousTask {
-                _ = await previousTask.result
+                await previousTask.value
             }
-            if useArcBox {
-                try await switchToArcBox()
-            } else {
-                try await restorePreviousContext()
+            do {
+                if useArcBox {
+                    try await switchToArcBox()
+                } else {
+                    try await restorePreviousContext()
+                }
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
             }
         }
         operationTask = task
