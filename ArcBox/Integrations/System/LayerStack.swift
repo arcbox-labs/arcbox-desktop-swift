@@ -1,5 +1,8 @@
-import ArcBoxClient
+// Foundation precedes local modules per repository import style.
+// swift-format-ignore: OrderedImports
 import Foundation
+
+import ArcBoxClient
 
 nonisolated enum FilesTabPathResolution: Equatable {
     case resolved([String])

@@ -1,3 +1,4 @@
+import DockerClient
 import XCTest
 
 @testable import ArcBox
@@ -173,6 +174,33 @@ final class ImagesViewModelTests: XCTestCase {
             ).platformDisplay,
             "linux/arm64"
         )
+    }
+
+    func testImageMetadataInspectionKeepsSuccessfulResultsWhenOneInspectFails() async throws {
+        struct InspectFailure: Error {}
+
+        let metadata = try await ImagesViewModel.inspectImageMetadata(
+            imageIDs: ["missing", "present"]
+        ) { id in
+            if id == "missing" { throw InspectFailure() }
+            return ImageInspectSnapshot(labels: [:], os: "linux", architecture: "arm64")
+        }
+
+        XCTAssertNil(metadata["missing"])
+        XCTAssertEqual(metadata["present"]?.os, "linux")
+        XCTAssertEqual(metadata["present"]?.architecture, "arm64")
+    }
+
+    func testImageMetadataInspectionPropagatesCancellation() async {
+        do {
+            _ = try await ImagesViewModel.inspectImageMetadata(imageIDs: ["image"]) { _ in
+                throw CancellationError()
+            }
+            XCTFail("Expected cancellation")
+        } catch is CancellationError {
+        } catch {
+            XCTFail("Expected CancellationError, got \(error)")
+        }
     }
 
     // MARK: - Search Filtering

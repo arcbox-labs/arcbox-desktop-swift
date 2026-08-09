@@ -69,9 +69,10 @@ extension ImagesViewModel {
                 )
                 return try response.ok.body.json.Images ?? []
             }
-            var metadataByID: [String: ImageInspectSnapshot] = [:]
-            for image in imageList {
-                metadataByID[image.Id] = try await docker.inspectImageSnapshot(id: image.Id)
+            let metadataByID = try await Self.inspectImageMetadata(
+                imageIDs: imageList.map(\.Id)
+            ) { id in
+                try await docker.inspectImageSnapshot(id: id)
             }
             var viewModels = imageList.flatMap { image in
                 let metadata = metadataByID[image.Id]
@@ -98,6 +99,26 @@ extension ImagesViewModel {
                 retainingLoadedContent: isRefresh
             )
         }
+    }
+
+    static func inspectImageMetadata(
+        imageIDs: [String],
+        inspect: (String) async throws -> ImageInspectSnapshot
+    ) async throws -> [String: ImageInspectSnapshot] {
+        var metadataByID: [String: ImageInspectSnapshot] = [:]
+        for id in imageIDs {
+            do {
+                let metadata = try await inspect(id)
+                try Task.checkCancellation()
+                metadataByID[id] = metadata
+            } catch {
+                if Task.isCancelled || error is CancellationError { throw error }
+                Log.image.debug(
+                    "Image metadata inspection failed for \(id, privacy: .private): \(error.localizedDescription, privacy: .private)"
+                )
+            }
+        }
+        return metadataByID
     }
 
     /// Parse an image reference into (fromImage, tag), handling registry ports and digests.

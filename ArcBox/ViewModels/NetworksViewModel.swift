@@ -91,7 +91,8 @@ class NetworksViewModel {
             for network in networkList {
                 guard let id = network.Id else { continue }
                 let response = try await docker.api.NetworkInspect(path: .init(id: id))
-                if let network = NetworkViewModel(fromDocker: try response.ok.body.json) {
+                guard let inspectedNetwork = try response.networkForList else { continue }
+                if let network = NetworkViewModel(fromDocker: inspectedNetwork) {
                     networks.append(network)
                 }
             }
@@ -261,5 +262,20 @@ extension NetworkViewModel {
             attachable: network.Attachable ?? false,
             containerCount: network.Containers?.additionalProperties.count ?? 0
         )
+    }
+}
+
+extension Operations.NetworkInspect.Output {
+    nonisolated var networkForList: Components.Schemas.Network? {
+        get throws {
+            switch self {
+            case .ok(let response):
+                try response.body.json
+            case .notFound:
+                nil
+            case .internalServerError, .undocumented:
+                try ok.body.json
+            }
+        }
     }
 }

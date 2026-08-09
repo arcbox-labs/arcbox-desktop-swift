@@ -35,6 +35,18 @@ final class NetworksListViewControllerTests: XCTestCase {
         XCTAssertNil(viewModel.lastError)
     }
 
+    func testNetworkInspectNotFoundIsSkippedButServerErrorsSurface() throws {
+        let missing = Operations.NetworkInspect.Output.notFound(
+            .init(body: .json(.init(message: "network disappeared")))
+        )
+        XCTAssertNil(try missing.networkForList)
+
+        let serverError = Operations.NetworkInspect.Output.internalServerError(
+            .init(body: .json(.init(message: "network driver failed")))
+        )
+        XCTAssertThrowsError(try serverError.networkForList)
+    }
+
     @MainActor
     func testStateSearchSelectionAndSystemNetworkDeletionRules() async throws {
         let viewModel = NetworksViewModel()
