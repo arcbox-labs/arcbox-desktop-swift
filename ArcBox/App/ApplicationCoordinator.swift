@@ -407,23 +407,27 @@ final class ApplicationCoordinator: NSObject {
 
     @discardableResult
     private func updateDockerContext(useArcBox: Bool) -> Task<Void, Never> {
-        let operation = DockerContextManager.update(useArcBox: useArcBox)
-        let task = Task {
-            do {
-                try await operation.value
+        DockerContextManager.update(useArcBox: useArcBox) { [self] result in
+            switch result {
+            case .success:
+                if let retry = self.appVM.dockerContextRetry, case .preference = retry {
+                    return
+                }
                 appVM.dockerContextError = nil
-                appVM.dockerContextRetryValue = nil
-            } catch {
+                appVM.dockerContextRetry = nil
+            case let .failure(error):
                 Log.context.error(
                     "Failed to update Docker context: \(error.localizedDescription, privacy: .public)"
                 )
+                if let retry = self.appVM.dockerContextRetry, case .preference = retry {
+                    return
+                }
                 appVM.dockerContextError =
                     "The Docker context was not updated: \(error.localizedDescription) "
                     + "Check that the Docker CLI is installed and ~/.docker/config.json is writable, then try again."
-                appVM.dockerContextRetryValue = useArcBox
+                appVM.dockerContextRetry = .lifecycle(useArcBox: useArcBox)
             }
         }
-        return task
     }
 
     private func initClientsAndReturn() throws -> ArcBoxClient {

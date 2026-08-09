@@ -105,9 +105,9 @@ struct SystemSettingsView: View {
                     Label(dockerContextError, systemImage: "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(.red)
-                    if let retryValue = appVM.dockerContextRetryValue {
+                    if let retry = appVM.dockerContextRetry {
                         Button("Try Again") {
-                            updateDockerContext(enabled: retryValue)
+                            updateDockerContext(retry: retry)
                         }
                         .font(.caption)
                     }
@@ -228,19 +228,31 @@ struct SystemSettingsView: View {
     // MARK: - System VM Backend
 
     private func updateDockerContext(enabled: Bool) {
+        updateDockerContext(retry: .preference(enabled: enabled))
+    }
+
+    private func updateDockerContext(retry: AppViewModel.DockerContextRetry) {
         appVM.dockerContextError = nil
-        appVM.dockerContextRetryValue = nil
+        appVM.dockerContextRetry = nil
         isUpdatingDockerContext = true
-        let operation = DockerContextManager.update(useArcBox: enabled)
-        Task {
-            do {
-                try await operation.value
-                switchContextAutomatically = enabled
-            } catch {
+        DockerContextManager.update(useArcBox: retry.useArcBox) { result in
+            switch result {
+            case .success:
+                if case let .preference(enabled) = retry {
+                    switchContextAutomatically = enabled
+                }
+                appVM.dockerContextError = nil
+                appVM.dockerContextRetry = nil
+            case let .failure(error):
+                let failure =
+                    switch retry {
+                    case .lifecycle: "The Docker context was not updated: "
+                    case .preference: "The Docker context setting was not changed: "
+                    }
                 appVM.dockerContextError =
-                    "The Docker context setting was not changed: \(error.localizedDescription) "
+                    failure + "\(error.localizedDescription) "
                     + "Check that the Docker CLI is installed and ~/.docker/config.json is writable, then try again."
-                appVM.dockerContextRetryValue = enabled
+                appVM.dockerContextRetry = retry
             }
             isUpdatingDockerContext = false
         }

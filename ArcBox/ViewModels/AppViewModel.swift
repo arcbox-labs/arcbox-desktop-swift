@@ -4,6 +4,18 @@ import Observation
 @MainActor
 @Observable
 class AppViewModel {
+    enum DockerContextRetry {
+        case lifecycle(useArcBox: Bool)
+        case preference(enabled: Bool)
+
+        var useArcBox: Bool {
+            switch self {
+            case let .lifecycle(useArcBox): useArcBox
+            case let .preference(enabled): enabled
+            }
+        }
+    }
+
     struct ResourceDeepLink: Equatable {
         let section: NavItem
         let id: String
@@ -17,7 +29,7 @@ class AppViewModel {
     var pendingResourceDeepLink: ResourceDeepLink?
     var deepLinkError: String?
     var dockerContextError: String?
-    var dockerContextRetryValue: Bool?
+    var dockerContextRetry: DockerContextRetry?
 
     func navigate(to item: NavItem) {
         currentNav = item
