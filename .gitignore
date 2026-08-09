@@ -16,6 +16,7 @@ xcuserdata/
 
 # Claude AI
 .claude/
+.playwright-mcp/
 
 # Swift Package Manager
 .build/

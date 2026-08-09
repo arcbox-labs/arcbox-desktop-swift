@@ -11,6 +11,7 @@ struct SandboxSnapshotsTab: View {
     @State private var snapshotName = ""
     @State private var freshNetwork = false
     @State private var isWorking = false
+    @State private var snapshotToDelete: SandboxSnapshotViewModel?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,8 +21,34 @@ struct SandboxSnapshotsTab: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppColors.background)
-        .task(id: sandbox.id) {
+        .task(
+            id: SnapshotLoadID(
+                sandboxID: sandbox.id,
+                client: client.map(ObjectIdentifier.init)
+            )
+        ) {
             await vm.loadSnapshots(for: sandbox.id, client: client)
+        }
+        .errorToast(message: Bindable(vm).snapshotsRefreshError)
+        .confirmationDialog(
+            "Delete Snapshot",
+            isPresented: Binding(
+                get: { snapshotToDelete != nil },
+                set: { if !$0 { snapshotToDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let snapshot = snapshotToDelete {
+                Button("Delete \"\(snapshot.displayName)\"", role: .destructive) {
+                    delete(snapshot)
+                    snapshotToDelete = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                snapshotToDelete = nil
+            }
+        } message: {
+            Text("This snapshot and its on-disk data will be permanently removed.")
         }
     }
 
@@ -32,11 +59,14 @@ struct SandboxSnapshotsTab: View {
                 .frame(maxWidth: 220)
 
             Button("Checkpoint", action: checkpoint)
-                .disabled(isWorking || client == nil || !sandbox.state.isAcceptingCommands)
+                .disabled(
+                    isWorking || vm.isLoadingSnapshots || client == nil
+                        || !sandbox.state.isAcceptingCommands
+                )
                 .help(
                     sandbox.state.isAcceptingCommands
                         ? "Pause, snapshot, and resume this sandbox"
-                        : "Sandbox must be ready or idle to checkpoint")
+                        : "Sandbox must be ready to checkpoint")
 
             Spacer()
 
@@ -52,6 +82,7 @@ struct SandboxSnapshotsTab: View {
                     .font(.system(size: 12))
             }
             .buttonStyle(.plain)
+            .disabled(isWorking || client == nil || vm.isLoadingSnapshots)
             .help("Refresh")
         }
         .padding(.horizontal, 12)
@@ -60,10 +91,32 @@ struct SandboxSnapshotsTab: View {
 
     @ViewBuilder
     private var content: some View {
-        // Only render snapshots the view model has confirmed belong to this
-        // sandbox; across a selection change `vm.snapshots` briefly still holds
-        // the previous sandbox's rows.
-        if vm.snapshotsSandboxID != sandbox.id || vm.snapshots.isEmpty {
+        if vm.snapshotsSandboxID != sandbox.id {
+            loadingPlaceholder("Preparing snapshots…")
+        } else {
+            switch vm.snapshotsLoadState {
+            case .waiting:
+                loadingPlaceholder("Waiting for ArcBox daemon…")
+            case .loading:
+                loadingPlaceholder("Loading snapshots…")
+            case .failed(let message):
+                ContentUnavailableView {
+                    Label("Couldn’t Load Snapshots", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(message)
+                } actions: {
+                    Button("Retry", action: refresh)
+                        .disabled(client == nil)
+                }
+            case .loaded:
+                loadedContent
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var loadedContent: some View {
+        if vm.snapshots.isEmpty {
             VStack(spacing: 10) {
                 Spacer()
                 Image(systemName: "camera")
@@ -92,6 +145,19 @@ struct SandboxSnapshotsTab: View {
         }
     }
 
+    private func loadingPlaceholder(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Spacer()
+            ProgressView()
+                .controlSize(.small)
+            Text(message)
+                .font(.system(size: 13))
+                .foregroundStyle(AppColors.textSecondary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     private func snapshotRow(_ snapshot: SandboxSnapshotViewModel) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "camera")
@@ -100,7 +166,7 @@ struct SandboxSnapshotsTab: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(snapshot.displayName)
                     .font(.system(size: 13))
-                Text("\(String(snapshot.id.prefix(12)))  ·  \(snapshot.createdAt)")
+                Text("\(String(snapshot.id.prefix(12)))  ·  \(snapshot.createdAgo)")
                     .font(.system(size: 11))
                     .foregroundStyle(AppColors.textSecondary)
                     .lineLimit(1)
@@ -112,17 +178,17 @@ struct SandboxSnapshotsTab: View {
             Button("Restore") {
                 restore(snapshot)
             }
-            .disabled(isWorking || client == nil)
+            .disabled(isWorking || vm.isLoadingSnapshots || client == nil)
             .help("Create a new sandbox from this snapshot")
 
             Button {
-                delete(snapshot)
+                snapshotToDelete = snapshot
             } label: {
                 Image(systemName: "trash")
                     .foregroundStyle(AppColors.textSecondary)
             }
             .buttonStyle(.plain)
-            .disabled(isWorking || client == nil)
+            .disabled(isWorking || vm.isLoadingSnapshots || client == nil)
             .help("Delete snapshot")
         }
         .padding(.horizontal, 12)
@@ -162,4 +228,9 @@ struct SandboxSnapshotsTab: View {
             await vm.loadSnapshots(for: sandbox.id, client: client)
         }
     }
+}
+
+private struct SnapshotLoadID: Equatable {
+    let sandboxID: String
+    let client: ObjectIdentifier?
 }

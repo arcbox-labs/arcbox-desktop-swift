@@ -1,9 +1,56 @@
 import Foundation
 import Testing
+import os
 
 @testable import ArcBoxAuth
 
 struct BetterAuthClientTests {
+    // MARK: - Session isolation
+
+    @Test func defaultSessionConfigurationDisablesCookies() {
+        let configuration = BetterAuthClient.makeSessionConfiguration()
+
+        #expect(configuration.httpCookieStorage == nil)
+        #expect(configuration.httpShouldSetCookies == false)
+    }
+
+    @Test func responsesCannotSetCookiesForLaterRequests() async throws {
+        CookieRecordingURLProtocol.reset()
+        let configuration = BetterAuthClient.makeSessionConfiguration()
+        configuration.protocolClasses = [CookieRecordingURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let client = BetterAuthClient(session: session)
+
+        _ = try await client.requestDeviceCode(configuration: AuthTestSupport.configuration)
+        _ = try await client.requestDeviceCode(configuration: AuthTestSupport.configuration)
+
+        let cookieHeaders = CookieRecordingURLProtocol.cookieHeaders
+        #expect(cookieHeaders.count == 2)
+        #expect(cookieHeaders.allSatisfy { $0 == nil })
+    }
+
+    @Test func legacyCleanupIsLimitedToBetterAuthCookies() throws {
+        let secureToken = try cookie(named: "__Secure-better-auth.session_token")
+        let secureData = try cookie(named: "__Secure-better-auth.session_data")
+        let localToken = try cookie(named: "better-auth.session_token")
+        let unrelated = try cookie(named: "arcbox-preference")
+        let cookies = [secureToken, secureData, localToken, unrelated]
+        let storage = HTTPCookieStorage.shared
+        cookies.forEach(storage.setCookie)
+        defer { cookies.forEach(storage.deleteCookie) }
+
+        BetterAuthClient.clearLegacyCookies(for: AuthTestSupport.configuration.issuerURL)
+
+        let remainingNames =
+            storage.cookies(for: AuthTestSupport.configuration.issuerURL)?
+            .map(\.name) ?? []
+        #expect(!remainingNames.contains(secureToken.name))
+        #expect(!remainingNames.contains(secureData.name))
+        #expect(!remainingNames.contains(localToken.name))
+        #expect(remainingNames.contains(unrelated.name))
+    }
+
     // MARK: - Device code
 
     @Test func decodesADeviceCodeGrant() throws {
@@ -132,4 +179,59 @@ struct BetterAuthClientTests {
                 data: Data("unavailable".utf8), status: 503)
         }
     }
+
+    private func cookie(named name: String) throws -> HTTPCookie {
+        try #require(
+            HTTPCookie(properties: [
+                .name: name,
+                .value: "opaque",
+                .domain: "idp.example.com",
+                .path: "/",
+                .secure: "TRUE",
+            ]))
+    }
+}
+
+private class CookieRecordingURLProtocol: URLProtocol {
+    private static let storage = OSAllocatedUnfairLock(initialState: [String?]())
+
+    static var cookieHeaders: [String?] { storage.withLock { $0 } }
+
+    static func reset() {
+        storage.withLock { $0.removeAll() }
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let url = request.url else { fatalError("Stub request is missing its URL") }
+        let cookieHeader = request.value(forHTTPHeaderField: "Cookie")
+        Self.storage.withLock {
+            $0.append(cookieHeader)
+        }
+        guard
+            let response = HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: [
+                    "Set-Cookie":
+                        "__Secure-better-auth.session_data=opaque; Path=/; Secure; HttpOnly"
+                ])
+        else {
+            fatalError("Failed to create stub response")
+        }
+        let body = Data(
+            """
+            {"device_code":"dev-1","user_code":"ABCD1234",\
+            "verification_uri":"https://idp.example.com/device","expires_in":1800}
+            """.utf8)
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }

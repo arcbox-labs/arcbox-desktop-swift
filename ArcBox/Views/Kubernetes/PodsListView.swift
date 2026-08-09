@@ -1,53 +1,37 @@
 import ArcBoxClient
 import SwiftUI
 
-/// Column 2: pods list with toolbar
+/// Transitional SwiftUI toolbar and lifecycle host for the native Pods list.
 struct PodsListView: View {
     @Environment(KubernetesState.self) private var k8s
     @Environment(PodsViewModel.self) private var vm
     @Environment(\.arcboxClient) private var arcboxClient
 
     var body: some View {
-        VStack(spacing: 0) {
-            if !k8s.enabled {
-                KubernetesDisabledView(isStarting: k8s.isStarting, startError: k8s.startError) {
-                    Task {
-                        await k8s.start(client: arcboxClient)
-                        await loadPodsUntilReady()
-                    }
-                }
-            } else if vm.pods.isEmpty {
-                VStack {
-                    Spacer()
-                    if vm.isLoading {
-                        ProgressView()
-                            .controlSize(.regular)
-                    } else {
-                        Text("No pods")
-                            .foregroundStyle(AppColors.textSecondary)
-                    }
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(vm.filteredPods) { pod in
-                            PodRowView(
-                                pod: pod,
-                                isSelected: vm.selectedID == pod.id,
-                                onSelect: { vm.selectPod(pod.id) }
-                            )
-                        }
-                    }
-                }
+        PodsListControllerView(
+            state: k8s,
+            viewModel: vm,
+            canControl: arcboxClient != nil,
+            onCheckStatus: {
+                Task { await k8s.checkStatus(client: arcboxClient) }
+            },
+            onStart: {
+                Task { await k8s.start(client: arcboxClient) }
+            },
+            onStop: {
+                Task { await k8s.stop(client: arcboxClient) }
+            },
+            onRetryStreams: {
+                k8s.retryStreams(client: arcboxClient)
             }
-        }
+        )
         .navigationTitle("Pods")
-        .navigationSubtitle(k8s.enabled ? "\(vm.podCount) total" : "Disabled")
+        .navigationSubtitle(navigationSubtitle)
         .searchable(text: Bindable(vm).searchText, isPresented: Bindable(vm).isSearching)
         .onChange(of: vm.isSearching) { _, newValue in
-            if !newValue { vm.searchText = "" }
+            if !newValue {
+                vm.searchText = ""
+            }
         }
         .toolbar {
             if #available(macOS 26.0, *) {
@@ -55,7 +39,7 @@ struct PodsListView: View {
                     Toggle(
                         "Kubernetes",
                         isOn: Binding(
-                            get: { k8s.enabled || k8s.isStarting },
+                            get: { k8s.lifecycle.toggleIsOn },
                             set: { newValue in
                                 toggleKubernetes(newValue)
                             }
@@ -65,8 +49,8 @@ struct PodsListView: View {
                     .labelsHidden()
                     .controlSize(.small)
                     .fixedSize()
-                    .disabled(k8s.isStarting || k8s.isStopping)
-                    .help(k8s.enabled ? "Stop Kubernetes" : "Start Kubernetes")
+                    .disabled(arcboxClient == nil || !k8s.lifecycle.canToggle)
+                    .help(k8s.lifecycle.toggleIsOn ? "Stop Kubernetes" : "Start Kubernetes")
                 }
                 .sharedBackgroundVisibility(.hidden)
             } else {
@@ -74,7 +58,7 @@ struct PodsListView: View {
                     Toggle(
                         "Kubernetes",
                         isOn: Binding(
-                            get: { k8s.enabled || k8s.isStarting },
+                            get: { k8s.lifecycle.toggleIsOn },
                             set: { newValue in
                                 toggleKubernetes(newValue)
                             }
@@ -84,40 +68,24 @@ struct PodsListView: View {
                     .labelsHidden()
                     .controlSize(.small)
                     .fixedSize()
-                    .disabled(k8s.isStarting || k8s.isStopping)
-                    .help(k8s.enabled ? "Stop Kubernetes" : "Start Kubernetes")
+                    .disabled(arcboxClient == nil || !k8s.lifecycle.canToggle)
+                    .help(k8s.lifecycle.toggleIsOn ? "Stop Kubernetes" : "Start Kubernetes")
                 }
             }
         }
-        .task {
+        .task(id: arcboxClient.map(ObjectIdentifier.init)) {
             await k8s.checkStatus(client: arcboxClient)
-            if k8s.enabled {
-                await loadPodsUntilReady()
-            }
-        }
-        .task(id: k8s.enabled) {
-            guard k8s.enabled else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(10))
-                if Task.isCancelled { break }
-                await vm.loadPods(client: arcboxClient)
-            }
-        }
-        .onChange(of: k8s.enabled) { _, enabled in
-            if !enabled { vm.clear() }
         }
     }
 
-    /// Retry loading pods until the request succeeds or timeout (~30s).
-    private func loadPodsUntilReady() async {
-        for attempt in 0..<15 {
-            if Task.isCancelled { return }
-            if attempt > 0 {
-                try? await Task.sleep(for: .seconds(2))
-                if Task.isCancelled { return }
-            }
-            let success = await vm.loadPods(client: arcboxClient)
-            if success { return }
+    private var navigationSubtitle: String {
+        switch k8s.lifecycle {
+        case .checking: "Checking"
+        case .disabled: "Disabled"
+        case .starting: "Starting"
+        case .ready: "\(vm.podCount) total"
+        case .stopping: "Stopping"
+        case .failed: "Unavailable"
         }
     }
 
@@ -125,10 +93,44 @@ struct PodsListView: View {
         Task {
             if shouldEnable {
                 await k8s.start(client: arcboxClient)
-                await loadPodsUntilReady()
             } else {
                 await k8s.stop(client: arcboxClient)
             }
         }
+    }
+}
+
+private struct PodsListControllerView: NSViewControllerRepresentable {
+    let state: KubernetesState
+    let viewModel: PodsViewModel
+    let canControl: Bool
+    let onCheckStatus: @MainActor () -> Void
+    let onStart: @MainActor () -> Void
+    let onStop: @MainActor () -> Void
+    let onRetryStreams: @MainActor () -> Void
+
+    func makeNSViewController(context _: Context) -> PodsListViewController {
+        PodsListViewController(
+            state: state,
+            viewModel: viewModel,
+            canControl: canControl,
+            onCheckStatus: onCheckStatus,
+            onStart: onStart,
+            onStop: onStop,
+            onRetryStreams: onRetryStreams
+        )
+    }
+
+    func updateNSViewController(
+        _ controller: PodsListViewController,
+        context _: Context
+    ) {
+        controller.update(
+            canControl: canControl,
+            onCheckStatus: onCheckStatus,
+            onStart: onStart,
+            onStop: onStop,
+            onRetryStreams: onRetryStreams
+        )
     }
 }

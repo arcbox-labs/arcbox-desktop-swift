@@ -21,14 +21,20 @@ final class DiagnosticBundleExporter {
     static func exportInteractively(
         daemonManager: DaemonManager,
         containersVM: ContainersViewModel,
-        imagesVM: ImagesViewModel
+        imagesVM: ImagesViewModel,
+        presentingWindow: NSWindow
     ) async -> URL? {
         let panel = NSSavePanel()
         panel.title = "Export Diagnostic Report"
         panel.nameFieldStringValue = "arcbox-diagnostic.txt"
         panel.allowedContentTypes = [.plainText]
 
-        guard panel.runModal() == .OK, let saveURL = panel.url else {
+        let response = await withCheckedContinuation { continuation in
+            panel.beginSheetModal(for: presentingWindow) { response in
+                continuation.resume(returning: response)
+            }
+        }
+        guard response == .OK, let saveURL = panel.url else {
             return nil
         }
 

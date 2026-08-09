@@ -1,7 +1,7 @@
+import AppKit
 import ArcBoxClient
 import PostHog
 import ServiceManagement
-import Sparkle
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -15,7 +15,6 @@ struct GeneralSettingsView: View {
 
     @AppStorage("startAtLogin") private var startAtLogin = false
     @AppStorage("showInMenuBar") private var showInMenuBar = false
-    @AppStorage("keepRunning") private var keepRunning = false
     @AppStorage("updateChannel") private var updateChannel = "stable"
     @AppStorage("terminalTheme") private var terminalTheme = "system"
     @AppStorage("externalTerminal") private var externalTerminal = ExternalTerminalApp.terminalBundleIdentifier
@@ -25,6 +24,7 @@ struct GeneralSettingsView: View {
     @State private var isExportingDiagnostics = false
     @State private var externalTerminalApps = ExternalTerminalDiscovery.availableTerminals()
     @State private var externalTerminalSelection = ExternalTerminalApp.terminalBundleIdentifier
+    @State private var isShowingExternalTerminalImporter = false
     @State private var isShowingExternalTerminalSelectionError = false
     @State private var externalTerminalSelectionErrorMessage = ""
 
@@ -37,7 +37,6 @@ struct GeneralSettingsView: View {
                         updateLoginItem(enabled: newValue)
                     }
                 Toggle("Show in menu bar", isOn: $showInMenuBar)
-                Toggle("Keep running when app is quit", isOn: $keepRunning)
             }
 
             Section("Updates") {
@@ -119,12 +118,14 @@ struct GeneralSettingsView: View {
 
             Section("Troubleshooting") {
                 Button("Export Diagnostic Report...") {
+                    guard let presentingWindow = NSApp.keyWindow else { return }
                     isExportingDiagnostics = true
                     Task {
                         await DiagnosticBundleExporter.exportInteractively(
                             daemonManager: daemonManager,
                             containersVM: containersVM,
-                            imagesVM: imagesVM
+                            imagesVM: imagesVM,
+                            presentingWindow: presentingWindow
                         )
                         isExportingDiagnostics = false
                     }
@@ -147,6 +148,14 @@ struct GeneralSettingsView: View {
             syncLoginItemState()
             refreshExternalTerminalApps()
         }
+        .fileImporter(
+            isPresented: $isShowingExternalTerminalImporter,
+            allowedContentTypes: [.applicationBundle]
+        ) { result in
+            handleExternalTerminalSelection(result)
+        }
+        .fileDialogDefaultDirectory(URL(fileURLWithPath: "/Applications", isDirectory: true))
+        .fileDialogConfirmationLabel("Choose")
         .alert("External terminal not available", isPresented: $isShowingExternalTerminalSelectionError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -175,7 +184,7 @@ struct GeneralSettingsView: View {
 
     private func updateExternalTerminalSelection(_ selection: String) {
         guard selection != Self.chooseExternalTerminalID else {
-            chooseExternalTerminal()
+            isShowingExternalTerminalImporter = true
             return
         }
 
@@ -183,25 +192,20 @@ struct GeneralSettingsView: View {
         refreshExternalTerminalApps()
     }
 
-    private func chooseExternalTerminal() {
-        let panel = NSOpenPanel()
-        panel.title = "Choose External Terminal"
-        panel.prompt = "Choose"
-        panel.directoryURL = URL(fileURLWithPath: "/Applications", isDirectory: true)
-        panel.allowedContentTypes = [.applicationBundle]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-
-        guard panel.runModal() == .OK else {
+    private func handleExternalTerminalSelection(_ result: Result<URL, Error>) {
+        guard case .success(let appURL) = result else {
             externalTerminalSelection = externalTerminal
+            if case .failure(let error) = result,
+                (error as? CocoaError)?.code != .userCancelled
+            {
+                showExternalTerminalSelectionError(error.localizedDescription)
+            }
             return
         }
 
-        guard let appURL = panel.url else {
-            externalTerminalSelection = externalTerminal
-            showExternalTerminalSelectionError("No application was selected.")
-            return
+        let hasAccess = appURL.startAccessingSecurityScopedResource()
+        defer {
+            if hasAccess { appURL.stopAccessingSecurityScopedResource() }
         }
 
         let commandHandlerBundleIDs = Set(
@@ -249,16 +253,4 @@ struct GeneralSettingsView: View {
             startAtLogin = !enabled
         }
     }
-}
-
-#Preview {
-    let updater = SPUStandardUpdaterController(
-        startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil
-    ).updater
-    return GeneralSettingsView()
-        .environment(DaemonManager())
-        .environment(ContainersViewModel())
-        .environment(ImagesViewModel())
-        .environment(UpdaterSettingsModel(updater: updater))
-        .frame(width: 500, height: 400)
 }

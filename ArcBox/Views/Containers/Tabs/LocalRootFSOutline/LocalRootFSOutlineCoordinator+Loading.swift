@@ -5,6 +5,7 @@ extension LocalRootFSOutlineCoordinator {
         generation += 1
         let currentGeneration = generation
         let rootURL = parent.rootURL
+        let layers = parent.layers
         let showHidden = parent.showHiddenFiles
 
         rootNodes = []
@@ -13,14 +14,20 @@ extension LocalRootFSOutlineCoordinator {
 
         DispatchQueue.global(qos: .userInitiated).async {
             let entries: [LocalFileEntry]
-            do {
-                entries = try FileSystemService.listDirectory(at: rootURL, showHiddenFiles: showHidden)
-            } catch {
-                entries = []
+            var excludedLayers: Set<Int> = []
+            if let layers {
+                let listing = layers.listDirectory(relativePath: "", showHiddenFiles: showHidden)
+                entries = listing.entries
+                excludedLayers = listing.excludedLayers
+            } else {
+                entries =
+                    (try? FileSystemService.listDirectory(
+                        at: rootURL, showHiddenFiles: showHidden)) ?? []
             }
 
             DispatchQueue.main.async {
                 guard currentGeneration == self.generation else { return }
+                self.parent.onExcludedLayers?(excludedLayers)
                 self.rootNodes = entries.map { LocalFileNode(entry: $0, parent: nil) }
                 self.outlineView?.reloadData()
                 self.adjustColumnWidths(force: true)
@@ -36,18 +43,30 @@ extension LocalRootFSOutlineCoordinator {
 
         node.isLoading = true
         let currentGeneration = generation
+        let layers = parent.layers
         let showHidden = parent.showHiddenFiles
+        let url = node.entry.url
 
         DispatchQueue.global(qos: .userInitiated).async {
             let children: [LocalFileEntry]
-            do {
-                children = try FileSystemService.listDirectory(at: node.entry.url, showHiddenFiles: showHidden)
-            } catch {
-                children = []
+            var excludedLayers: Set<Int> = []
+            // The node carries the URL of whichever layer won it, so re-derive
+            // its path relative to the stack: the merged children can come
+            // from layers this node's own directory does not exist in.
+            if let layers, let relativePath = layers.relativePath(forHostURL: url) {
+                let listing = layers.listDirectory(
+                    relativePath: relativePath, showHiddenFiles: showHidden)
+                children = listing.entries
+                excludedLayers = listing.excludedLayers
+            } else {
+                children =
+                    (try? FileSystemService.listDirectory(at: url, showHiddenFiles: showHidden))
+                    ?? []
             }
 
             DispatchQueue.main.async {
                 guard currentGeneration == self.generation else { return }
+                self.parent.onExcludedLayers?(excludedLayers)
                 node.isLoading = false
                 node.children = children.map { LocalFileNode(entry: $0, parent: node) }
                 self.outlineView?.reloadItem(node, reloadChildren: true)

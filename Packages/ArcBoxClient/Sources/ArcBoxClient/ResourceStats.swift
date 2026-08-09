@@ -11,6 +11,10 @@ public struct MachineResourceStats: Sendable, Equatable {
     public var cpuPercent: Double
     public var onlineCPUs: UInt32
     public var loadaverage1: Double
+    /// How long the guest has been up, from the same `/proc/uptime` clock the
+    /// rate denominators come from. Resets when the VM reboots, which is what
+    /// makes it a truthful uptime rather than a session age.
+    public var uptime: Duration
     public var memoryTotalBytes: UInt64
     public var memoryUsedBytes: UInt64
     public var memoryUsedPercent: Double
@@ -78,6 +82,7 @@ public enum ResourceStatsCalculator {
             cpuPercent: min(busyTicks / totalTicks * 100, 100),
             onlineCPUs: current.onlineCpus,
             loadaverage1: current.loadavg1,
+            uptime: .milliseconds(current.monotonicMs),
             memoryTotalBytes: current.memoryTotalBytes,
             memoryUsedBytes: memoryUsed,
             memoryUsedPercent: current.memoryTotalBytes == 0

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Lightweight toast banner that slides in from the top and auto-dismisses.
+/// Lightweight toast banner that slides in from the top.
 struct ToastView: View {
     let message: String
     var icon: String = "exclamationmark.triangle.fill"
@@ -47,6 +47,7 @@ struct ToastView: View {
 /// View modifier that shows a toast when `message` is non-nil.
 struct ToastModifier: ViewModifier {
     @Binding var message: String?
+    var dismissAfter: Duration? = .seconds(4)
 
     func body(content: Content) -> some View {
         content.overlay(alignment: .top) {
@@ -56,8 +57,9 @@ struct ToastModifier: ViewModifier {
                         message = nil
                     }
                 }
-                .task {
-                    try? await Task.sleep(for: .seconds(4))
+                .task(id: dismissAfter == nil ? nil : msg) {
+                    guard let dismissAfter else { return }
+                    try? await Task.sleep(for: dismissAfter)
                     if !Task.isCancelled {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             message = nil
@@ -75,5 +77,31 @@ extension View {
     /// Show an error toast that auto-dismisses after 4 seconds.
     func errorToast(message: Binding<String?>) -> some View {
         modifier(ToastModifier(message: message))
+    }
+
+    /// Keep operation failures separate from non-blocking list refresh failures.
+    func listErrorToast(
+        operationError: Binding<String?>,
+        refreshError: Binding<String?>,
+        resourceName: String
+    ) -> some View {
+        let message = Binding<String?> {
+            operationError.wrappedValue
+                ?? refreshError.wrappedValue.map {
+                    "Couldn’t refresh \(resourceName). Showing cached results. \($0)"
+                }
+        } set: { newValue in
+            guard newValue == nil else { return }
+            if operationError.wrappedValue != nil {
+                operationError.wrappedValue = nil
+            } else {
+                refreshError.wrappedValue = nil
+            }
+        }
+        return modifier(
+            ToastModifier(
+                message: message,
+                dismissAfter: operationError.wrappedValue == nil ? .seconds(4) : nil
+            ))
     }
 }

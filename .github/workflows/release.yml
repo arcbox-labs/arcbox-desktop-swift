@@ -118,8 +118,10 @@ jobs:
           NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
           NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER }}
         run: |
-          mkdir -p "$RUNNER_TEMP/private_keys"
-          echo "$NOTARY_KEY" > "$RUNNER_TEMP/private_keys/AuthKey.p8"
+          # printf, not echo: echo appends a newline, which invalidates the key.
+          mkdir -p -m 700 "$RUNNER_TEMP/private_keys"
+          printf '%s' "$NOTARY_KEY" > "$RUNNER_TEMP/private_keys/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/private_keys/AuthKey.p8"
           xcrun notarytool store-credentials "arcbox-notarize" \
             --key "$RUNNER_TEMP/private_keys/AuthKey.p8" \
             --key-id "$NOTARY_KEY_ID" \
@@ -147,19 +149,13 @@ jobs:
           set -euo pipefail
           REF="${{ steps.resolve.outputs.ref }}"
 
-          # Resolve which release to download:
-          #   - If REF is a version tag (v*), use that exact release
-          #   - Otherwise, use the latest release
-          if [[ "$REF" =~ ^v[0-9] ]]; then
-            RELEASE_TAG="$REF"
-          else
-            RELEASE_TAG=$(gh release list --repo arcboxlabs/arcbox --limit 1 --json tagName -q '.[0].tagName')
-            if [ -z "$RELEASE_TAG" ]; then
-              echo "No arcbox releases found, will build from source"
-              exit 1
-            fi
-            echo "Ref '$REF' is not a version tag, using latest release: $RELEASE_TAG"
+          # Prebuilt binaries are only compatible with their exact release tag.
+          # Branches and SHAs must be built from the checked-out source below.
+          if [[ ! "$REF" =~ ^v[0-9] ]]; then
+            echo "Ref '$REF' is not a version tag; building arcbox from source"
+            exit 1
           fi
+          RELEASE_TAG="$REF"
 
           echo "Downloading arcbox binaries from release $RELEASE_TAG..."
 
@@ -443,6 +439,11 @@ jobs:
 
           MANIFEST=$(find "$APP/Contents/Resources/assets" -name manifest.json -print -quit)
           test -n "$MANIFEST"
+          RUNTIME_EROFS=$(find "$APP/Contents/Resources/assets" -name runtime.erofs -print -quit)
+          if [ -n "$RUNTIME_EROFS" ]; then
+            echo "::error::Release app must not contain runtime.erofs: $RUNTIME_EROFS"
+            exit 1
+          fi
           python3 - "$MANIFEST" "$APP/Contents/Resources/runtime" <<'PY'
           import hashlib
           import json
@@ -452,6 +453,7 @@ jobs:
           manifest_path = pathlib.Path(sys.argv[1])
           runtime_root = pathlib.Path(sys.argv[2])
           manifest = json.loads(manifest_path.read_text())
+          runtime_root /= manifest["asset_version"]
           for binary in manifest["binaries"]:
               target = binary["targets"]["arm64"]
               install_dir = binary.get("install_dir") or "bin"

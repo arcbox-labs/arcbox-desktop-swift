@@ -10,7 +10,7 @@ struct ContainerFilesTab: View {
     @Environment(\.arcboxClient) private var arcboxClient
 
     @State private var selectedPath: String?
-    @State private var rootURL: URL?
+    @State private var stack = LayerStack()
     @State private var errorMessage: String?
     @State private var isLoadingRoot = false
     @State private var refreshToken = UUID()
@@ -47,11 +47,13 @@ struct ContainerFilesTab: View {
                 .font(.system(size: 12))
                 .foregroundStyle(AppColors.textSecondary)
 
-            Text(rootURL?.path ?? container.resolvedRootFSMountPath ?? "No rootfs mount path")
+            Text(stack.rootURL?.path ?? container.resolvedRootFSMountPath ?? "No rootfs mount path")
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundStyle(AppColors.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+
+            LayerMergeBadge(stack: stack)
 
             Spacer()
 
@@ -97,15 +99,17 @@ struct ContainerFilesTab: View {
             }
         } else if let errorMessage {
             errorState(errorMessage)
-        } else if let rootURL {
+        } else if let rootURL = stack.rootURL {
             LocalRootFSOutlineView(
                 rootURL: rootURL,
+                layers: stack.layers,
                 showHiddenFiles: showHiddenFiles,
                 reloadID: outlineReloadID,
                 selectedPath: $selectedPath,
                 onOpenURL: { url in
                     _ = NSWorkspace.shared.open(url)
-                }
+                },
+                onExcludedLayers: { stack.exclude($0) }
             )
         } else {
             errorState("Container has no configured rootfs mount path.")
@@ -128,9 +132,8 @@ struct ContainerFilesTab: View {
                 .padding(.horizontal, 20)
 
             Text(
-                "Container filesystems are browsed through the read-only ~/ArcBox export. "
-                    + "The view shows the container's own writable layer; "
-                    + "image layers stay in their own snapshots."
+                "Container filesystems are browsed through the read-only ~/ArcBox export, "
+                    + "merging the container's writable layer over the image layers below it."
             )
             .font(.system(size: 12))
             .foregroundStyle(AppColors.textMuted)
@@ -155,56 +158,62 @@ struct ContainerFilesTab: View {
         errorMessage = nil
         isLoadingRoot = true
         selectedPath = nil
+        stack = LayerStack()
+        defer { isLoadingRoot = false }
 
-        // Inspect-provided path (classic graph drivers), else ask the daemon
-        // to resolve the container's snapshot layers (containerd image store,
-        // where inspect carries no GraphDriver paths).
-        var guestPath = container.resolvedRootFSMountPath
-        if guestPath == nil {
-            guestPath = await resolveViaDaemon()
+        // Inspect-provided path (classic graph drivers) is already a merged
+        // rootfs; under the containerd image store inspect carries no paths,
+        // so the daemon resolves the layer stack and the tab merges it.
+        let guestPaths: [String]
+        if let mountPath = container.resolvedRootFSMountPath {
+            guestPaths = [mountPath]
+        } else {
+            guestPaths = await resolveViaDaemon()
         }
 
-        // The resolved path is a guest path; browse it through the ~/ArcBox export.
-        guard let guestPath,
-            let hostURL = GuestDataMount.hostURL(forGuestPath: guestPath)
-        else {
-            rootURL = nil
-            errorMessage =
-                guestPath == nil
-                ? "Container has no resolvable filesystem path."
-                : "Container filesystem path is outside the guest data root."
-            isLoadingRoot = false
+        stack = await LayerStack.resolve(guestPaths: guestPaths)
+        guard stack.rootURL != nil else {
+            errorMessage = Self.unresolvedMessage(guestPaths: guestPaths)
             return
         }
-
-        do {
-            rootURL = try LocalRootFSService.resolveRootURL(path: hostURL.path)
-        } catch {
-            rootURL = nil
-            errorMessage = GuestDataMount.unavailableMessage(subject: "This container's filesystem")
-        }
-
-        isLoadingRoot = false
+        // Listings report further exclusions as they happen — a layer can
+        // die after this point — and the badge unions them.
     }
 
-    /// Resolves the container's writable snapshot layer via the daemon.
+    private static func unresolvedMessage(guestPaths: [String]) -> String {
+        switch LayerStack.unresolved(guestPaths: guestPaths) {
+        case .noPaths:
+            return "Container has no resolvable filesystem path."
+        case .outsideExport:
+            return "Container filesystem path is outside the guest data root."
+        case .exportUnavailable:
+            return GuestDataMount.unavailableMessage(subject: "This container's filesystem")
+        }
+    }
+
+    /// Resolves the container's snapshot layer stack via the daemon.
     ///
     /// Under the containerd image store the layer directories live in
     /// containerd's snapshotter, so the daemon queries the guest and returns
-    /// guest paths; the writable (upper) layer holds everything the container
-    /// itself wrote.
-    private func resolveViaDaemon() async -> String? {
-        guard let arcboxClient else { return nil }
+    /// guest paths: the writable (upper) layer the container wrote, followed
+    /// by the image layers below it — overlay precedence order.
+    private func resolveViaDaemon() async -> [String] {
+        guard let arcboxClient else { return [] }
         var request = Arcbox_V1_ResolveContainerFsRequest()
         request.containerID = container.id
         do {
             let response = try await arcboxClient.system.resolveContainerFs(
                 request, options: ArcBoxClient.defaultCallOptions)
-            return response.upperDir.isEmpty ? nil : response.upperDir
+            var paths: [String] = []
+            if !response.upperDir.isEmpty {
+                paths.append(response.upperDir)
+            }
+            paths.append(contentsOf: response.lowerDirs.filter { !$0.isEmpty })
+            return paths
         } catch {
             Log.daemon.error(
                 "Failed to resolve container fs: \(error.localizedDescription, privacy: .private)")
-            return nil
+            return []
         }
     }
 

@@ -2,18 +2,14 @@ import ArcBoxAuth
 import SwiftUI
 
 /// Account chip pinned to the bottom of the main-window sidebar.
-///
-/// Signed out it shows the placeholder avatar and "Sign In" and starts the
-/// browser flow directly; signed in it shows the avatar and display name
-/// and opens Settings > Account.
 struct SidebarAccountButton: View {
-    @Environment(AppViewModel.self) private var appVM
     @Environment(AuthSession.self) private var authSession
-    @Environment(\.openWindow) private var openWindow
     @State private var isHovered = false
 
+    let action: () -> Void
+
     var body: some View {
-        Button(action: primaryAction) {
+        Button(action: action) {
             HStack(spacing: 8) {
                 if authSession.status == .restoring {
                     ProgressView()
@@ -45,12 +41,12 @@ struct SidebarAccountButton: View {
             in: .rect(cornerRadius: 6)
         )
         .onHover { isHovered = $0 }
-        // Leading inset tuned so the avatar lines up with the icons of the
-        // sidebar list rows above.
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .disabled(isDisabled)
         .help(helpText)
+        .accessibilityLabel(title)
+        .accessibilityHint(helpText)
     }
 
     private var title: String {
@@ -66,18 +62,19 @@ struct SidebarAccountButton: View {
     }
 
     private var helpText: String {
-        if authSession.status == .restoring { return "Restoring ArcBox session" }
-        if authSession.status == .signedIn { return "Open account settings" }
-        if authSession.configuration.isPlaceholder { return "No sign-in service is configured" }
-        return "Sign in to ArcBox"
-    }
-
-    private func primaryAction() {
-        if authSession.status == .signedIn {
-            appVM.settingsTab = .account
-            openWindow(id: "settings")
-        } else {
-            Task { await authSession.signIn() }
+        switch authSession.status {
+        case .restoring:
+            "Restoring ArcBox session"
+        case .signedIn:
+            "Open account settings"
+        case .signingIn:
+            "Signing in to ArcBox"
+        case .error(let message):
+            "Sign-in failed: \(message)"
+        case .signedOut:
+            authSession.configuration.isPlaceholder
+                ? "No sign-in service is configured"
+                : "Sign in to ArcBox"
         }
     }
 }

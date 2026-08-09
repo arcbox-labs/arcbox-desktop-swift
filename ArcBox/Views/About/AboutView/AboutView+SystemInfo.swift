@@ -1,6 +1,6 @@
-import Foundation
+import AppKit
 
-extension AboutView {
+extension AboutViewController {
     var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
     }
@@ -31,5 +31,19 @@ extension AboutView {
         #else
             return "Unknown"
         #endif
+    }
+
+    var systemInfo: String {
+        """
+        Desktop App: \(appVersion) (\(buildNumber))
+        ArcBox Daemon: \(daemonVersion)
+        macOS: \(macOSVersion)
+        Architecture: \(architecture)
+        """
+    }
+
+    @objc func copySystemInfo() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(systemInfo, forType: .string)
     }
 }

@@ -1,26 +1,12 @@
-import SwiftUI
+import Foundation
 
 /// Pod phase states
-enum PodPhase: String, CaseIterable, Identifiable {
+enum PodPhase: String {
     case pending = "Pending"
     case running = "Running"
     case succeeded = "Succeeded"
     case failed = "Failed"
     case unknown = "Unknown"
-
-    var id: String { rawValue }
-
-    var isRunning: Bool { self == .running }
-
-    var color: Color {
-        switch self {
-        case .running: AppColors.running
-        case .succeeded: AppColors.running
-        case .pending: .orange
-        case .failed: .red
-        case .unknown: AppColors.textSecondary
-        }
-    }
 }
 
 /// Pod view model for UI display
@@ -33,8 +19,6 @@ struct PodViewModel: Identifiable, Hashable {
     let readyCount: Int
     let restartCount: Int
     let createdAt: Date
-
-    var isRunning: Bool { phase.isRunning }
 
     var readyDisplay: String {
         "\(readyCount)/\(containerCount)"

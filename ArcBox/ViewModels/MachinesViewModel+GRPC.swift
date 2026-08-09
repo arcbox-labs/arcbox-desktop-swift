@@ -21,12 +21,19 @@ extension MachinesViewModel {
     /// lifecycle belongs to the app, not this tab, so it is hidden here.
     func loadMachines(client: ArcBoxClient?) async {
         guard let client else {
-            loadState = .waiting
+            if loadState != .loaded {
+                loadState = .waiting
+            }
             return
         }
-        if loadState == .waiting {
-            loadState = .loading
+
+        await listLoadGate.run {
+            await self.performLoadMachines(client: client)
         }
+    }
+
+    private func performLoadMachines(client: ArcBoxClient) async {
+        let isRefresh = loadState.beginLoading()
         let transitioning = transitioningIDs
         let existingByID = Dictionary(uniqueKeysWithValues: machines.map { ($0.id, $0) })
         var request = Arcbox_V1_ListMachinesRequest()
@@ -47,15 +54,18 @@ extension MachinesViewModel {
                     }
                     return vm
                 }
-                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             for i in viewModels.indices where transitioning.contains(viewModels[i].id) {
                 viewModels[i].isTransitioning = true
             }
             machines = viewModels
             loadState = .loaded
+            refreshError = nil
         } catch {
+            if loadState.cancelLoading(for: error, retainingLoadedContent: isRefresh) {
+                return
+            }
             let message = reportError(error, operation: "list", surface: false)
-            loadState = .failed(message)
+            refreshError = loadState.fail(message, retainingLoadedContent: isRefresh)
         }
     }
 
@@ -81,7 +91,10 @@ extension MachinesViewModel {
     /// Returns the new machine ID on success.
     @discardableResult
     func createMachine(_ spec: MachineCreateSpec, client: ArcBoxClient?) async -> String? {
-        guard let client else { return nil }
+        guard let client else {
+            lastError = "ArcBox daemon is unavailable."
+            return nil
+        }
         var request = Arcbox_V1_CreateMachineRequest()
         request.name = spec.name
         request.distro = spec.distro

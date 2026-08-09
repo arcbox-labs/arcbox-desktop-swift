@@ -1,14 +1,16 @@
 import Foundation
-import SwiftUI
+import Observation
 
 /// Volume list state
 @MainActor
 @Observable
 class VolumesViewModel {
     var volumes: [VolumeViewModel] = []
+    var loadState: LoadPhase = .waiting
+    var refreshError: String?
+    let listLoadGate = SingleFlightLoadGate()
     var selectedID: String?
     var activeTab: VolumeDetailTab = .info
-    var listWidth: CGFloat = 320
     var showNewVolumeSheet: Bool = false
     var searchText: String = ""
     var isSearching: Bool = false
@@ -38,16 +40,26 @@ class VolumesViewModel {
             filtered = volumes
         }
         return filtered.sorted { a, b in
-            let result: Bool
+            let comparison: ComparisonResult
             switch sortBy {
             case .name:
-                result = a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+                comparison = a.name.localizedCaseInsensitiveCompare(b.name)
             case .dateCreated:
-                result = a.createdAt < b.createdAt
+                comparison = a.createdAt.compare(b.createdAt)
             case .size:
-                result = (a.sizeBytes ?? 0) < (b.sizeBytes ?? 0)
+                let lhs = a.sizeBytes ?? 0
+                let rhs = b.sizeBytes ?? 0
+                comparison =
+                    lhs == rhs
+                    ? .orderedSame
+                    : (lhs < rhs ? .orderedAscending : .orderedDescending)
             }
-            return sortAscending ? result : !result
+            if comparison == .orderedSame {
+                return sortAscending ? a.id < b.id : a.id > b.id
+            }
+            return sortAscending
+                ? comparison == .orderedAscending
+                : comparison == .orderedDescending
         }
     }
 

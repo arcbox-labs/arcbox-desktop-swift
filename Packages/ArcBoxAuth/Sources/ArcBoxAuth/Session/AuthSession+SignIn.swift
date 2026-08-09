@@ -10,7 +10,7 @@ extension AuthSession {
     /// While the browser approval is pending, `deviceAuthorization` carries
     /// the user code and verification URL for display.
     public func signIn() async {
-        guard status != .restoring, status != .signingIn else { return }
+        guard status != .restoring, status != .signingIn, signInTask == nil else { return }
         guard !configuration.isPlaceholder else {
             status = .error(AuthError.notConfigured.userMessage)
             return

@@ -5,7 +5,7 @@ extension DaemonManager {
     // MARK: - Helper Lifecycle
 
     /// Installs the privileged helper via `abctl _install` with a macOS
-    /// admin password prompt.
+    /// admin password prompt when the caller has explicitly allowed it.
     ///
     /// SMAppService.daemon() is unreliable — macOS registers the daemon
     /// as disabled without notifying the user, and System Settings provides
@@ -16,19 +16,21 @@ extension DaemonManager {
     /// Skips the password prompt when the installed helper's **own crate
     /// version** is already ≥ the bundled one. That version is independent of
     /// the arcbox workspace version, so ordinary runtime bumps do not force an
-    /// admin reinstall. Always refreshes user-space shell integration
-    /// (`~/.arcbox/bin` Docker CLI links + PATH) so terminals keep working even
-    /// when the privileged helper path is deferred or fails.
+    /// admin reinstall. Refreshes user-space shell integration
+    /// (`~/.arcbox/bin` Docker CLI links + PATH) only after the helper is known
+    /// to be sufficient.
     ///
     /// - Throws: when the helper is missing/outdated and the privileged install
     ///   fails or does not leave a matching binary on disk. Callers surface this
     ///   in the startup UI so the user can retry (password cancel used to be
     ///   silent, leaving `/usr/local/bin/docker*` unlinked forever).
+    /// - Parameter allowingAdministratorPrompt: `true` only after the user has
+    ///   explicitly chosen to continue to the macOS administrator prompt.
     ///
     /// Installed helper binary path (must match arcbox-constants privileged::HELPER_BINARY).
     nonisolated static let installedHelperPath = "/usr/local/libexec/arcbox-helper"
 
-    public func installHelper() async throws {
+    public func installHelper(allowingAdministratorPrompt: Bool = false) async throws {
         // Find abctl and helper in the app bundle.
         let bundle = Bundle.main.bundleURL
         let abctl = bundle.appendingPathComponent("Contents/MacOS/bin/abctl").path
@@ -65,6 +67,11 @@ extension DaemonManager {
             return
         }
 
+        guard allowingAdministratorPrompt else {
+            helperInstalled = false
+            throw HelperInstallError.approvalRequired
+        }
+
         ClientLog.daemon.info(
             """
             Installing helper via abctl _install \
@@ -73,13 +80,9 @@ extension DaemonManager {
             """
         )
 
-        let installError = await runPrivilegedHelperInstall(abctl: abctl, helper: helper)
+        let installError = try await runPrivilegedHelperInstall(abctl: abctl, helper: helper)
         if let installError {
             helperInstalled = false
-            // Still refresh user-space PATH/CLI links — these do not need root
-            // and keep `docker` available via ~/.arcbox/bin when the user has
-            // shell integration sourced.
-            await installShellIntegration(abctl: abctl)
             throw installError
         }
 
@@ -97,7 +100,6 @@ extension DaemonManager {
         }
 
         helperInstalled = false
-        await installShellIntegration(abctl: abctl)
         throw HelperInstallError.versionMismatch(
             installed: postInstallVersion,
             expected: bundledVersion
@@ -108,7 +110,7 @@ extension DaemonManager {
     /// or a typed error describing the failure.
     private func runPrivilegedHelperInstall(
         abctl: String, helper: String
-    ) async
+    ) async throws
         -> HelperInstallError?
     {
         func shellQuote(_ s: String) -> String {
@@ -120,31 +122,38 @@ extension DaemonManager {
         let script =
             "do shell script \(appleScriptStringLiteral(cmd)) with administrator privileges"
 
-        return await Task.detached { () -> HelperInstallError? in
-            var error: NSDictionary?
-            guard let appleScript = NSAppleScript(source: script) else {
-                return .appleScriptUnavailable
-            }
-            appleScript.executeAndReturnError(&error)
-            if let error {
-                // NSAppleScript error dictionary keys (Foundation string constants).
-                let message =
-                    (error["NSAppleScriptErrorMessage"] as? String)
-                    ?? String(describing: error)
-                let code = error["NSAppleScriptErrorNumber"] as? Int
-                ClientLog.daemon.warning(
-                    "Helper install failed (code=\(code.map(String.init) ?? "?", privacy: .public)): \(message, privacy: .private)"
-                )
-                // -128 is userCanceledErr from Authorization Services / AppleScript.
-                if code == -128 || message.localizedCaseInsensitiveContains("user canceled")
-                    || message.localizedCaseInsensitiveContains("user cancelled")
-                {
-                    return .userCanceled
-                }
-                return .installFailed(message)
-            }
+        let process = Process()
+        let errorPipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        process.standardError = errorPipe
+
+        do {
+            try await runCancellableProcess(process)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            return .appleScriptUnavailable
+        }
+
+        guard process.terminationStatus != 0 else {
             return nil
-        }.value
+        }
+
+        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        let standardError = (String(bytes: errorData, encoding: .utf8) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let message = standardError.isEmpty ? "Unknown AppleScript error" : standardError
+        ClientLog.daemon.warning(
+            "Helper install failed (status=\(process.terminationStatus, privacy: .public)): \(message, privacy: .private)"
+        )
+        if message.contains("(-128)")
+            || message.localizedCaseInsensitiveContains("user canceled")
+            || message.localizedCaseInsensitiveContains("user cancelled")
+        {
+            return .userCanceled
+        }
+        return .installFailed(message)
     }
 
     /// Run `abctl setup install` as the current user to set up shell
@@ -154,24 +163,23 @@ extension DaemonManager {
     /// available alongside `_abctl`.
     /// Non-critical — failures are logged but do not block startup.
     func installShellIntegration(abctl: String) async {
-        await Task.detached { @Sendable in
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: abctl)
-            process.arguments = Self.profileArguments + ["setup", "install"]
-            do {
-                try process.run()
-                process.waitUntilExit()
-                if process.terminationStatus == 0 {
-                    ClientLog.daemon.info("Shell integration installed via abctl setup install")
-                } else {
-                    ClientLog.daemon.warning(
-                        "abctl setup install exited with status \(process.terminationStatus)")
-                }
-            } catch {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: abctl)
+        process.arguments = Self.profileArguments + ["setup", "install"]
+        do {
+            try await runCancellableProcess(process)
+            if process.terminationStatus == 0 {
+                ClientLog.daemon.info("Shell integration installed via abctl setup install")
+            } else {
                 ClientLog.daemon.warning(
-                    "Failed to run abctl setup install: \(error, privacy: .public)")
+                    "abctl setup install exited with status \(process.terminationStatus)")
             }
-        }.value
+        } catch is CancellationError {
+            return
+        } catch {
+            ClientLog.daemon.warning(
+                "Failed to run abctl setup install: \(error, privacy: .public)")
+        }
 
         await installBundledCompletions()
     }
@@ -232,6 +240,21 @@ extension DaemonManager {
 
 // MARK: - Errors
 
+func runCancellableProcess(_ process: Process) async throws {
+    try Task.checkCancellation()
+    try process.run()
+    await withTaskCancellationHandler {
+        await Task.detached {
+            process.waitUntilExit()
+        }.value
+    } onCancel: {
+        if process.isRunning {
+            process.terminate()
+        }
+    }
+    try Task.checkCancellation()
+}
+
 /// Encodes an arbitrary string as one AppleScript string literal.
 ///
 /// Shell quoting alone is insufficient because the shell command is first
@@ -256,6 +279,7 @@ func appleScriptStringLiteral(_ value: String) -> String {
 /// Failures while installing or verifying the privileged helper.
 public enum HelperInstallError: LocalizedError, Sendable, Equatable {
     case bundledBinaryMissing(String)
+    case approvalRequired
     case appleScriptUnavailable
     case userCanceled
     case installFailed(String)
@@ -265,6 +289,8 @@ public enum HelperInstallError: LocalizedError, Sendable, Equatable {
         switch self {
         case .bundledBinaryMissing(let name):
             return "Bundled \(name) is missing from the app. Reinstall ArcBox."
+        case .approvalRequired:
+            return "Administrator approval is required to install or update the helper service."
         case .appleScriptUnavailable:
             return "Could not start the administrator prompt to install the helper service."
         case .userCanceled:

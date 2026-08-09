@@ -67,7 +67,7 @@ struct MachineTerminalTab: View {
                 }
             }
             .pickerStyle(.menu)
-            .frame(width: 140)
+            .frame(width: AppMetrics.shellPickerWidth)
             .disabled(session.state == .connected)
 
             Spacer()

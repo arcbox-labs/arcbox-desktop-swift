@@ -64,4 +64,8 @@ final class DeepLinkTests: XCTestCase {
     @MainActor func testRejectsUnknownHost() {
         XCTAssertNil(parse("arcbox://bogus"))
     }
+
+    @MainActor func testRejectsUnavailableTemplatesSection() {
+        XCTAssertNil(parse("arcbox://templates"))
+    }
 }

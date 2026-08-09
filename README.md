@@ -1,124 +1,91 @@
 <div align="center">
 
-# ArcBox
+<img src="https://static.arcbox.dev/cdn-cgi/image/width=192,format=auto/icon/icon.png" width="96" height="96" alt="">
 
-**Native macOS GUI for ArcBox — containers, VMs, and sandboxes at your fingertips.**
+# ArcBox Desktop
+
+**The native macOS app for [ArcBox](https://github.com/arcboxlabs/arcbox) — containers, Kubernetes, Linux VMs, and agent sandboxes in one window.**
 
 [![macOS](https://img.shields.io/badge/macOS-15%2B-000?logo=apple)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/swift-6.0-F05138?logo=swift&logoColor=white)](https://swift.org)
 [![Release](https://img.shields.io/github/v/release/arcboxlabs/arcbox-desktop?color=green)](https://github.com/arcboxlabs/arcbox-desktop/releases)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](LICENSE-MIT)
+[![Discord](https://img.shields.io/badge/discord-chat-5865F2?logo=discord&logoColor=white)](https://arcbox.link/discord)
+
+![ArcBox](https://static.arcbox.dev/cdn-cgi/image/width=1920,format=auto/screenshot/2026-07-desktop/images+containers-light.png)
 
 </div>
 
----
+## Install
 
-## Overview
+```bash
+brew install --cask arcbox
+```
 
-ArcBox is the official graphical interface for the [ArcBox](https://github.com/arcboxlabs/arcbox) runtime. It communicates with `arcbox-daemon` over gRPC and the Docker Engine API, providing a three-column interface for managing your entire ArcBox environment.
+Or grab the DMG from [Releases](https://github.com/arcboxlabs/arcbox-desktop/releases/latest). The app
+ships the `arcbox-daemon` runtime and the `abctl` CLI, and keeps itself up to date over Sparkle — there
+is nothing else to install.
+
+**Requires** macOS 15 (Sequoia) or later on Apple Silicon.
+
+## What it does
+
+One three-column window — sources, list, detail — over everything the daemon runs:
+
+- **Docker** — containers, images, volumes, networks. Containers group by Compose project, and each one
+  opens onto info, streaming logs, an interactive terminal, and a file browser that reads through the
+  overlay layers.
+- **Kubernetes** — pods and services from the daemon-managed k3s cluster.
+- **Machines** — full Linux VMs: create from a distro image, drive the lifecycle, then attach a terminal
+  or browse the guest filesystem.
+- **Sandboxes** — disposable microVMs from templates, with ports, snapshots, and an event log.
+- **Activity** — live CPU, memory, and network for the system VM and every running container.
+
+Everything is event-driven: the Docker, machine, and sandbox event streams feed debounced updates, so the
+UI reflects work started from `docker`, `abctl`, or `kubectl` without a refresh.
+
+## How it fits together
 
 ```
 ┌─────────────────────┐
-│  ArcBox             │  SwiftUI
+│  ArcBox Desktop     │  SwiftUI
 └──────────┬──────────┘
-           │ gRPC + Docker API (Unix socket)
+           │ gRPC (~/.arcbox/run/arcbox.sock)
+           │ Docker Engine API (~/.arcbox/run/docker.sock)
            ▼
 ┌─────────────────────┐
-│  arcbox-daemon      │  Rust
+│  arcbox-daemon      │  Rust — VMM, networking, storage
 └──────────┬──────────┘
-           │
+           │ vsock
            ▼
 ┌─────────────────────┐
-│  Linux Guest VM     │
+│  Linux guest        │
 │  arcbox-agent       │
 └─────────────────────┘
 ```
 
-## Features
+The app is SwiftUI end to end — no Combine, no third-party UI frameworks. The daemon is a separate binary
+from the [arcbox](https://github.com/arcboxlabs/arcbox) repo, pinned by [`arcbox.version`](arcbox.version)
+and embedded at build time.
 
-- **Docker** — containers, images, volumes, networks; logs, terminal, file browser
-- **Kubernetes** — pods and services
-- **Machines** — full Linux VM lifecycle, SSH, terminal
-- **Sandboxes** — create from templates, manage lifecycle
-- **Real-time sync** — Docker event stream with debounced UI updates
-- **Privileged helper** — XPC daemon for Docker socket symlink, CLI install, DNS config
-- **Auto-updates** — Sparkle framework for OTA distribution
+## Contributing
 
-## Requirements
-
-- macOS 15 (Sequoia) or later
-- Apple Silicon (M1+)
-- Xcode 16+ (for building)
-
-## Development Setup
-
-```bash
-# Clone
-git clone https://github.com/arcboxlabs/arcbox-desktop.git
-cd arcbox-desktop
-
-# Configure local build settings
-cp Local.xcconfig.example Local.xcconfig
-# Edit Local.xcconfig: set DEVELOPMENT_TEAM and SENTRY_DSN
-
-# Open in Xcode
-open ArcBox.xcodeproj
-```
-
-The build automatically fetches `arcbox-daemon` and `arcbox-agent` binaries from your local [arcbox](https://github.com/arcboxlabs/arcbox) build or cache. To build them from source:
-
-```bash
-cd ../arcbox
-cargo build --release -p arcbox-daemon
-cargo build --release -p arcbox-agent --target aarch64-unknown-linux-musl
-```
-
-When bumping the embedded ArcBox daemon version, update `arcbox.version` and the generated gRPC client in the same change:
-
-```bash
-make bump-arcbox VERSION=v0.4.12
-```
-
-This wraps `cargo xtask protocol bump --version v0.4.12`, which restores the previous `arcbox.version` and generated client if generation fails. CI verifies this with `make verify-arcbox-protobuf`.
-
-## Project Structure
-
-```
-ArcBox/                    SwiftUI app
-├── Views/                 60 view files (Containers, Images, Machines, ...)
-├── ViewModels/            MVVM state management
-├── Models/                Data models
-├── Services/              DockerEventMonitor
-├── Components/            Reusable UI components
-└── Theme/                 Design tokens
-
-ArcBoxHelper/              Privileged XPC helper (runs as root)
-
-Packages/
-├── ArcBoxClient/          gRPC client library (protobuf generated stubs)
-└── DockerClient/          Docker Engine API client (OpenAPI generated)
-
-LaunchDaemons/             launchd plist for daemon and helper
-scripts/                   Build, packaging, and distribution scripts
-```
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| UI | SwiftUI + `@Observable` |
-| Daemon communication | gRPC (grpc-swift + protobuf) |
-| Docker API | OpenAPI-generated client |
-| Privileged operations | NSXPCConnection |
-| Daemon management | SMAppService |
-| Crash reporting | Sentry |
-| Auto-updates | Sparkle |
+Start with [CONTRIBUTING.md](CONTRIBUTING.md); the build itself is in
+[docs/development.md](docs/development.md). Bug reports and feature requests go to
+[Issues](https://github.com/arcboxlabs/arcbox-desktop/issues); vulnerabilities go to
+[security@arcbox.dev](SECURITY.md) instead, never to a public issue.
 
 ## License
 
-Licensed under either of
+[MIT](LICENSE-MIT) OR [Apache-2.0](LICENSE-APACHE), at your option.
 
-- [MIT license](LICENSE-MIT)
-- [Apache License, Version 2.0](LICENSE-APACHE)
+The ArcBox name, mark, and screenshots are brand assets and are not covered by the source-code license —
+see [BRAND.md](https://static.arcbox.dev/BRAND.md).
 
-at your option.
+---
+
+<div align="center">
+
+[Website](https://arcbox.dev) · [Docs](https://arcbox.link/docs) · [Discord](https://arcbox.link/discord) · [Runtime](https://github.com/arcboxlabs/arcbox)
+
+</div>

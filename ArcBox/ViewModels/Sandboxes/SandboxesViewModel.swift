@@ -1,23 +1,16 @@
 import ArcBoxClient
+import Foundation
 import OSLog
-import SwiftUI
+import Observation
 
 /// Detail tab for sandboxes
-enum SandboxDetailTab: String, CaseIterable, Identifiable {
+enum SandboxDetailTab: String, @MainActor DetailTab {
     case info = "Info"
     case terminal = "Terminal"
     case files = "Files"
     case ports = "Ports"
     case snapshots = "Snapshots"
     case events = "Events"
-
-    var id: String { rawValue }
-}
-
-/// Top-level tab for sandboxes page
-enum SandboxPageTab: String, CaseIterable, Identifiable {
-    case list = "List"
-    case monitoring = "Monitoring"
 
     var id: String { rawValue }
 }
@@ -31,44 +24,35 @@ enum SandboxSortField: String, CaseIterable {
 /// Parameters for creating a sandbox.
 struct SandboxCreateSpec {
     var labels: [String: String] = [:]
-    /// Docker image reference; resolved to its overlay2 layer directory and
-    /// passed as `rootfs` (mirrors `abctl sandbox create --from-image`).
+    /// Docker image reference; sent to the daemon as a `docker:` template.
     var image = ""
-    /// Direct rootfs path; ignored when `image` is set. Empty = daemon default.
-    var rootfs = ""
-    var kernel = ""
-    var bootArgs = ""
     var vcpus: UInt32 = 0
     var memoryMiB: UInt64 = 0
     var cmd: [String] = []
     var env: [String: String] = [:]
     var workingDir = ""
     var user = ""
-    var networkMode = ""
+    var networkMode: Arcbox_Sandbox_V1_NetworkMode = .unspecified
     var ttlSeconds: UInt32 = 0
 }
 
-/// Sandbox list state backed by the sandbox.v1 gRPC API.
+/// Sandbox list state backed by the arcbox.sandbox.v1 gRPC API.
 @MainActor
 @Observable
 class SandboxesViewModel {
     var sandboxes: [SandboxViewModel] = []
+    var loadState: LoadPhase = .waiting
+    var refreshError: String?
+    let listLoadGate = SingleFlightLoadGate()
+    @ObservationIgnored let terminalSession = SandboxTerminalSession()
     var selectedID: String?
     var activeTab: SandboxDetailTab = .info
-    var pageTab: SandboxPageTab = .list
-    var listWidth: CGFloat = 320
     var sortBy: SandboxSortField = .name
     var sortAscending: Bool = true
 
     /// Target machine for sandbox RPCs (`x-machine` header). Sandboxes run
     /// nested inside a machine's guest; the default machine hosts them.
     var activeMachineID: String = "default"
-
-    // Monitoring metrics
-    var concurrentSandboxes: Int = 0
-    var startRatePerSecond: Double = 0.0
-    var peakConcurrentSandboxes: Int = 0
-    var concurrentLimit: Int = 20
 
     // Sheet presentation
     var showNewSandboxSheet: Bool = false
@@ -79,6 +63,11 @@ class SandboxesViewModel {
     /// Snapshots of the currently selected sandbox (Snapshots tab).
     var snapshots: [SandboxSnapshotViewModel] = []
 
+    /// Loading state for snapshots belonging to `snapshotsSandboxID`.
+    var snapshotsLoadState: LoadPhase = .waiting
+    var snapshotsRefreshError: String?
+    var snapshotsLoadToken: UUID?
+
     /// The sandbox `snapshots` belongs to. Guards the Snapshots tab from
     /// rendering or acting on another sandbox's snapshots across a selection
     /// change or a failed reload.
@@ -87,22 +76,25 @@ class SandboxesViewModel {
     /// Ports exposed from this app session, keyed by sandbox ID.
     var exposedPorts: [String: [SandboxExposedPort]] = [:]
 
-    @ObservationIgnored private var createTimestamps: [Date] = []
-
     var sandboxCount: Int { sandboxes.count }
 
     var sortedSandboxes: [SandboxViewModel] {
         sandboxes.sorted { a, b in
-            let result: Bool
+            let comparison: ComparisonResult
             switch sortBy {
             case .name:
-                result =
-                    a.displayName.localizedCaseInsensitiveCompare(b.displayName)
-                    == .orderedAscending
+                comparison = a.displayName.localizedCaseInsensitiveCompare(b.displayName)
             case .dateCreated:
-                result = (a.createdAt ?? .distantPast) < (b.createdAt ?? .distantPast)
+                comparison =
+                    (a.createdAt ?? .distantPast)
+                    .compare(b.createdAt ?? .distantPast)
             }
-            return sortAscending ? result : !result
+            if comparison == .orderedSame {
+                return sortAscending ? a.id < b.id : a.id > b.id
+            }
+            return sortAscending
+                ? comparison == .orderedAscending
+                : comparison == .orderedDescending
         }
     }
 
@@ -111,7 +103,14 @@ class SandboxesViewModel {
         return sandboxes.first { $0.id == id }
     }
 
+    var isLoadingSnapshots: Bool {
+        snapshotsLoadToken != nil
+    }
+
     func selectSandbox(_ id: String) {
+        if selectedID != id {
+            snapshotsLoadToken = nil
+        }
         selectedID = id
     }
 
@@ -139,24 +138,8 @@ class SandboxesViewModel {
         exposedPorts[id] = nil
         if selectedID == id {
             selectedID = nil
+            snapshotsLoadToken = nil
         }
-        updateMonitoringMetrics()
-    }
-
-    func updateMonitoringMetrics() {
-        concurrentSandboxes = sandboxes.count { $0.state.isActive }
-        if concurrentSandboxes > peakConcurrentSandboxes {
-            peakConcurrentSandboxes = concurrentSandboxes
-        }
-    }
-
-    /// Record a sandbox start event and recompute the 5-second rolling start rate.
-    func recordSandboxStart() {
-        let now = Date()
-        createTimestamps.append(now)
-        let windowStart = now.addingTimeInterval(-5)
-        createTimestamps.removeAll { $0 < windowStart }
-        startRatePerSecond = Double(createTimestamps.count) / 5.0
     }
 
     /// Log, report, and surface an error; returns the user-facing message.

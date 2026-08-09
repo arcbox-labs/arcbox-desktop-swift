@@ -20,10 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # The action installs with `--profile minimal`, so clippy and rustfmt
+      # have to be asked for by name — `make lint-xtask` needs both.
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-unknown-linux-musl
+          components: clippy, rustfmt
 
       - name: Restore desktop Rust tooling cache
         id: desktop_rust_cache
@@ -44,15 +47,16 @@ jobs:
           brew install protobuf
           make verify-arcbox-protobuf
 
-      - name: Swift format check
-        run: |
-          brew install swift-format
-          swift-format lint -r --strict ArcBox/ Packages/
+      # `protocol verify` above only compiles xtask; nothing ran its tests.
+      - name: Lint and test xtask
+        run: make lint-xtask test-xtask
 
-      - name: SwiftLint
+      # `make lint` is what a contributor runs, and scripts/tool.sh holds the
+      # version floors, so the two cannot drift apart.
+      - name: Lint
         run: |
-          brew install swiftlint
-          swiftlint lint --strict --config .swiftlint.yml
+          brew install swift-format swiftlint
+          make lint
 
       - name: Create local Xcode config
         run: |
@@ -69,7 +73,7 @@ jobs:
       - name: Generate Xcode project
         run: |
           brew install xcodegen
-          xcodegen generate
+          make generate-xcodeproj
           git diff --exit-code ArcBox.xcodeproj ArcBox/Info.plist project.yml
 
       - name: Record build environment
@@ -107,55 +111,40 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-xcode-${{ steps.build_environment.outputs.xcode_cache_key }}-swift-${{ hashFiles('ArcBox.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'Packages/**/Package.resolved', 'Packages/**/Package.swift') }}-${{ hashFiles('ArcBox.xcodeproj/project.pbxproj') }}-
             ${{ runner.os }}-${{ runner.arch }}-xcode-${{ steps.build_environment.outputs.xcode_cache_key }}-swift-${{ hashFiles('ArcBox.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'Packages/**/Package.resolved', 'Packages/**/Package.swift') }}-
 
+      # `-onlyUsePackageVersionsFromResolvedFile` is what makes this a gate
+      # rather than a cache warm-up: without it this step would quietly repair a
+      # stale Package.resolved, and the build that follows would never see the
+      # drift. A PR that edits a Package.swift must commit the lockfile too.
       - name: Resolve Swift packages
         run: |
           xcodebuild -resolvePackageDependencies \
             -project ArcBox.xcodeproj \
             -scheme ArcBox \
-            -clonedSourcePackagesDirPath .build/SourcePackages
-
-      - name: Build (Debug)
-        run: |
-          xcodebuild build \
-            -project ArcBox.xcodeproj \
-            -scheme ArcBox \
-            -configuration Debug \
-            -destination 'platform=macOS' \
-            -showBuildTimingSummary \
-            -derivedDataPath .build/DerivedData \
             -clonedSourcePackagesDirPath .build/SourcePackages \
-            CODE_SIGN_IDENTITY=- \
-            SKIP_RUST_BUILD=1 \
-            | xcpretty --color
+            -onlyUsePackageVersionsFromResolvedFile
+
+      # `shell: bash` is load-bearing on every step that pipes into xcpretty:
+      # the default shell is `bash -e`, whose pipeline status comes from
+      # xcpretty, so a failing xcodebuild reported success. `shell: bash` runs
+      # with `-eo pipefail`. Build and test go through the Makefile so a
+      # contributor's `make test` runs exactly what CI runs.
+      - name: Build (Debug)
+        shell: bash
+        run: make build XCODEBUILD_EXTRA=-showBuildTimingSummary | xcpretty --color
 
       - name: Run Tests
-        run: |
-          xcodebuild test \
-            -project ArcBox.xcodeproj \
-            -scheme ArcBox \
-            -configuration Debug \
-            -destination 'platform=macOS' \
-            -showBuildTimingSummary \
-            -derivedDataPath .build/DerivedData \
-            -clonedSourcePackagesDirPath .build/SourcePackages \
-            CODE_SIGN_IDENTITY=- \
-            SKIP_RUST_BUILD=1 \
-            | xcpretty --color
+        shell: bash
+        run: make test XCODEBUILD_EXTRA=-showBuildTimingSummary | xcpretty --color
 
       - name: Warm Release cache (ARM64)
         if: github.event_name == 'push'
+        shell: bash
         run: |
-          xcodebuild build \
-            -project ArcBox.xcodeproj \
-            -scheme ArcBox \
-            -configuration Release \
-            -destination 'platform=macOS,arch=arm64' \
-            -showBuildTimingSummary \
-            -derivedDataPath .build/DerivedData \
-            -clonedSourcePackagesDirPath .build/SourcePackages \
+          make build \
+            CONFIGURATION=Release \
+            DESTINATION='platform=macOS,arch=arm64' \
             ARCHS=arm64 \
-            CODE_SIGN_IDENTITY=- \
-            SKIP_RUST_BUILD=1
+            XCODEBUILD_EXTRA=-showBuildTimingSummary
 
       - name: Save desktop Rust tooling cache
         if: github.event_name == 'push' && steps.desktop_rust_cache.outputs.cache-hit != 'true'

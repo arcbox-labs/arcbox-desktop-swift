@@ -24,7 +24,7 @@ final class SleepWakeManager {
     /// Observer tokens stored in a lock so deinit (nonisolated) can clean them up.
     @ObservationIgnored private let observers = OSAllocatedUnfairLock(initialState: _SleepWakeObserverTokens())
 
-    /// Docker client reference — set from ArcBoxApp when clients are initialized.
+    /// Docker client reference — set by ApplicationCoordinator after startup.
     /// DockerClient is a value type (struct), so `weak` is not applicable.
     @ObservationIgnored var dockerClientRef: DockerClient?
 

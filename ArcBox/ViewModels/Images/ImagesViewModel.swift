@@ -1,14 +1,16 @@
 import Foundation
-import SwiftUI
+import Observation
 
 /// Image list state
 @MainActor
 @Observable
 class ImagesViewModel {
     var images: [ImageViewModel] = []
+    var loadState: LoadPhase = .waiting
+    var refreshError: String?
+    let listLoadGate = SingleFlightLoadGate()
     var selectedID: String?
     var activeTab: ImageDetailTab = .info
-    var listWidth: CGFloat = 320
     var showPullImageSheet: Bool = false
     var searchText: String = ""
     var isSearching: Bool = false
@@ -39,16 +41,24 @@ class ImagesViewModel {
             filtered = images
         }
         return filtered.sorted { a, b in
-            let result: Bool
+            let comparison: ComparisonResult
             switch sortBy {
             case .name:
-                result = a.repository.localizedCaseInsensitiveCompare(b.repository) == .orderedAscending
+                comparison = a.repository.localizedCaseInsensitiveCompare(b.repository)
             case .dateCreated:
-                result = a.createdAt < b.createdAt
+                comparison = a.createdAt.compare(b.createdAt)
             case .size:
-                result = a.sizeBytes < b.sizeBytes
+                comparison =
+                    a.sizeBytes == b.sizeBytes
+                    ? .orderedSame
+                    : (a.sizeBytes < b.sizeBytes ? .orderedAscending : .orderedDescending)
             }
-            return sortAscending ? result : !result
+            if comparison == .orderedSame {
+                return sortAscending ? a.id < b.id : a.id > b.id
+            }
+            return sortAscending
+                ? comparison == .orderedAscending
+                : comparison == .orderedDescending
         }
     }
 

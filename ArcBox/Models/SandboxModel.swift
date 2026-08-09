@@ -1,16 +1,17 @@
 import ArcBoxClient
 import Foundation
+import SwiftProtobuf
 
-/// Sandbox lifecycle state matching the sandbox.v1 API state machine.
+/// Sandbox lifecycle state matching the arcbox.sandbox.v1 API state machine.
 enum SandboxState: String, CaseIterable {
     case starting
     case ready
     case running
-    case idle
     case stopping
     case stopped
     case failed
-    case removed
+    case pausing
+    case paused
     case unknown
 
     var label: String {
@@ -18,11 +19,11 @@ enum SandboxState: String, CaseIterable {
         case .starting: "Starting"
         case .ready: "Ready"
         case .running: "Running"
-        case .idle: "Idle"
         case .stopping: "Stopping"
         case .stopped: "Stopped"
         case .failed: "Failed"
-        case .removed: "Removed"
+        case .pausing: "Pausing"
+        case .paused: "Paused"
         case .unknown: "Unknown"
         }
     }
@@ -30,20 +31,51 @@ enum SandboxState: String, CaseIterable {
     /// Whether the sandbox VM is alive.
     var isActive: Bool {
         switch self {
-        case .starting, .ready, .running, .idle:
+        case .starting, .ready, .running:
             true
         default:
             false
         }
     }
 
-    /// Whether the sandbox can accept Run/Exec calls right now.
-    var isAcceptingCommands: Bool {
-        self == .ready || self == .idle
+    var isDataPlaneReady: Bool {
+        self == .ready || self == .running
     }
 
-    init(apiState: String) {
-        self = SandboxState(rawValue: apiState.lowercased()) ?? .unknown
+    /// Whether the sandbox can accept a new execution right now.
+    var isAcceptingCommands: Bool {
+        self == .ready
+    }
+
+    var canRemove: Bool {
+        self == .stopped || self == .failed || self == .paused
+    }
+
+    init(apiState: Arcbox_Sandbox_V1_SandboxState) {
+        switch apiState {
+        case .starting: self = .starting
+        case .ready: self = .ready
+        case .running: self = .running
+        case .stopping: self = .stopping
+        case .stopped: self = .stopped
+        case .failed: self = .failed
+        case .pausing: self = .pausing
+        case .paused: self = .paused
+        case .unspecified, .UNRECOGNIZED: self = .unknown
+        }
+    }
+}
+
+enum SandboxExitStatus: Hashable {
+    case code(Int32)
+    case signal(Int32)
+
+    init?(apiStatus: Arcbox_Sandbox_V1_ExitStatus, isPresent: Bool) {
+        guard isPresent, let status = apiStatus.status else { return nil }
+        switch status {
+        case .code(let code): self = .code(code)
+        case .signal(let signal): self = .signal(signal)
+        }
     }
 }
 
@@ -56,7 +88,7 @@ struct SandboxViewModel: Identifiable, Hashable {
     var createdAt: Date?
     var readyAt: Date?
     var lastExitedAt: Date?
-    var lastExitCode: Int32
+    var lastExitStatus: SandboxExitStatus?
     var error: String
     var vcpus: UInt32
     var memoryMiB: UInt64
@@ -91,59 +123,47 @@ struct SandboxViewModel: Identifiable, Hashable {
 
     // MARK: - Proto initializers
 
-    init(from summary: Sandbox_V1_SandboxSummary) {
+    init(from summary: Arcbox_Sandbox_V1_SandboxSummary) {
         self.id = summary.id
         self.state = SandboxState(apiState: summary.state)
         self.labels = summary.labels
         self.ipAddress = summary.ipAddress
-        self.createdAt =
-            summary.createdAt > 0
-            ? Date(timeIntervalSince1970: TimeInterval(summary.createdAt))
-            : nil
+        self.createdAt = summary.hasCreatedAt ? summary.createdAt.date : nil
         self.readyAt = nil
         self.lastExitedAt = nil
-        self.lastExitCode = 0
+        self.lastExitStatus = nil
         self.error = ""
         self.vcpus = 0
         self.memoryMiB = 0
     }
 
-    init(from info: Sandbox_V1_SandboxInfo) {
+    init(from info: Arcbox_Sandbox_V1_SandboxInfo) {
         self.id = info.id
         self.state = SandboxState(apiState: info.state)
         self.labels = info.labels
         self.ipAddress = info.network.ipAddress
-        self.createdAt =
-            info.createdAt > 0
-            ? Date(timeIntervalSince1970: TimeInterval(info.createdAt))
-            : nil
-        self.readyAt =
-            info.readyAt > 0
-            ? Date(timeIntervalSince1970: TimeInterval(info.readyAt))
-            : nil
-        self.lastExitedAt =
-            info.lastExitedAt > 0
-            ? Date(timeIntervalSince1970: TimeInterval(info.lastExitedAt))
-            : nil
-        self.lastExitCode = info.lastExitCode
+        self.createdAt = info.hasCreatedAt ? info.createdAt.date : nil
+        self.readyAt = info.hasReadyAt ? info.readyAt.date : nil
+        self.lastExitedAt = info.hasLastExitedAt ? info.lastExitedAt.date : nil
+        self.lastExitStatus = SandboxExitStatus(
+            apiStatus: info.lastExitStatus,
+            isPresent: info.hasLastExitStatus
+        )
         self.error = info.error
         self.vcpus = info.limits.vcpus
         self.memoryMiB = info.limits.memoryMib
     }
 
     /// Apply detail fields from an Inspect response, preserving list-level fields.
-    mutating func applyDetails(from info: Sandbox_V1_SandboxInfo) {
+    mutating func applyDetails(from info: Arcbox_Sandbox_V1_SandboxInfo) {
         self.state = SandboxState(apiState: info.state)
         self.ipAddress = info.network.ipAddress
-        self.readyAt =
-            info.readyAt > 0
-            ? Date(timeIntervalSince1970: TimeInterval(info.readyAt))
-            : nil
-        self.lastExitedAt =
-            info.lastExitedAt > 0
-            ? Date(timeIntervalSince1970: TimeInterval(info.lastExitedAt))
-            : nil
-        self.lastExitCode = info.lastExitCode
+        self.readyAt = info.hasReadyAt ? info.readyAt.date : nil
+        self.lastExitedAt = info.hasLastExitedAt ? info.lastExitedAt.date : nil
+        self.lastExitStatus = SandboxExitStatus(
+            apiStatus: info.lastExitStatus,
+            isPresent: info.hasLastExitStatus
+        )
         self.error = info.error
         self.vcpus = info.limits.vcpus
         self.memoryMiB = info.limits.memoryMib
@@ -156,7 +176,7 @@ struct SandboxViewModel: Identifiable, Hashable {
         guard other.hasLoadedDetail else { return }
         self.readyAt = other.readyAt
         self.lastExitedAt = other.lastExitedAt
-        self.lastExitCode = other.lastExitCode
+        self.lastExitStatus = other.lastExitStatus
         self.error = other.error
         self.vcpus = other.vcpus
         self.memoryMiB = other.memoryMiB
@@ -170,19 +190,23 @@ struct SandboxSnapshotViewModel: Identifiable, Hashable {
     let sandboxID: String
     let name: String
     let labels: [String: String]
-    /// Creation timestamp as reported by the daemon (RFC3339).
-    let createdAt: String
+    let createdAt: Date?
 
     var displayName: String {
         name.isEmpty ? String(id.prefix(12)) : name
     }
 
-    init(from summary: Sandbox_V1_SnapshotSummary) {
+    var createdAgo: String {
+        guard let createdAt else { return "—" }
+        return relativeTime(from: createdAt)
+    }
+
+    init(from summary: Arcbox_Sandbox_V1_SnapshotSummary) {
         self.id = summary.id
         self.sandboxID = summary.sandboxID
         self.name = summary.name
         self.labels = summary.labels
-        self.createdAt = summary.createdAt
+        self.createdAt = summary.hasCreatedAt ? summary.createdAt.date : nil
     }
 }
 
@@ -204,19 +228,71 @@ struct SandboxExposedPort: Identifiable, Hashable {
     }
 }
 
+enum SandboxEventKind: Hashable {
+    case created
+    case ready
+    case running
+    case idle
+    case stopping
+    case stopped
+    case failed
+    case removed
+    case pausing
+    case paused
+    case resumed
+    case unknown
+
+    var label: String {
+        switch self {
+        case .created: "created"
+        case .ready: "ready"
+        case .running: "running"
+        case .idle: "idle"
+        case .stopping: "stopping"
+        case .stopped: "stopped"
+        case .failed: "failed"
+        case .removed: "removed"
+        case .pausing: "pausing"
+        case .paused: "paused"
+        case .resumed: "resumed"
+        case .unknown: "unknown"
+        }
+    }
+
+    init(apiKind: Arcbox_Sandbox_V1_SandboxEventKind) {
+        switch apiKind {
+        case .created: self = .created
+        case .ready: self = .ready
+        case .running: self = .running
+        case .idle: self = .idle
+        case .stopping: self = .stopping
+        case .stopped: self = .stopped
+        case .failed: self = .failed
+        case .removed: self = .removed
+        case .pausing: self = .pausing
+        case .paused: self = .paused
+        case .resumed: self = .resumed
+        case .unspecified, .UNRECOGNIZED: self = .unknown
+        }
+    }
+}
+
 /// A lifecycle event received on the Events stream, kept for the Events tab.
 struct SandboxEventRecord: Identifiable, Hashable {
     let id = UUID()
     let sandboxID: String
-    let action: String
+    let kind: SandboxEventKind
     let timestamp: Date
     let attributes: [String: String]
 
-    init(from event: Sandbox_V1_SandboxEvent) {
+    var action: String {
+        kind.label
+    }
+
+    init(from event: Arcbox_Sandbox_V1_SandboxEvent) {
         self.sandboxID = event.sandboxID
-        self.action = event.action
-        self.timestamp = Date(
-            timeIntervalSince1970: TimeInterval(event.timestamp) / 1_000_000_000)
+        self.kind = SandboxEventKind(apiKind: event.kind)
+        self.timestamp = event.time.date
         self.attributes = event.attributes
     }
 }

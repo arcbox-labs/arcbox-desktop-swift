@@ -1,11 +1,12 @@
 // Version managed by release-please. Do not edit manually.
-MARKETING_VERSION = 1.29.1 // x-release-please-version
+MARKETING_VERSION = 1.34.1 // x-release-please-version
 CURRENT_PROJECT_VERSION = 1
 
 // Defaults can be overridden by Local.xcconfig.
 ARCBOX_PRODUCT_BUNDLE_IDENTIFIER = com.arcboxlabs.desktop
 ARCBOX_PRODUCT_NAME = ArcBox
 ARCBOX_APP_DISPLAY_NAME = ArcBox
+ARCBOX_PROFILE = production
 
 // Local development identity presets.
 ARCBOX_DEV_PRODUCT_BUNDLE_IDENTIFIER = com.arcboxlabs.desktop.dev

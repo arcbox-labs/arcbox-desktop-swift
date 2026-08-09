@@ -17,6 +17,8 @@ final class ImagesViewModelTests: XCTestCase {
     func testInitialState() {
         XCTAssertTrue(vm.images.isEmpty)
         XCTAssertNil(vm.selectedID)
+        XCTAssertEqual(vm.loadState, .waiting)
+        XCTAssertNil(vm.refreshError)
         XCTAssertNil(vm.lastError)
     }
 
@@ -90,6 +92,24 @@ final class ImagesViewModelTests: XCTestCase {
         vm.sortBy = .name
         vm.sortAscending = false
         XCTAssertEqual(vm.sortedImages.map(\.repository), ["redis", "nginx"])
+    }
+
+    func testDescendingSortUsesIDToBreakEqualValues() {
+        vm.sortAscending = false
+
+        for ids in [["a", "b"], ["b", "a"]] {
+            vm.images = ids.map {
+                makeImage(id: $0, repository: "same", tag: "latest")
+            }
+            XCTAssertEqual(vm.sortedImages.map(\.id), ["b", "a"])
+        }
+
+        for ids in [["A", "a"], ["a", "A"]] {
+            vm.images = ids.map {
+                makeImage(id: $0, repository: "same", tag: "latest")
+            }
+            XCTAssertEqual(vm.sortedImages.map(\.id), ["a", "A"])
+        }
     }
 
     func testSortedImagesBySize() {

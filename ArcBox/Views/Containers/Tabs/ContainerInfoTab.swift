@@ -13,7 +13,9 @@ struct ContainerInfoTab: View {
     let container: ContainerViewModel
     @Environment(DaemonManager.self) private var daemonManager
 
-    private var useDNS: Bool { daemonManager.dnsResolverInstalled && daemonManager.routeInstalled }
+    private var canUseDNS: Bool {
+        daemonManager.dnsResolverInstalled && daemonManager.routeInstalled
+    }
 
     var body: some View {
         ScrollView {
@@ -33,35 +35,29 @@ struct ContainerInfoTab: View {
                 .infoSectionStyle()
 
                 // Domain & IP section
-                if useDNS || !container.hostPorts.isEmpty
-                    || container.domain != nil || container.ipAddress != nil
-                {
-                    VStack(spacing: 0) {
-                        if useDNS || !container.hostPorts.isEmpty {
+                VStack(spacing: 0) {
+                    InfoRow(
+                        label: "Domain",
+                        value: container.hostDomain,
+                        link: canUseDNS ? container.domainURL(useDNS: true) : nil
+                    )
+                    if container.isCompose {
+                        let domains = container.allDomains
+                        if domains.count > 1 {
                             InfoRow(
-                                label: "Domain",
-                                value: container.hostDomain(useDNS: useDNS),
-                                link: container.domainURL(useDNS: useDNS)
+                                label: "Alias",
+                                value: domains[1]
                             )
-                            // Show flat alias for compose containers
-                            if useDNS, container.isCompose {
-                                let domains = container.allDomains(useDNS: true)
-                                if domains.count > 1 {
-                                    InfoRow(
-                                        label: "Alias",
-                                        value: domains[1]
-                                    )
-                                }
-                            }
-                        } else if let domain = container.domain {
-                            InfoRow(label: "Domain", value: domain)
-                        }
-                        if let ip = container.ipAddress {
-                            InfoRow(label: "IP", value: ip)
                         }
                     }
-                    .infoSectionStyle()
+                    if let domain = container.domain {
+                        InfoRow(label: "Container Domain", value: domain)
+                    }
+                    if let ip = container.ipAddress {
+                        InfoRow(label: "IP", value: ip)
+                    }
                 }
+                .infoSectionStyle()
 
                 // Port Forwards section
                 if !container.ports.isEmpty {

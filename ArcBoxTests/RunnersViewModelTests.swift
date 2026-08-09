@@ -180,19 +180,60 @@ final class RunnersViewModelTests: XCTestCase {
         )
     }
 
-    func testEnrolledSnapshotWinsOverAuthenticationAndCoordinatorState() throws {
-        let state = resolve(
-            snapshot: makeSnapshot(enrollment: .credentialRejected),
-            enrollmentState: .failed(.workspaceRequired),
-            isSignedIn: false
-        )
-        let host = try XCTUnwrap(enrolledHost(from: state))
-
-        XCTAssertEqual(host.status, .credentialRejected)
-        XCTAssertFalse(host.status.canChangeDrainState)
+    func testCredentialRejectedSnapshotOverridesIdleCoordinator() {
         XCTAssertEqual(
-            host.status.recoveryMessage,
-            "The Fleet gateway rejected this Agent credential. Unenroll this Mac from Actions before enrolling again."
+            resolve(
+                snapshot: makeSnapshot(enrollment: .credentialRejected),
+                enrollmentState: .idle,
+                isSignedIn: true,
+                canBeginEnrollment: true
+            ),
+            .enrollmentFailed(
+                "The Fleet gateway rejected this Mac's credential.",
+                recovery: .unenroll
+            )
+        )
+    }
+
+    func testDetachedSnapshotOverridesReadyCoordinator() {
+        XCTAssertEqual(
+            resolve(
+                snapshot: makeSnapshot(enrollment: .detached),
+                enrollmentState: .ready(machineID: "fltm_test"),
+                isSignedIn: true,
+                canBeginEnrollment: false
+            ),
+            .enrollmentFailed(
+                "This Mac is enrolled, but Fleet participation is disabled.",
+                recovery: .unenroll
+            )
+        )
+    }
+
+    func testTerminalSnapshotOverridesInProgressOrMissingCoordinator() {
+        XCTAssertEqual(
+            resolve(
+                snapshot: makeSnapshot(enrollment: .credentialRejected),
+                enrollmentState: .enrolling,
+                isSignedIn: true,
+                canBeginEnrollment: false
+            ),
+            .enrollmentFailed(
+                "The Fleet gateway rejected this Mac's credential.",
+                recovery: .unenroll
+            )
+        )
+        XCTAssertEqual(
+            resolve(
+                snapshot: makeSnapshot(enrollment: .detached),
+                enrollmentState: nil,
+                isSignedIn: nil,
+                canBeginEnrollment: nil
+            ),
+            .enrollmentFailed(
+                "This Mac is enrolled, but Fleet participation is disabled.",
+                recovery: .unenroll
+            )
         )
     }
 
@@ -201,6 +242,8 @@ final class RunnersViewModelTests: XCTestCase {
             makeSnapshot(enrollment: .unenrolled, machineID: "fltm_invalid"),
             makeSnapshot(enrollment: .attached, machineID: nil),
             makeSnapshot(enrollment: .updating, machineID: nil),
+            makeSnapshot(enrollment: .detached, machineID: nil),
+            makeSnapshot(enrollment: .credentialRejected, machineID: nil),
             makeSnapshot(enrollment: .unspecified, machineID: nil),
             makeSnapshot(enrollment: .unrecognized(42), machineID: nil),
         ]
@@ -243,6 +286,28 @@ final class RunnersViewModelTests: XCTestCase {
         )
 
         XCTAssertEqual(state, .unavailable("State stream ended."))
+    }
+
+    func testRetainedCredentialRejectedSnapshotShowsUnavailableWhileWatchReconnects() {
+        let state = resolve(
+            snapshot: makeSnapshot(enrollment: .credentialRejected),
+            loadState: .failed("State stream ended."),
+            enrollmentState: .idle,
+            isSignedIn: true
+        )
+
+        XCTAssertEqual(state, .unavailable("State stream ended."))
+    }
+
+    func testRetainedDetachedSnapshotShowsConnectingWhileWatchReconnects() {
+        let state = resolve(
+            snapshot: makeSnapshot(enrollment: .detached),
+            loadState: .connecting,
+            enrollmentState: .idle,
+            isSignedIn: true
+        )
+
+        XCTAssertEqual(state, .connecting)
     }
 
     func testCoordinatorReadyWithoutSnapshotDoesNotSynthesizeHost() {

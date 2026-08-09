@@ -7,7 +7,11 @@ import Foundation
 public final class BetterAuthClient: AuthProviding, Sendable {
     private let session: URLSession
 
-    public init(session: URLSession = .shared) {
+    public convenience init() {
+        self.init(session: URLSession(configuration: Self.makeSessionConfiguration()))
+    }
+
+    public init(session: URLSession) {
         self.session = session
     }
 
@@ -62,6 +66,23 @@ public final class BetterAuthClient: AuthProviding, Sendable {
     }
 
     // MARK: - Internal (unit-tested via @testable)
+
+    /// Device grant is bearer-only. Keeping it cookie-free avoids browser CSRF
+    /// origin checks and prevents auth responses from creating hidden state.
+    static func makeSessionConfiguration() -> URLSessionConfiguration {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        return configuration
+    }
+
+    /// Removes cookies persisted by builds that used `URLSession.shared`.
+    static func clearLegacyCookies(for url: URL) {
+        let storage = HTTPCookieStorage.shared
+        for cookie in storage.cookies(for: url) ?? [] where isLegacyAuthCookie(cookie) {
+            storage.deleteCookie(cookie)
+        }
+    }
 
     static func decodeDeviceCodeGrant(data: Data, status: Int) throws -> DeviceCodeGrant {
         guard status == 200 else {
@@ -161,6 +182,9 @@ public final class BetterAuthClient: AuthProviding, Sendable {
     }
 
     private func perform(_ request: URLRequest) async throws -> (Data, Int) {
+        if let url = request.url {
+            Self.clearLegacyCookies(for: url)
+        }
         let data: Data
         let response: URLResponse
         do {
@@ -172,6 +196,11 @@ public final class BetterAuthClient: AuthProviding, Sendable {
             throw AuthError.network("non-HTTP response")
         }
         return (data, http.statusCode)
+    }
+
+    private static func isLegacyAuthCookie(_ cookie: HTTPCookie) -> Bool {
+        cookie.name.hasPrefix("better-auth.")
+            || cookie.name.hasPrefix("__Secure-better-auth.")
     }
 }
 

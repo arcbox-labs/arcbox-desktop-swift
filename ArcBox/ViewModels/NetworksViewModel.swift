@@ -1,6 +1,7 @@
 import DockerClient
+import Foundation
 import OSLog
-import SwiftUI
+import Observation
 
 /// Sort field for networks
 enum NetworkSortField: String, CaseIterable {
@@ -13,8 +14,10 @@ enum NetworkSortField: String, CaseIterable {
 @Observable
 class NetworksViewModel {
     var networks: [NetworkViewModel] = []
+    var loadState: LoadPhase = .waiting
+    var refreshError: String?
+    private let listLoadGate = SingleFlightLoadGate()
     var selectedID: String?
-    var listWidth: CGFloat = 320
     var showNewNetworkSheet: Bool = false
     var searchText: String = ""
     var isSearching: Bool = false
@@ -37,14 +40,22 @@ class NetworksViewModel {
         }
 
         return filtered.sorted { a, b in
-            let result: Bool
+            let comparison: ComparisonResult
             switch sortBy {
             case .name:
-                result = a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+                comparison = a.name.localizedCaseInsensitiveCompare(b.name)
             case .dateCreated:
-                result = a.createdAt < b.createdAt
+                comparison = a.createdAt.compare(b.createdAt)
             }
-            return sortAscending ? result : !result
+            if comparison == .orderedSame {
+                let idComparison = a.id.localizedCaseInsensitiveCompare(b.id)
+                return sortAscending
+                    ? idComparison == .orderedAscending
+                    : idComparison == .orderedDescending
+            }
+            return sortAscending
+                ? comparison == .orderedAscending
+                : comparison == .orderedDescending
         }
     }
 
@@ -66,42 +77,67 @@ class NetworksViewModel {
             return
         }
 
+        await listLoadGate.run {
+            await self.performLoadNetworks(docker: docker)
+        }
+    }
+
+    private func performLoadNetworks(docker: DockerClient) async {
+        let isRefresh = loadState.beginLoading()
         do {
             let response = try await docker.api.NetworkList(.init())
             let networkList = try response.ok.body.json
             networks = networkList.compactMap(NetworkViewModel.init(fromDocker:))
             Log.network.info("Loaded \(self.networks.count, privacy: .public) networks")
+            loadState = .loaded
+            refreshError = nil
         } catch {
+            if loadState.cancelLoading(for: error, retainingLoadedContent: isRefresh) {
+                return
+            }
             Log.network.error("Error loading networks: \(error.localizedDescription, privacy: .private)")
             ErrorReporting.capture(error, domain: .network, operation: "list")
+            refreshError = loadState.fail(
+                error.localizedDescription,
+                retainingLoadedContent: isRefresh
+            )
         }
     }
 
     func removeNetwork(_ id: String, docker: DockerClient?) async {
         lastError = nil
+        guard let network = networks.first(where: { $0.id == id }), !network.isSystem else {
+            return
+        }
         guard let docker else { return }
-        if selectedID == id { selectedID = nil }
+        if selectedID == network.id { selectedID = nil }
         do {
-            let response = try await docker.api.NetworkDelete(path: .init(id: id))
+            let response = try await docker.api.NetworkDelete(path: .init(id: network.id))
             _ = try response.noContent
-            Log.network.info("Removed network \(id, privacy: .private)")
+            Log.network.info("Removed network \(network.id, privacy: .private)")
         } catch {
             Log.network.error(
-                "Error removing network \(id, privacy: .private): \(error.localizedDescription, privacy: .private)")
+                "Error removing network \(network.id, privacy: .private): \(error.localizedDescription, privacy: .private)"
+            )
             ErrorReporting.capture(error, domain: .network, operation: "remove")
             lastError = error.localizedDescription
         }
         await loadNetworks(docker: docker)
     }
 
-    func createNetwork(name: String, enableIPv6: Bool, docker: DockerClient?) async -> String? {
-        guard let docker else {
-            return "Docker client unavailable."
-        }
-
+    /// Create a bridge network. Returns true on success; the failure message lands in `lastError`.
+    func createNetwork(name: String, enableIPv6: Bool, docker: DockerClient?) async -> Bool {
+        lastError = nil
+        // Validate the input before the dependency: a blank name is the user's to fix either way.
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else {
-            return "Network name is required."
+            lastError = "Network name is required."
+            return false
+        }
+
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return false
         }
 
         let payload = Operations.NetworkCreate.Input.Body.jsonPayload(
@@ -116,25 +152,26 @@ class NetworksViewModel {
             case .created:
                 Log.network.info("Created network \(trimmedName, privacy: .private)")
                 await loadNetworks(docker: docker)
-                return nil
+                return true
             case let .badRequest(response):
-                return Self.errorMessage(from: response.body)
+                lastError = Self.errorMessage(from: response.body)
             case let .forbidden(response):
-                return Self.errorMessage(from: response.body)
+                lastError = Self.errorMessage(from: response.body)
             case let .notFound(response):
-                return Self.errorMessage(from: response.body)
+                lastError = Self.errorMessage(from: response.body)
             case let .internalServerError(response):
-                return Self.errorMessage(from: response.body)
+                lastError = Self.errorMessage(from: response.body)
             case let .undocumented(status, _):
-                return "Unexpected response status: \(status)."
+                lastError = "Unexpected response status: \(status)."
             }
         } catch {
             Log.network.error(
                 "Error creating network \(trimmedName, privacy: .private): \(error.localizedDescription, privacy: .private)"
             )
             ErrorReporting.capture(error, domain: .network, operation: "create")
-            return error.localizedDescription
+            lastError = error.localizedDescription
         }
+        return false
     }
 
     private static func errorMessage<T>(from body: T) -> String where T: Sendable {

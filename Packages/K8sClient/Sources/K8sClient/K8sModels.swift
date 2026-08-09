@@ -6,6 +6,7 @@ public struct ObjectMeta: Codable, Sendable {
     public let name: String?
     public let namespace: String?
     public let uid: String?
+    public let resourceVersion: String?
     public let labels: [String: String]?
     public let creationTimestamp: Date?
 }
@@ -14,14 +15,35 @@ public struct ListMeta: Codable, Sendable {
     public let resourceVersion: String?
 }
 
+/// `Status` object, returned in place of a resource on watch `ERROR` events.
+public struct K8sStatus: Codable, Sendable {
+    public let message: String?
+    public let reason: String?
+    public let code: Int?
+}
+
+// MARK: - Watchable resources
+
+/// A namespaced Kubernetes object identified by its `metadata.uid`.
+public protocol K8sResource: Codable, Sendable {
+    var metadata: ObjectMeta? { get }
+}
+
+/// A `List` response carrying the `resourceVersion` a watch can resume from.
+public protocol K8sResourceList: Codable, Sendable {
+    associatedtype Item: K8sResource
+    var metadata: ListMeta? { get }
+    var items: [Item] { get }
+}
+
 // MARK: - Pods
 
-public struct PodList: Codable, Sendable {
+public struct PodList: K8sResourceList {
     public let metadata: ListMeta?
     public let items: [Pod]
 }
 
-public struct Pod: Codable, Sendable {
+public struct Pod: K8sResource {
     public let metadata: ObjectMeta?
     public let spec: PodSpec?
     public let status: PodStatus?
@@ -73,13 +95,13 @@ public struct ContainerStateTerminated: Codable, Sendable {
 
 // MARK: - Services
 
-public struct ServiceList: Codable, Sendable {
+public struct ServiceList: K8sResourceList {
     public let metadata: ListMeta?
     public let items: [K8sService]
 }
 
 /// Named `K8sService` to avoid collision with Foundation.
-public struct K8sService: Codable, Sendable {
+public struct K8sService: K8sResource {
     public let metadata: ObjectMeta?
     public let spec: ServiceSpec?
 }

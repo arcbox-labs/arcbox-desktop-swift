@@ -1,6 +1,8 @@
-import ArcBoxAuth
+// System modules precede local packages per the repository import-order guideline.
+// swift-format-ignore: OrderedImports
 import Foundation
 import Testing
+import ArcBoxAuth
 
 @testable import FleetPlatformClient
 

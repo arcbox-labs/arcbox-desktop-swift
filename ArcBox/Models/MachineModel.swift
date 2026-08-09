@@ -1,5 +1,5 @@
 import ArcBoxClient
-import SwiftUI
+import Foundation
 
 /// Machine state representation.
 ///
@@ -21,14 +21,6 @@ enum MachineState: String, CaseIterable, Identifiable {
     var label: String { rawValue.capitalized }
 
     var isRunning: Bool { self == .running }
-
-    var color: Color {
-        switch self {
-        case .running: AppColors.running
-        case .created, .stopped: AppColors.stopped
-        case .starting, .stopping: AppColors.warning
-        }
-    }
 }
 
 /// Linux distribution info
