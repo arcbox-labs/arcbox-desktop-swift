@@ -179,7 +179,7 @@ public final class FleetControlClient: Sendable {
                         }
                     }
                     continuation.finish()
-                } catch  where Task.isCancelled {
+                } catch is CancellationError {
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)

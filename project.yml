@@ -213,6 +213,10 @@ targets:
       - path: ArcBoxTests
     dependencies:
       - target: ArcBox
+      - package: FleetControlClient
+        link: false
+      - package: FleetPlatformClient
+        link: false
       - package: K8sClient
     settings:
       base:

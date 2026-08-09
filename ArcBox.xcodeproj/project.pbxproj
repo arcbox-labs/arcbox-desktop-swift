@@ -1184,6 +1184,8 @@
 			);
 			dependencies = (
 				23D8AA8FD74EFEAA3DC25E1B /* PBXTargetDependency */,
+				525EA2B0F32AF02BC4534188 /* PBXTargetDependency */,
+				79A065BF2492C1CD82C1BFC2 /* PBXTargetDependency */,
 			);
 			name = ArcBoxTests;
 			packageProductDependencies = (
@@ -1516,6 +1518,14 @@
 			isa = PBXTargetDependency;
 			target = 5736F290209CBC17FA7F78A4 /* ArcBox */;
 			targetProxy = E5DB5C7D0FE3D3B3E84C9A60 /* PBXContainerItemProxy */;
+		};
+		525EA2B0F32AF02BC4534188 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = "TEMP_4BD2F666-898F-4B46-B562-68EF0B0320B1" /* FleetControlClient */;
+		};
+		79A065BF2492C1CD82C1BFC2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = "TEMP_F072CD5E-E88B-44AE-B97A-759040C75AB9" /* FleetPlatformClient */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1942,6 +1952,14 @@
 		E3B0A98EBADEEAA76280EF06 /* K8sClient */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = K8sClient;
+		};
+		"TEMP_4BD2F666-898F-4B46-B562-68EF0B0320B1" /* FleetControlClient */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FleetControlClient;
+		};
+		"TEMP_F072CD5E-E88B-44AE-B97A-759040C75AB9" /* FleetPlatformClient */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FleetPlatformClient;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

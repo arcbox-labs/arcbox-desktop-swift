@@ -154,19 +154,33 @@ final class RunnersViewModelTests: XCTestCase {
         )
     }
 
-    func testEnrolledSnapshotWinsOverAuthenticationAndCoordinatorState() throws {
-        let state = resolve(
-            snapshot: makeSnapshot(enrollment: .credentialRejected),
-            enrollmentState: .failed(.workspaceRequired),
-            isSignedIn: false
-        )
-        let host = try XCTUnwrap(enrolledHost(from: state))
-
-        XCTAssertEqual(host.status, .credentialRejected)
-        XCTAssertFalse(host.status.canChangeDrainState)
+    func testCredentialRejectedSnapshotExposesUnenrollRecovery() {
         XCTAssertEqual(
-            host.status.recoveryMessage,
-            "The Fleet gateway rejected this Agent credential. Unenroll this Mac from Actions before enrolling again."
+            resolve(
+                snapshot: makeSnapshot(enrollment: .credentialRejected),
+                enrollmentState: .failed(.credentialRejected(machineID: "fltm_test")),
+                isSignedIn: true,
+                canBeginEnrollment: false
+            ),
+            .enrollmentFailed(
+                "The Fleet gateway rejected this Mac's credential.",
+                recovery: .unenroll
+            )
+        )
+    }
+
+    func testDetachedSnapshotExposesUnenrollRecovery() {
+        XCTAssertEqual(
+            resolve(
+                snapshot: makeSnapshot(enrollment: .detached),
+                enrollmentState: .failed(.detached(machineID: "fltm_test")),
+                isSignedIn: true,
+                canBeginEnrollment: false
+            ),
+            .enrollmentFailed(
+                "This Mac is enrolled, but Fleet participation is disabled.",
+                recovery: .unenroll
+            )
         )
     }
 
@@ -175,6 +189,8 @@ final class RunnersViewModelTests: XCTestCase {
             makeSnapshot(enrollment: .unenrolled, machineID: "fltm_invalid"),
             makeSnapshot(enrollment: .attached, machineID: nil),
             makeSnapshot(enrollment: .updating, machineID: nil),
+            makeSnapshot(enrollment: .detached, machineID: nil),
+            makeSnapshot(enrollment: .credentialRejected, machineID: nil),
             makeSnapshot(enrollment: .unspecified, machineID: nil),
             makeSnapshot(enrollment: .unrecognized(42), machineID: nil),
         ]

@@ -138,6 +138,18 @@ struct AuthSessionTests {
         await first.value
     }
 
+    @Test func concurrentSignInStartsOnlyOneDeviceFlow() async {
+        let session = makeSession()
+        let first = Task { await session.signIn() }
+        let second = Task { await session.signIn() }
+
+        await first.value
+        await second.value
+
+        #expect(provider.deviceCodeCalls == 1)
+        #expect(browser.opened.count == 1)
+    }
+
     // MARK: - Restore
 
     @Test func restoreAdoptsAStoredSessionWithoutNetwork() async throws {

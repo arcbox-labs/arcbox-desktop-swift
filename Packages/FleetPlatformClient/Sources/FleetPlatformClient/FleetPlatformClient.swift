@@ -1,5 +1,7 @@
-import ArcBoxAuth
+// Foundation precedes local packages per the repository import-order guideline.
+// swift-format-ignore: OrderedImports
 import Foundation
+import ArcBoxAuth
 
 protocol HTTPDataLoading: Sendable {
     func data(for request: URLRequest) async throws -> (Data, URLResponse)
