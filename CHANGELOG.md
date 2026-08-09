@@ -2,6 +2,10 @@
 
 ## [1.34.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.0...v1.34.1) (2026-08-04)
 
+### Highlights
+
+Settings, onboarding, file pickers, and quit progress now open in the expected place and behave more like native macOS surfaces. Container domains also remain visible and show their configured addresses, making local services easier to identify.
+
 
 ### Bug Fixes
 
@@ -21,6 +25,10 @@
 
 ## [1.34.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.33.0...v1.34.0) (2026-08-03)
 
+### Highlights
+
+Sandbox creation and terminal sessions are now more reliable when connections drop. Retried creation keeps one sandbox identity, while reconnected terminal sessions avoid replaying input.
+
 
 ### Features
 
@@ -32,6 +40,12 @@
 * bump arcbox version to v0.6.2 ([#360](https://github.com/arcboxlabs/arcbox-desktop/issues/360)) ([7d849f0](https://github.com/arcboxlabs/arcbox-desktop/commit/7d849f0dfcacadb60c8d67ddb4c4b78d275e2465))
 
 ## [1.33.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.32.1...v1.33.0) (2026-08-02)
+
+### Highlights
+
+New installs now include guided setup and a replayable Getting Started tour for Machines, Containers, Kubernetes, and Sandboxes.
+
+The main window also behaves more like a native Mac app, with more consistent navigation, resource lists, detail tabs, window sizing, and quit flows.
 
 
 ### Features

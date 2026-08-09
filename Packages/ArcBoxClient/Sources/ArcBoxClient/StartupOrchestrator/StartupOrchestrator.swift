@@ -48,10 +48,22 @@ public final class StartupOrchestrator {
     /// Whether all steps have completed successfully.
     public var isReady: Bool { phase == .completed }
 
+    /// Whether the daemon has also finished preparing the shared runtime.
+    public var isRuntimeReady: Bool { isReady && daemonManager.setupPhase.isDockerReady }
+
+    /// Current daemon-provided setup detail for progress UI.
+    public var setupMessage: String { daemonManager.setupMessage }
+
+    /// Fatal runtime setup error reported after the gRPC connection succeeds.
+    public var runtimeFailureMessage: String? {
+        guard isReady, case .error(let message) = daemonManager.state else { return nil }
+        return message
+    }
+
     /// Whether a retry is possible.
     public var canRetry: Bool {
         if case .failed = phase { return true }
-        return false
+        return runtimeFailureMessage != nil
     }
 
     // Dependencies

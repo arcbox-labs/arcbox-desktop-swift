@@ -331,7 +331,7 @@ final class ApplicationCoordinator: NSObject {
     }
 
     private func completeOnboarding() {
-        guard !isTerminating, startupOrchestrator?.isReady == true else { return }
+        guard !isTerminating, startupOrchestrator?.isRuntimeReady == true else { return }
 
         AppPreferences.markOnboardingCompleted()
         isOnboarding = false
