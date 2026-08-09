@@ -28,7 +28,7 @@ struct ImageFilesTab: View {
     @Environment(\.arcboxClient) private var arcboxClient
 
     @State private var selectedPath: String?
-    @State private var rootURL: URL?
+    @State private var stack = LayerStack()
     @State private var resolvedRootFSMountPath: String?
     @State private var errorMessage: String?
     @State private var isLoadingRoot = false
@@ -70,11 +70,13 @@ struct ImageFilesTab: View {
                 .font(.system(size: 12))
                 .foregroundStyle(AppColors.textSecondary)
 
-            Text(rootURL?.path ?? resolvedRootFSMountPath ?? "No rootfs mount path")
+            Text(stack.rootURL?.path ?? resolvedRootFSMountPath ?? "No rootfs mount path")
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundStyle(AppColors.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+
+            LayerMergeBadge(stack: stack)
 
             Spacer()
 
@@ -120,15 +122,17 @@ struct ImageFilesTab: View {
             }
         } else if let errorMessage {
             errorState(errorMessage)
-        } else if let rootURL {
+        } else if let rootURL = stack.rootURL {
             LocalRootFSOutlineView(
                 rootURL: rootURL,
+                layers: stack.layers,
                 showHiddenFiles: showHiddenFiles,
                 reloadID: outlineReloadID,
                 selectedPath: $selectedPath,
                 onOpenURL: { url in
                     _ = NSWorkspace.shared.open(url)
-                }
+                },
+                onExcludedLayers: { stack.exclude($0) }
             )
         } else {
             errorState("Image has no configured rootfs mount path.")
@@ -174,18 +178,21 @@ struct ImageFilesTab: View {
         errorMessage = nil
         isLoadingRoot = true
         selectedPath = nil
-        rootURL = nil
+        stack = LayerStack()
 
         do {
-            // The layer directory is a guest path; browse it via ~/ArcBox.
-            let mountPoint = try await resolveImageRootFSMountPath()
-            resolvedRootFSMountPath = mountPoint
-            guard let hostURL = GuestDataMount.hostURL(forGuestPath: mountPoint) else {
-                errorMessage = "Image layer path is outside the guest data root."
+            // The layer directories are guest paths; browse them via ~/ArcBox.
+            let mountPoints = try await resolveImageLayerPaths()
+            resolvedRootFSMountPath = mountPoints.first
+
+            stack = await LayerStack.resolve(guestPaths: mountPoints)
+            guard stack.rootURL != nil else {
+                errorMessage = Self.unresolvedMessage(guestPaths: mountPoints)
                 isLoadingRoot = false
                 return
             }
-            rootURL = try LocalRootFSService.resolveRootURL(path: hostURL.path)
+            // Listings report further exclusions as they happen — a layer can
+            // die after this point — and the badge unions them.
         } catch let error as ImageFilesTabError {
             resolvedRootFSMountPath = nil
             errorMessage = error.localizedDescription
@@ -196,7 +203,16 @@ struct ImageFilesTab: View {
         isLoadingRoot = false
     }
 
-    private func resolveImageRootFSMountPath() async throws -> String {
+    private static func unresolvedMessage(guestPaths: [String]) -> String {
+        switch LayerStack.unresolved(guestPaths: guestPaths) {
+        case .noPaths, .outsideExport:
+            return "Image layer path is outside the guest data root."
+        case .exportUnavailable:
+            return GuestDataMount.unavailableMessage(subject: "This image's layers")
+        }
+    }
+
+    private func resolveImageLayerPaths() async throws -> [String] {
         guard let docker else {
             throw ImageFilesTabError.dockerUnavailable
         }
@@ -207,13 +223,14 @@ struct ImageFilesTab: View {
                 explicitPath: snapshot.rootfsMountPath,
                 labels: snapshot.labels
             ) {
-                return resolvedPath
+                return [resolvedPath]
             }
             // Containerd image store: inspect carries no layer paths; ask
-            // the daemon to resolve the layer chain and browse the top
-            // layer's directory.
-            if let resolvedPath = await resolveViaDaemon(diffIDs: snapshot.rootfsLayers) {
-                return resolvedPath
+            // the daemon to resolve the layer chain, then merge the layers
+            // into the filesystem the image would present when run.
+            let resolved = await resolveViaDaemon(diffIDs: snapshot.rootfsLayers)
+            if !resolved.isEmpty {
+                return resolved
             }
             throw ImageFilesTabError.missingRootPath
         } catch let error as ImageFilesTabError {
@@ -223,22 +240,23 @@ struct ImageFilesTab: View {
         }
     }
 
-    /// Resolves the image's top layer directory via the daemon, keyed by
-    /// the layer chain ID computed from the inspect diff IDs.
-    private func resolveViaDaemon(diffIDs: [String]) async -> String? {
+    /// Resolves the image's layer directories via the daemon, keyed by the
+    /// layer chain ID computed from the inspect diff IDs. The daemon returns
+    /// them in overlay precedence order, topmost layer first.
+    private func resolveViaDaemon(diffIDs: [String]) async -> [String] {
         guard let arcboxClient,
             let topChainID = ImageLayerChain.topChainID(diffIDs: diffIDs)
-        else { return nil }
+        else { return [] }
         var request = Arcbox_V1_ResolveImageFsRequest()
         request.topChainID = topChainID
         do {
             let response = try await arcboxClient.system.resolveImageFs(
                 request, options: ArcBoxClient.defaultCallOptions)
-            return response.lowerDirs.first
+            return response.lowerDirs.filter { !$0.isEmpty }
         } catch {
             Log.daemon.error(
                 "Failed to resolve image fs: \(error.localizedDescription, privacy: .private)")
-            return nil
+            return []
         }
     }
 

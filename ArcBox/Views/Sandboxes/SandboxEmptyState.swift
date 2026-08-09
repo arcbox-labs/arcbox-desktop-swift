@@ -10,7 +10,7 @@ struct SandboxEmptyState: View {
 
                 CommandHint(
                     command: "abctl sandbox create",
-                    description: "Create with the default rootfs"
+                    description: "Create with the built-in minimal template"
                 )
                 CommandHint(
                     command: "abctl sandbox create --from-image <ref>",

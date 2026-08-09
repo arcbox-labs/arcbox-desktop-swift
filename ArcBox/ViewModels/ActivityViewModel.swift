@@ -41,6 +41,10 @@ final class ActivityViewModel {
     struct MetricPoint: Identifiable {
         let index: Int
         let value: Double
+        /// Guest monotonic clock at the sample. The x-axis counts samples, not
+        /// time, so this is what lets a scrubbed point report how long ago it
+        /// was rather than assuming the stream ticks at exactly 1 Hz.
+        let monotonicMs: UInt64
         var id: Int { index }
     }
 
@@ -84,15 +88,16 @@ final class ActivityViewModel {
         current = computed
         phase = .live
         sequence += 1
-        append(&cpuHistory, computed.cpuPercent)
-        append(&memoryHistory, computed.memoryUsedPercent)
+        append(&cpuHistory, computed.cpuPercent, at: sample.monotonicMs)
+        append(&memoryHistory, computed.memoryUsedPercent, at: sample.monotonicMs)
         append(
             &networkHistory,
-            computed.networkReceiveBytesPerSecond + computed.networkTransmitBytesPerSecond)
+            computed.networkReceiveBytesPerSecond + computed.networkTransmitBytesPerSecond,
+            at: sample.monotonicMs)
     }
 
-    private func append(_ series: inout [MetricPoint], _ value: Double) {
-        series.append(MetricPoint(index: sequence, value: value))
+    private func append(_ series: inout [MetricPoint], _ value: Double, at monotonicMs: UInt64) {
+        series.append(MetricPoint(index: sequence, value: value, monotonicMs: monotonicMs))
         if series.count > Self.historyLength {
             series.removeFirst(series.count - Self.historyLength)
         }

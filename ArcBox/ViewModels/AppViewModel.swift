@@ -1,4 +1,4 @@
-import SwiftUI
+import Observation
 
 /// Main application state
 @MainActor

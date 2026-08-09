@@ -1,16 +1,6 @@
-import ArcBoxClient
+import Foundation
 import K8sClient
-import OSLog
-import SwiftUI
-
-/// Detail tab for pods
-enum PodDetailTab: String, CaseIterable, Identifiable {
-    case info = "Info"
-    case logs = "Logs"
-    case terminal = "Terminal"
-
-    var id: String { rawValue }
-}
+import Observation
 
 /// Pod list state
 @MainActor
@@ -18,16 +8,11 @@ enum PodDetailTab: String, CaseIterable, Identifiable {
 class PodsViewModel {
     var pods: [PodViewModel] = []
     var selectedID: String?
-    var activeTab: PodDetailTab = .info
-    var listWidth: CGFloat = 320
-    var isLoading: Bool = false
+    var streamPhase: KubernetesStreamPhase = .connecting
     var searchText: String = ""
     var isSearching: Bool = false
 
-    private var k8sClient: K8sClient?
-
     var podCount: Int { pods.count }
-    var runningCount: Int { pods.filter(\.isRunning).count }
     var filteredPods: [PodViewModel] {
         guard !searchText.isEmpty else { return pods }
         let query = searchText.lowercased()
@@ -40,53 +25,20 @@ class PodsViewModel {
 
     var selectedPod: PodViewModel? {
         guard let id = selectedID else { return nil }
-        return filteredPods.first { $0.id == id }
+        return pods.first { $0.id == id }
     }
 
-    func selectPod(_ id: String) {
-        selectedID = id
-    }
-
-    /// Fetch kubeconfig via gRPC, create K8sClient, then load pods.
-    /// Returns `true` if the request succeeded (even if the list is empty).
-    @discardableResult
-    func loadPods(client: ArcBoxClient?) async -> Bool {
-        guard let client else {
-            Log.pods.debug("No gRPC client available")
-            return false
-        }
-
-        isLoading = true
-        defer { isLoading = false }
-
-        do {
-            if k8sClient == nil {
-                let kubeconfigResponse: Arcbox_V1_KubernetesKubeconfigResponse = try await client.kubernetes
-                    .getKubeconfig(.init(), options: ArcBoxClient.defaultCallOptions)
-                let config = try KubeConfig(yaml: kubeconfigResponse.kubeconfig)
-                self.k8sClient = try K8sClient(config: config)
-            }
-
-            guard let k8s = k8sClient else { return false }
-            let podList = try await Perf.measure("pod.list") {
-                try await k8s.listAllPods()
-            }
-            self.pods = podList.items.compactMap { Self.mapPod($0) }
-            return true
-        } catch {
-            Log.pods.error("Error loading pods: \(error.localizedDescription, privacy: .private)")
-            ErrorReporting.capture(error, domain: .pod, operation: "list")
-            self.pods = []
-            self.k8sClient = nil
-            return false
-        }
+    /// Replace the list with a watch snapshot. Called by ``KubernetesState``, which owns the
+    /// client and the stream.
+    func apply(_ items: [Pod]) {
+        pods = items.compactMap { Self.mapPod($0) }
     }
 
     /// Clear all pod data when K8s is stopped.
     func clear() {
-        k8sClient = nil
         pods = []
         selectedID = nil
+        streamPhase = .connecting
     }
 
     // MARK: - Mapping

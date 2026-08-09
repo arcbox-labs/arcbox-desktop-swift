@@ -1,37 +1,47 @@
-import SwiftUI
+import AppKit
 
-extension AboutView {
-    func releaseRow(_ release: ChangelogRelease) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Text(release.version)
-                    .font(.system(size: 13, weight: .semibold))
-                Text("·")
-                    .foregroundStyle(AppColors.textMuted)
-                Text(release.date)
-                    .font(.system(size: 12))
-                    .foregroundStyle(AppColors.textSecondary)
-            }
+extension AboutViewController {
+    func releaseRow(_ release: ChangelogRelease) -> NSView {
+        let version = label(release.version, font: .systemFont(ofSize: 13, weight: .semibold))
+        let separator = label("·", font: .systemFont(ofSize: 12), color: .tertiaryLabelColor)
+        let date = label(
+            release.date,
+            font: .systemFont(ofSize: 12),
+            color: .secondaryLabelColor
+        )
+        let heading = NSStackView(views: [version, separator, date])
+        heading.alignment = .firstBaseline
+        heading.orientation = .horizontal
+        heading.spacing = 6
 
-            ForEach(release.sections) { section in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(section.title)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(AppColors.textSecondary)
-                        .textCase(.uppercase)
-
-                    ForEach(section.items, id: \.self) { item in
-                        HStack(alignment: .top, spacing: 6) {
-                            Text("•")
-                                .foregroundStyle(AppColors.textMuted)
-                            Text(item)
-                                .font(.system(size: 12))
-                                .foregroundStyle(AppColors.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-            }
+        var views: [NSView] = [heading]
+        for section in release.sections {
+            views.append(releaseSection(section))
         }
+        let row = verticalStack(views, spacing: 8)
+        row.setAccessibilityElement(true)
+        row.setAccessibilityRole(.group)
+        row.setAccessibilityLabel("\(release.version), \(release.date)")
+        return row
+    }
+
+    private func releaseSection(_ section: ChangelogSection) -> NSView {
+        let title = label(
+            section.title.uppercased(),
+            font: .systemFont(ofSize: 11, weight: .medium),
+            color: .secondaryLabelColor
+        )
+        let items = section.items.map { item in
+            let bullet = label("•", font: .systemFont(ofSize: 12), color: .tertiaryLabelColor)
+            let text = label(item, font: .systemFont(ofSize: 12), color: .secondaryLabelColor)
+            text.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+            let row = NSStackView(views: [bullet, text])
+            row.alignment = .top
+            row.orientation = .horizontal
+            row.spacing = 6
+            return row
+        }
+        return verticalStack([title] + items, spacing: 4)
     }
 }

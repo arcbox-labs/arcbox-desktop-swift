@@ -41,6 +41,8 @@ struct MacosArgs {
 enum MacosCommand {
     /// Embed arcbox Rust binaries into the app bundle (Xcode build phase).
     Embed(MacosEmbedArgs),
+    /// Stage the complete runtime payload into an existing app bundle.
+    StageResources(MacosStageResourcesArgs),
     /// Bundle the arcbox-daemon binary into a minimal signed `.app`.
     Bundle(MacosBundleArgs),
     /// Prepare profile resources used by local DMG packaging.
@@ -52,6 +54,21 @@ enum MacosCommand {
 /// All inputs come from the Xcode build environment; there are no flags.
 #[derive(Args)]
 struct MacosEmbedArgs {}
+
+#[derive(Args)]
+struct MacosStageResourcesArgs {
+    /// Existing Xcode-built `.app` bundle to complete.
+    app_bundle: PathBuf,
+    /// Stage the development profile (`~/.arcbox-dev`).
+    #[arg(long)]
+    dev: bool,
+    /// Path to the arcbox checkout (auto-discovered when unset).
+    #[arg(long, env = "ARCBOX_DIR")]
+    arcbox_dir: Option<PathBuf>,
+    /// Code-sign identity for executable runtime payloads.
+    #[arg(long)]
+    sign: String,
+}
 
 #[derive(Args)]
 struct MacosBundleArgs {

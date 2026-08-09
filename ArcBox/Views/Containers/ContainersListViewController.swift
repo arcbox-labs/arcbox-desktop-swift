@@ -1,0 +1,848 @@
+import AppKit
+import Foundation
+import Observation
+
+@MainActor
+final class ContainersListViewController: NSViewController,
+    NSOutlineViewDataSource,
+    NSOutlineViewDelegate,
+    NSMenuDelegate
+{
+    struct Actions {
+        let retry: @MainActor () -> Void
+        let select: @MainActor (String) -> Void
+        let toggle: @MainActor (String) -> Void
+        let delete: @MainActor (String) -> Void
+        let toggleGroup: @MainActor (String, [String]) -> Void
+        let deleteGroup: @MainActor (String, [String]) -> Void
+    }
+
+    private struct Snapshot: Equatable {
+        let loadState: LoadPhase
+        let hasContainers: Bool
+        let roots: [ContainerListNodePresentation]
+        let expandedGroups: Set<String>
+        let searchText: String
+        let selectedID: String?
+
+        init(viewModel: ContainersViewModel) {
+            loadState = viewModel.loadState
+            hasContainers = !viewModel.containers.isEmpty
+            expandedGroups = viewModel.expandedGroups
+            searchText = viewModel.searchText
+            selectedID = viewModel.selectedID
+
+            let groups = viewModel.composeGroups.map {
+                (
+                    project: $0.project,
+                    containers: $0.containers.map(ContainerListPresentation.init)
+                )
+            }
+            let activeGroups = groups.filter {
+                $0.containers.contains { $0.container.isRunning }
+            }
+            let stoppedGroups = groups.filter {
+                !$0.containers.contains { $0.container.isRunning }
+            }
+            let standalone = viewModel.standaloneContainers.map(
+                ContainerListPresentation.init
+            )
+            let runningStandalone = standalone.filter(\.container.isRunning)
+            let stoppedStandalone = standalone.filter { !$0.container.isRunning }
+
+            var roots: [ContainerListNodePresentation] = []
+            if !activeGroups.isEmpty || !runningStandalone.isEmpty {
+                roots.append(.section("In Use"))
+                roots.append(
+                    contentsOf: activeGroups.map {
+                        .compose(project: $0.project, containers: $0.containers)
+                    })
+                roots.append(contentsOf: runningStandalone.map(Self.containerNode))
+            }
+            if !stoppedGroups.isEmpty || !stoppedStandalone.isEmpty {
+                roots.append(.section("Stopped"))
+                roots.append(
+                    contentsOf: stoppedGroups.map {
+                        .compose(project: $0.project, containers: $0.containers)
+                    })
+                roots.append(contentsOf: stoppedStandalone.map(Self.containerNode))
+            }
+            self.roots = roots
+        }
+
+        private static func containerNode(
+            _ container: ContainerListPresentation
+        ) -> ContainerListNodePresentation {
+            .container(container)
+        }
+    }
+
+    private static let sectionCellIdentifier = NSUserInterfaceItemIdentifier(
+        "ContainerSectionCell"
+    )
+    private static let composeCellIdentifier = NSUserInterfaceItemIdentifier(
+        "ContainerComposeCell"
+    )
+    private static let containerCellIdentifier = NSUserInterfaceItemIdentifier(
+        "ContainerCell"
+    )
+
+    private let viewModel: ContainersViewModel
+    private let scrollView = NSScrollView()
+    private let outlineView = ContainersOutlineView()
+    private let placeholderView = StatePlaceholderView(
+        state: .loading(title: "Loading containers…")
+    )
+    private let emptyStateView = CommandEmptyStateView(
+        systemImage: "cube",
+        title: "No containers yet",
+        prompt: "Quick start:",
+        commands: [
+            .init(
+                command: "docker run -d nginx",
+                description: "Run nginx server"
+            ),
+            .init(
+                command: "docker run -it ubuntu bash",
+                description: "Interactive Ubuntu shell"
+            ),
+            .init(
+                command: "docker compose up -d",
+                description: "Start compose project"
+            ),
+        ]
+    )
+
+    private var snapshot: Snapshot?
+    private var rootNodes: [ContainerListNode] = []
+    private var loadingTitle: String
+    private var useDNS: Bool
+    private var actions: Actions
+    private var contextContainerID: String?
+    private var contextToggleItem: NSMenuItem?
+    private var contextCopyNameItem: NSMenuItem?
+    private var contextCopyIDItem: NSMenuItem?
+    private var contextDeleteItem: NSMenuItem?
+    private var deleteAlert: NSAlert?
+    private var isApplyingExpansion = false
+    private var isApplyingSelection = false
+
+    init(
+        viewModel: ContainersViewModel,
+        loadingTitle: String,
+        useDNS: Bool,
+        actions: Actions
+    ) {
+        self.viewModel = viewModel
+        self.loadingTitle = loadingTitle
+        self.useDNS = useDNS
+        self.actions = actions
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func loadView() {
+        let container = NSView()
+        setUpOutlineView()
+
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        placeholderView.translatesAutoresizingMaskIntoConstraints = false
+        emptyStateView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(scrollView)
+        container.addSubview(placeholderView)
+        container.addSubview(emptyStateView)
+
+        NSLayoutConstraint.activate([
+            scrollView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
+            scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            placeholderView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            placeholderView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            placeholderView.topAnchor.constraint(equalTo: container.topAnchor),
+            placeholderView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            emptyStateView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            emptyStateView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            emptyStateView.topAnchor.constraint(equalTo: container.topAnchor),
+            emptyStateView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        view = container
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        observeAndRender()
+    }
+
+    func update(
+        loadingTitle: String,
+        useDNS: Bool,
+        actions: Actions
+    ) {
+        let loadingTitleChanged = self.loadingTitle != loadingTitle
+        let useDNSChanged = self.useDNS != useDNS
+        self.loadingTitle = loadingTitle
+        self.useDNS = useDNS
+        self.actions = actions
+
+        guard let snapshot, isViewLoaded else { return }
+        switch snapshot.loadState {
+        case .waiting, .loading:
+            if loadingTitleChanged {
+                placeholderView.update(.loading(title: loadingTitle))
+                NSAccessibility.post(
+                    element: placeholderView,
+                    notification: .layoutChanged
+                )
+            }
+        case .failed(let message):
+            placeholderView.update(
+                .error(title: "Failed to load containers", message: message),
+                action: .init(title: "Retry", handler: actions.retry)
+            )
+        case .loaded:
+            if useDNSChanged {
+                reloadOutline(expandedGroups: snapshot.expandedGroups)
+                applySelection(snapshot.selectedID)
+            }
+        }
+    }
+
+    func outlineView(
+        _: NSOutlineView,
+        numberOfChildrenOfItem item: Any?
+    ) -> Int {
+        guard let item = item as? ContainerListNode else {
+            return rootNodes.count
+        }
+        return item.children.count
+    }
+
+    func outlineView(
+        _: NSOutlineView,
+        child index: Int,
+        ofItem item: Any?
+    ) -> Any {
+        guard let item = item as? ContainerListNode else {
+            return rootNodes[index]
+        }
+        return item.children[index]
+    }
+
+    func outlineView(
+        _: NSOutlineView,
+        isItemExpandable item: Any
+    ) -> Bool {
+        guard let item = item as? ContainerListNode else { return false }
+        if case .compose = item.presentation {
+            return true
+        }
+        return false
+    }
+
+    func outlineView(
+        _: NSOutlineView,
+        viewFor _: NSTableColumn?,
+        item: Any
+    ) -> NSView? {
+        guard let node = item as? ContainerListNode else { return nil }
+        switch node.presentation {
+        case .section(let title):
+            return sectionCell(title: title)
+        case .compose(let project, let containers):
+            return composeCell(
+                project: project,
+                containers: containers.map(\.container)
+            )
+        case .container(let container):
+            return containerCell(container.container)
+        }
+    }
+
+    func outlineView(_: NSOutlineView, isGroupItem item: Any) -> Bool {
+        guard
+            let item = item as? ContainerListNode,
+            case .section = item.presentation
+        else {
+            return false
+        }
+        return true
+    }
+
+    func outlineView(
+        _: NSOutlineView,
+        heightOfRowByItem item: Any
+    ) -> CGFloat {
+        guard let item = item as? ContainerListNode else { return 0 }
+        if case .section = item.presentation {
+            return 28
+        }
+        return AppMetrics.rowHeight
+    }
+
+    func outlineView(
+        _: NSOutlineView,
+        rowViewForItem item: Any
+    ) -> NSTableRowView? {
+        guard let item = item as? ContainerListNode else { return nil }
+        if case .section = item.presentation {
+            return nil
+        }
+        return ResourceListRowView(horizontalInset: 12)
+    }
+
+    func outlineView(
+        _ outlineView: NSOutlineView,
+        shouldSelectItem item: Any
+    ) -> Bool {
+        guard let item = item as? ContainerListNode else { return false }
+        switch item.presentation {
+        case .section:
+            return false
+        case .compose:
+            if outlineView.isItemExpanded(item) {
+                outlineView.collapseItem(item)
+            } else {
+                outlineView.expandItem(item)
+            }
+            return false
+        case .container:
+            return true
+        }
+    }
+
+    func outlineViewSelectionDidChange(_: Notification) {
+        guard !isApplyingSelection else { return }
+        let selectedID = container(at: outlineView.selectedRow)?.id
+        guard selectedID != viewModel.selectedID else { return }
+        if selectedID == nil,
+            let currentID = viewModel.selectedID,
+            let currentNode = node(forContainerID: currentID),
+            outlineView.row(forItem: currentNode) == -1
+        {
+            return
+        }
+        viewModel.selectedID = selectedID
+        if let selectedID {
+            actions.select(selectedID)
+        }
+    }
+
+    func outlineViewItemDidExpand(_ notification: Notification) {
+        updateExpansion(from: notification, expanded: true)
+    }
+
+    func outlineViewItemDidCollapse(_ notification: Notification) {
+        updateExpansion(from: notification, expanded: false)
+    }
+
+    func menuNeedsUpdate(_: NSMenu) {
+        let clickedRow = outlineView.clickedRow
+        contextContainerID = container(at: clickedRow)?.id
+        if contextContainerID != nil, outlineView.selectedRow != clickedRow {
+            outlineView.selectRowIndexes(
+                IndexSet(integer: clickedRow),
+                byExtendingSelection: false
+            )
+        }
+
+        let container = contextContainerID.flatMap(currentContainer)
+        contextToggleItem?.title =
+            container?.isRunning == true ? "Stop" : "Start"
+        contextToggleItem?.isEnabled = container?.isTransitioning == false
+        contextCopyNameItem?.isEnabled = container != nil
+        contextCopyIDItem?.isEnabled = container != nil
+        contextDeleteItem?.isEnabled = container != nil
+    }
+
+    private func observeAndRender() {
+        let snapshot = withObservationTracking {
+            Snapshot(viewModel: viewModel)
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.observeAndRender()
+            }
+        }
+        render(snapshot)
+    }
+
+    private func render(_ snapshot: Snapshot) {
+        let previous = self.snapshot
+        let rootsChanged = previous?.roots != snapshot.roots
+        let expansionChanged =
+            previous?.expandedGroups != snapshot.expandedGroups
+        let presentationChanged =
+            previous == nil
+            || previous?.loadState != snapshot.loadState
+            || previous?.hasContainers != snapshot.hasContainers
+            || (snapshot.roots.isEmpty && previous?.searchText != snapshot.searchText)
+
+        self.snapshot = snapshot
+        if rootsChanged {
+            rootNodes = snapshot.roots.map(ContainerListNode.init)
+            reloadOutline(expandedGroups: snapshot.expandedGroups)
+        } else if expansionChanged {
+            applyExpansion(snapshot.expandedGroups)
+        }
+
+        if rootsChanged || presentationChanged {
+            switch snapshot.loadState {
+            case .waiting, .loading:
+                showPlaceholder(.loading(title: loadingTitle))
+            case .failed(let message):
+                showPlaceholder(
+                    .error(title: "Failed to load containers", message: message),
+                    action: .init(title: "Retry", handler: actions.retry)
+                )
+            case .loaded where !snapshot.hasContainers:
+                placeholderView.isHidden = true
+                scrollView.isHidden = true
+                emptyStateView.isHidden = false
+            case .loaded where snapshot.roots.isEmpty:
+                showPlaceholder(
+                    .empty(
+                        systemImage: "magnifyingglass",
+                        title: "No Results",
+                        message: "No containers match “\(snapshot.searchText)”."
+                    )
+                )
+            case .loaded:
+                placeholderView.isHidden = true
+                emptyStateView.isHidden = true
+                scrollView.isHidden = false
+            }
+            NSAccessibility.post(element: view, notification: .layoutChanged)
+        }
+
+        if case .loaded = snapshot.loadState {
+            applySelection(snapshot.selectedID)
+        }
+    }
+
+    private func showPlaceholder(
+        _ state: StatePlaceholderView.State,
+        action: StatePlaceholderView.Action? = nil
+    ) {
+        placeholderView.update(state, action: action)
+        placeholderView.isHidden = false
+        emptyStateView.isHidden = true
+        scrollView.isHidden = true
+    }
+
+    private func setUpOutlineView() {
+        let column = NSTableColumn(
+            identifier: NSUserInterfaceItemIdentifier("ContainerColumn")
+        )
+        column.resizingMask = .autoresizingMask
+        outlineView.addTableColumn(column)
+        outlineView.outlineTableColumn = column
+        outlineView.headerView = nil
+        outlineView.style = .fullWidth
+        outlineView.intercellSpacing = .zero
+        outlineView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        outlineView.floatsGroupRows = false
+        outlineView.indentationPerLevel = 28
+        outlineView.allowsMultipleSelection = false
+        outlineView.allowsEmptySelection = true
+        outlineView.selectionHighlightStyle = .none
+        outlineView.dataSource = self
+        outlineView.delegate = self
+        outlineView.setAccessibilityLabel("Containers")
+        outlineView.menu = makeContextMenu()
+
+        scrollView.documentView = outlineView
+        scrollView.drawsBackground = false
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+    }
+}
+
+extension ContainersListViewController {
+    private func makeContextMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.delegate = self
+
+        let toggleItem = menu.addItem(
+            withTitle: "Start",
+            action: #selector(toggleContextContainer),
+            keyEquivalent: ""
+        )
+        toggleItem.target = self
+        contextToggleItem = toggleItem
+        menu.addItem(.separator())
+
+        let copyNameItem = menu.addItem(
+            withTitle: "Copy Name",
+            action: #selector(copyContextContainerName),
+            keyEquivalent: ""
+        )
+        copyNameItem.target = self
+        contextCopyNameItem = copyNameItem
+
+        let copyIDItem = menu.addItem(
+            withTitle: "Copy ID",
+            action: #selector(copyContextContainerID),
+            keyEquivalent: ""
+        )
+        copyIDItem.target = self
+        contextCopyIDItem = copyIDItem
+        menu.addItem(.separator())
+
+        let deleteItem = menu.addItem(
+            withTitle: "Delete",
+            action: #selector(deleteContextContainer),
+            keyEquivalent: ""
+        )
+        deleteItem.target = self
+        deleteItem.image = NSImage(
+            systemSymbolName: "trash",
+            accessibilityDescription: nil
+        )
+        contextDeleteItem = deleteItem
+        return menu
+    }
+
+    private func sectionCell(title: String) -> NSTableCellView {
+        let cell =
+            outlineView.makeView(
+                withIdentifier: Self.sectionCellIdentifier,
+                owner: nil
+            ) as? NSTableCellView ?? makeSectionCell()
+        cell.textField?.stringValue = title
+        cell.setAccessibilityLabel(title)
+        return cell
+    }
+
+    private func makeSectionCell() -> NSTableCellView {
+        let cell = NSTableCellView()
+        cell.identifier = Self.sectionCellIdentifier
+        cell.setAccessibilityElement(true)
+        cell.setAccessibilityRole(.group)
+
+        let label = NSTextField(labelWithString: "")
+        label.font = .systemFont(ofSize: 11, weight: .semibold)
+        label.textColor = .secondaryLabelColor
+        label.translatesAutoresizingMaskIntoConstraints = false
+        cell.addSubview(label)
+        cell.textField = label
+
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 12),
+            label.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -12),
+            label.bottomAnchor.constraint(equalTo: cell.bottomAnchor, constant: -4),
+        ])
+        return cell
+    }
+
+    private func composeCell(
+        project: String,
+        containers: [ContainerViewModel]
+    ) -> ContainerGroupTableCellView {
+        let cell =
+            outlineView.makeView(
+                withIdentifier: Self.composeCellIdentifier,
+                owner: nil
+            ) as? ContainerGroupTableCellView ?? ContainerGroupTableCellView()
+        cell.identifier = Self.composeCellIdentifier
+        let ids = containers.map(\.id)
+        cell.configure(
+            project: project,
+            containers: containers,
+            isExpanded: viewModel.isGroupExpanded(project),
+            onToggle: { [weak self] in
+                self?.toggleGroup(project: project, expectedIDs: ids)
+            },
+            onDelete: { [weak self] in
+                self?.confirmDeleteGroup(project: project, expectedIDs: ids)
+            }
+        )
+        return cell
+    }
+
+    private func containerCell(
+        _ container: ContainerViewModel
+    ) -> ContainerTableCellView {
+        let cell =
+            outlineView.makeView(
+                withIdentifier: Self.containerCellIdentifier,
+                owner: nil
+            ) as? ContainerTableCellView ?? ContainerTableCellView()
+        cell.identifier = Self.containerCellIdentifier
+        cell.configure(
+            container: container,
+            useDNS: useDNS,
+            onOpenPort: { [weak self] port in
+                self?.openPort(port, containerID: container.id)
+            },
+            onToggle: { [weak self] in
+                self?.toggleContainer(container.id)
+            },
+            onDelete: { [weak self] in
+                self?.confirmDeleteContainer(container.id)
+            }
+        )
+        return cell
+    }
+
+    private func reloadOutline(expandedGroups: Set<String>) {
+        isApplyingSelection = true
+        isApplyingExpansion = true
+        outlineView.reloadData()
+        isApplyingExpansion = false
+        isApplyingSelection = false
+        applyExpansion(expandedGroups)
+    }
+
+    private func applyExpansion(_ expandedGroups: Set<String>) {
+        isApplyingExpansion = true
+        defer { isApplyingExpansion = false }
+        for node in rootNodes {
+            guard case .compose(let project, _) = node.presentation else {
+                continue
+            }
+            if expandedGroups.contains(project) {
+                outlineView.expandItem(node)
+            } else {
+                outlineView.collapseItem(node)
+            }
+        }
+    }
+
+    private func updateExpansion(
+        from notification: Notification,
+        expanded: Bool
+    ) {
+        guard
+            let node = notification.userInfo?["NSObject"] as? ContainerListNode,
+            case .compose(let project, _) = node.presentation
+        else {
+            return
+        }
+        let row = outlineView.row(forItem: node)
+        if row >= 0 {
+            (outlineView.view(
+                atColumn: 0,
+                row: row,
+                makeIfNecessary: false
+            ) as? ContainerGroupTableCellView)?.setExpanded(expanded)
+        }
+        guard
+            !isApplyingExpansion,
+            viewModel.expandedGroups.contains(project) != expanded
+        else {
+            return
+        }
+        viewModel.toggleGroup(project)
+    }
+
+    private func applySelection(_ selectedID: String?) {
+        guard
+            let selectedID,
+            let node = node(forContainerID: selectedID),
+            outlineView.row(forItem: node) >= 0
+        else {
+            if let selectedID,
+                !viewModel.containers.contains(where: { $0.id == selectedID })
+            {
+                viewModel.selectedID = nil
+            }
+            guard outlineView.selectedRow != -1 else { return }
+            applyingSelection {
+                outlineView.deselectAll(nil)
+            }
+            return
+        }
+
+        let row = outlineView.row(forItem: node)
+        guard outlineView.selectedRow != row else { return }
+        applyingSelection {
+            outlineView.selectRowIndexes(
+                IndexSet(integer: row),
+                byExtendingSelection: false
+            )
+        }
+        outlineView.scrollRowToVisible(row)
+    }
+
+    private func applyingSelection(_ action: () -> Void) {
+        isApplyingSelection = true
+        defer { isApplyingSelection = false }
+        action()
+    }
+
+    private func node(forContainerID id: String) -> ContainerListNode? {
+        for root in rootNodes {
+            if root.id == .container(id) {
+                return root
+            }
+            if let child = root.children.first(where: { $0.id == .container(id) }) {
+                return child
+            }
+        }
+        return nil
+    }
+
+    private func container(at row: Int) -> ContainerViewModel? {
+        guard
+            row >= 0,
+            let node = outlineView.item(atRow: row) as? ContainerListNode,
+            case .container(let container) = node.presentation
+        else {
+            return nil
+        }
+        return container.container
+    }
+
+    private func currentContainer(_ id: String) -> ContainerViewModel? {
+        viewModel.containers.first { $0.id == id }
+    }
+
+    private func currentVisibleGroup(
+        project: String,
+        expectedIDs: [String]
+    ) -> [ContainerViewModel]? {
+        guard
+            let containers = viewModel.composeGroups.first(where: {
+                $0.project == project
+            })?.containers,
+            Set(containers.map(\.id)) == Set(expectedIDs)
+        else {
+            return nil
+        }
+        return containers
+    }
+
+    private func toggleContainer(_ id: String) {
+        guard let container = currentContainer(id), !container.isTransitioning else {
+            return
+        }
+        actions.toggle(id)
+    }
+
+    private func toggleGroup(project: String, expectedIDs: [String]) {
+        guard
+            let containers = currentVisibleGroup(
+                project: project,
+                expectedIDs: expectedIDs
+            ),
+            !containers.contains(where: \.isTransitioning)
+        else {
+            return
+        }
+        actions.toggleGroup(project, expectedIDs)
+    }
+
+    private func openPort(_ port: PortMapping, containerID: String) {
+        guard
+            let container = currentContainer(containerID),
+            container.ports.contains(port),
+            useDNS || port.hostPort > 0,
+            let url = container.portURL(port, useDNS: useDNS)
+        else {
+            return
+        }
+        NSWorkspace.shared.open(url)
+    }
+
+    private func confirmDeleteContainer(_ id: String) {
+        guard
+            let container = currentContainer(id),
+            deleteAlert == nil,
+            let window = view.window
+        else {
+            return
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Delete Container"
+        alert.informativeText =
+            "Are you sure you want to delete “\(container.name)”? This action cannot be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Delete").hasDestructiveAction = true
+        alert.addButton(withTitle: "Cancel")
+        deleteAlert = alert
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self else { return }
+            deleteAlert = nil
+            guard
+                response == .alertFirstButtonReturn,
+                currentContainer(id) != nil
+            else {
+                return
+            }
+            actions.delete(id)
+        }
+    }
+
+    private func confirmDeleteGroup(
+        project: String,
+        expectedIDs: [String]
+    ) {
+        guard
+            let containers = currentVisibleGroup(
+                project: project,
+                expectedIDs: expectedIDs
+            ),
+            deleteAlert == nil,
+            let window = view.window
+        else {
+            return
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Delete All Containers"
+        alert.informativeText =
+            "Are you sure you want to delete all \(containers.count) containers in “\(project)”? This action cannot be undone."
+        alert.alertStyle = .warning
+        alert.addButton(
+            withTitle: "Delete All (\(containers.count))"
+        ).hasDestructiveAction = true
+        alert.addButton(withTitle: "Cancel")
+        deleteAlert = alert
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self else { return }
+            deleteAlert = nil
+            guard
+                response == .alertFirstButtonReturn,
+                currentVisibleGroup(
+                    project: project,
+                    expectedIDs: expectedIDs
+                ) != nil
+            else {
+                return
+            }
+            actions.deleteGroup(project, expectedIDs)
+        }
+    }
+
+    @objc private func toggleContextContainer() {
+        guard let contextContainerID else { return }
+        toggleContainer(contextContainerID)
+    }
+
+    @objc private func copyContextContainerName() {
+        guard let container = contextContainerID.flatMap(currentContainer) else {
+            return
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(container.name, forType: .string)
+    }
+
+    @objc private func copyContextContainerID() {
+        guard let contextContainerID, currentContainer(contextContainerID) != nil else {
+            return
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(contextContainerID, forType: .string)
+    }
+
+    @objc private func deleteContextContainer() {
+        guard let contextContainerID else { return }
+        confirmDeleteContainer(contextContainerID)
+    }
+}

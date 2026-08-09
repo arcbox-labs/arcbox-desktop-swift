@@ -7,6 +7,7 @@ struct CommandHint: View {
 
     @State private var copied = false
     @State private var isHovered = false
+    @FocusState private var isCopyButtonFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -32,7 +33,10 @@ struct CommandHint: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .opacity(isHovered || copied ? 1 : 0)
+                .focused($isCopyButtonFocused)
+                .accessibilityLabel("Copy command: \(command)")
+                .help("Copy command")
+                .opacity(isHovered || copied || isCopyButtonFocused ? 1 : 0)
             }
             .background(
                 RoundedRectangle(cornerRadius: 4)

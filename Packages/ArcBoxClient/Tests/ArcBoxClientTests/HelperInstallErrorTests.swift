@@ -4,6 +4,12 @@ import Testing
 @testable import ArcBoxClient
 
 struct HelperInstallErrorTests {
+    @Test func approvalRequiredMessageExplainsWhyStartupPaused() {
+        let message = HelperInstallError.approvalRequired.errorDescription ?? ""
+        #expect(message.contains("Administrator approval"))
+        #expect(message.contains("helper service"))
+    }
+
     @Test func userCanceledMessageMentionsRetryAndDocker() {
         let message = HelperInstallError.userCanceled.errorDescription ?? ""
         #expect(message.contains("Retry"))
@@ -24,6 +30,28 @@ struct HelperInstallErrorTests {
     @Test func missingBinaryMessageNamesTheBinary() {
         let message = HelperInstallError.bundledBinaryMissing("arcbox-helper").errorDescription ?? ""
         #expect(message.contains("arcbox-helper"))
+    }
+
+    @Test func cancellationTerminatesTheRunningProcess() async throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        process.arguments = ["30"]
+        let task = Task {
+            try await runCancellableProcess(process)
+        }
+
+        try await Task.sleep(for: .milliseconds(50))
+        try #require(process.isRunning)
+
+        let clock = ContinuousClock()
+        let canceledAt = clock.now
+        task.cancel()
+        await #expect(throws: CancellationError.self) {
+            try await task.value
+        }
+
+        #expect(!process.isRunning)
+        #expect(canceledAt.duration(to: clock.now) < .seconds(1))
     }
 }
 

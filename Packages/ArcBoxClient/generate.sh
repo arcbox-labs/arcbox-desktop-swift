@@ -1,8 +1,8 @@
 #!/bin/bash
 # Generate Swift protobuf and gRPC code from arcbox proto definitions.
 #
-# Proto files are fetched from GitHub (arcboxd/arcbox) by default,
-# or from a local arcbox checkout if available.
+# Proto files are fetched from the arcbox.version GitHub ref by default.
+# Pass --local explicitly to generate from the neighboring arcbox checkout.
 #
 # Prerequisites:
 #   brew install protobuf
@@ -37,7 +37,10 @@ PROTOS=(
     "image.proto"
     "api.proto"
     "machine.proto"
-    "sandbox.proto"
+    "arcbox/sandbox/v1/sandbox.proto"
+    "arcbox/sandbox/v1/process.proto"
+    "arcbox/sandbox/v1/filesystem.proto"
+    "arcbox/sandbox/v1/snapshot.proto"
     "kubernetes.proto"
     "stats.proto"
 )
@@ -74,6 +77,7 @@ fetch_from_github() {
 
     for proto in "${PROTOS[@]}"; do
         local url="https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/${GITHUB_PROTO_PATH}/${proto}"
+        mkdir -p "$(dirname "${PROTO_TMPDIR}/${proto}")"
         echo "  Downloading ${proto}" >&2
         if ! curl -fsSL -o "${PROTO_TMPDIR}/${proto}" "$url"; then
             echo "Error: failed to download ${proto} from ${url}" >&2
@@ -95,13 +99,8 @@ elif [ "$FORCE_MODE" = "--remote" ]; then
     PROTO_DIR="$(fetch_from_github)"
     echo "Using GitHub proto: $PROTO_DIR"
 else
-    # Auto: prefer local, fallback to GitHub
-    if PROTO_DIR="$(find_local_proto)"; then
-        echo "Using local proto: $PROTO_DIR"
-    else
-        PROTO_DIR="$(fetch_from_github)"
-        echo "Using GitHub proto: $PROTO_DIR"
-    fi
+    PROTO_DIR="$(fetch_from_github)"
+    echo "Using GitHub proto: $PROTO_DIR"
 fi
 
 echo "Output dir: $OUT_DIR"
@@ -114,20 +113,39 @@ echo "Output dir: $OUT_DIR"
 # hard-fail hashFiles (sentry-cocoa's .claude/skills did), and checked-out
 # package manifests pollute the swiftpm cache key.
 SCRATCH_DIR="${SCRIPT_DIR}/../../.build/protoc-plugins"
+SYSTEM_DEVELOPER_DIR="$(/usr/bin/env -i PATH=/usr/bin:/bin /usr/bin/xcode-select -p)"
+SWIFT_ENV=(
+    /usr/bin/env -i
+    "HOME=$HOME"
+    "PATH=/usr/bin:/bin:/usr/sbin:/sbin"
+    "DEVELOPER_DIR=$SYSTEM_DEVELOPER_DIR"
+)
+if [ -n "${TMPDIR:-}" ]; then
+    SWIFT_ENV+=("TMPDIR=$TMPDIR")
+fi
+
 echo ""
 echo "Building protoc plugins..."
 cd "$SCRIPT_DIR"
-swift build --scratch-path "$SCRATCH_DIR" --product protoc-gen-swift 2>&1 | tail -1
-swift build --scratch-path "$SCRATCH_DIR" --product protoc-gen-grpc-swift 2>&1 | tail -1
+"${SWIFT_ENV[@]}" /usr/bin/xcrun swift build \
+    --scratch-path "$SCRATCH_DIR" \
+    --product protoc-gen-swift
+"${SWIFT_ENV[@]}" /usr/bin/xcrun swift build \
+    --scratch-path "$SCRATCH_DIR" \
+    --product protoc-gen-grpc-swift
 
-PLUGIN_DIR="$(swift build --scratch-path "$SCRATCH_DIR" --show-bin-path)"
+PLUGIN_DIR="$("${SWIFT_ENV[@]}" /usr/bin/xcrun swift build \
+    --scratch-path "$SCRATCH_DIR" \
+    --show-bin-path)"
 export PATH="${PLUGIN_DIR}:${PATH}"
 
 echo "Using protoc-gen-swift: $(which protoc-gen-swift)"
 echo "Using protoc-gen-grpc-swift: $(which protoc-gen-grpc-swift)"
 
-# Clean old generated files
-rm -f "$OUT_DIR"/*.swift
+# Rebuild the generated tree so removed or relocated proto files cannot leave
+# stale Swift sources behind.
+rm -rf "$OUT_DIR"
+mkdir -p "$OUT_DIR"
 
 echo ""
 echo "Generating Swift protobuf code..."
@@ -144,6 +162,6 @@ protoc \
 
 echo ""
 echo "Generated files:"
-ls -la "$OUT_DIR"/*.swift 2>/dev/null || echo "  (none)"
+find "$OUT_DIR" -type f -name '*.swift' -print | sort
 echo ""
 echo "Done."

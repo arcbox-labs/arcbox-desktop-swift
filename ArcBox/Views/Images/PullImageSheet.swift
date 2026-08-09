@@ -1,4 +1,3 @@
-import AppKit
 import DockerClient
 import SwiftUI
 import UniformTypeIdentifiers
@@ -19,8 +18,19 @@ struct PullImageSheet: View {
     @Environment(\.dockerClient) private var docker
 
     @State private var isPulling = false
+    /// Copied out of the view model rather than observed: the list behind this sheet has an
+    /// `.errorToast` on the same `lastError`, and the toast clears it after four seconds even
+    /// though it is hidden — which would wipe this message while the form is still open.
+    @State private var errorMessage: String?
     @State private var image = ""
     @State private var platform: ImagePlatform = .auto
+    @State private var isShowingImporter = false
+
+    private var archiveContentTypes: [UTType] {
+        var types: [UTType] = [.gzip]
+        if let tar = UTType(filenameExtension: "tar") { types.insert(tar, at: 0) }
+        return types
+    }
 
     private var imageIsEmpty: Bool {
         image.trimmingCharacters(in: .whitespaces).isEmpty
@@ -36,6 +46,7 @@ struct PullImageSheet: View {
                     .font(.system(size: 11))
                     .foregroundStyle(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+                SheetErrorMessage(message: errorMessage)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -54,27 +65,13 @@ struct PullImageSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .disabled(isPulling)
 
             // Footer buttons
             HStack {
-                Button("?") {}
-                    .buttonStyle(.plain)
-                    .frame(width: 24, height: 24)
-
                 Button("Import...") {
-                    let panel = NSOpenPanel()
-                    var types: [UTType] = [.gzip]
-                    if let tar = UTType(filenameExtension: "tar") { types.insert(tar, at: 0) }
-                    panel.allowedContentTypes = types
-                    panel.allowsMultipleSelection = false
-                    panel.canChooseDirectories = false
-                    guard panel.runModal() == .OK, let url = panel.url else { return }
-                    isPulling = true
-                    Task {
-                        let ok = await vm.importImage(tarURL: url, docker: docker)
-                        isPulling = false
-                        if ok { dismiss() }
-                    }
+                    guard !isPulling else { return }
+                    isShowingImporter = true
                 }
                 .disabled(isPulling)
 
@@ -84,8 +81,10 @@ struct PullImageSheet: View {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
+                .disabled(isPulling)
 
                 Button("Pull") {
+                    guard !isPulling else { return }
                     isPulling = true
                     Task {
                         let ok = await vm.pullImage(
@@ -93,7 +92,7 @@ struct PullImageSheet: View {
                             platform: platform == .auto ? nil : platform.rawValue,
                             docker: docker)
                         isPulling = false
-                        if ok { dismiss() }
+                        if ok { dismiss() } else { errorMessage = vm.lastError }
                     }
                 }
                 .keyboardShortcut(.defaultAction)
@@ -103,6 +102,32 @@ struct PullImageSheet: View {
             .padding(.vertical, 12)
             .overlay(alignment: .top) { Divider() }
         }
-        .frame(width: 480, height: 270)
+        .frame(width: AppMetrics.sheetWidth, height: 270)
+        .interactiveDismissDisabled(isPulling)
+        .fileImporter(
+            isPresented: $isShowingImporter,
+            allowedContentTypes: archiveContentTypes
+        ) { result in
+            switch result {
+            case .success(let url):
+                importImage(from: url)
+            case .failure(let error):
+                guard (error as? CocoaError)?.code != .userCancelled else { return }
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func importImage(from url: URL) {
+        isPulling = true
+        Task {
+            let hasAccess = url.startAccessingSecurityScopedResource()
+            defer {
+                if hasAccess { url.stopAccessingSecurityScopedResource() }
+            }
+            let ok = await vm.importImage(tarURL: url, docker: docker)
+            isPulling = false
+            if ok { dismiss() } else { errorMessage = vm.lastError }
+        }
     }
 }

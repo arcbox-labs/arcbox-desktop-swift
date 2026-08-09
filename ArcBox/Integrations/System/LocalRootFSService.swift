@@ -17,7 +17,7 @@ nonisolated struct LocalFileEntry: Identifiable, Hashable {
 
     var sizeDisplay: String {
         guard let sizeBytes else { return "" }
-        return ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)
+        return formattedBytes(sizeBytes)
     }
 
     @MainActor var dateDisplay: String {
@@ -59,8 +59,33 @@ nonisolated struct LocalRootFSService {
         .fileSizeKey,
         .contentModificationDateKey,
         .localizedTypeDescriptionKey,
+        .fileResourceTypeKey,
         .nameKey,
     ]
+
+    /// One directory entry as read from a single layer, carrying the overlay
+    /// bookkeeping that [`LayeredRootFS`] needs but a plain listing does not.
+    struct LayerItem {
+        let entry: LocalFileEntry
+        /// Overlayfs marks a file deleted in an upper layer with a character
+        /// device of rdev 0:0 under the deleted name.
+        let isWhiteout: Bool
+    }
+
+    /// Whether an entry is an overlay whiteout — a character device of
+    /// rdev 0:0 standing in for a name deleted in a lower layer.
+    ///
+    /// The device number is what separates bookkeeping from content: layers
+    /// legitimately carry character devices (an image shipping `/dev/null`,
+    /// a privileged container's own nodes), and classifying those as
+    /// deletions would hide both the device and whatever it shadows below.
+    /// Only character devices are stat'd, so the common entry pays nothing.
+    static func isWhiteout(_ url: URL, resourceType: URLFileResourceType?) -> Bool {
+        guard resourceType == .characterSpecial else { return false }
+        var status = stat()
+        guard lstat(url.path, &status) == 0 else { return false }
+        return status.st_rdev == 0
+    }
 
     static func resolveRootURL(path: String?) throws -> URL {
         guard let rawPath = path?.trimmingCharacters(in: .whitespacesAndNewlines), !rawPath.isEmpty else {
@@ -80,9 +105,20 @@ nonisolated struct LocalRootFSService {
     }
 
     static func listDirectory(at directoryURL: URL, showHiddenFiles: Bool) throws -> [LocalFileEntry] {
+        try listLayerItems(at: directoryURL, showHiddenFiles: showHiddenFiles)
+            .map(\.entry)
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    /// Lists a directory keeping the overlay whiteout marker, so a layered
+    /// browse can hide both the marker and whatever it deletes underneath.
+    ///
+    /// Unordered: a merge across layers has to sort the union anyway, and
+    /// sorting each layer first would be work thrown away.
+    static func listLayerItems(at directoryURL: URL, showHiddenFiles: Bool) throws -> [LayerItem] {
         var coordinatorError: NSError?
         var capturedError: Error?
-        var entries: [LocalFileEntry] = []
+        var entries: [LayerItem] = []
 
         let coordinator = NSFileCoordinator(filePresenter: nil)
         coordinator.coordinate(readingItemAt: directoryURL, options: .withoutChanges, error: &coordinatorError) {
@@ -114,7 +150,7 @@ nonisolated struct LocalRootFSService {
                         kind = values.localizedTypeDescription ?? "Document"
                     }
 
-                    return LocalFileEntry(
+                    let entry = LocalFileEntry(
                         url: entryURL,
                         name: values.name ?? entryURL.lastPathComponent,
                         isDirectory: isDirectory,
@@ -126,9 +162,10 @@ nonisolated struct LocalRootFSService {
                         children: nil,
                         loadError: nil
                     )
-                }
-                .sorted {
-                    $0.name.localizedStandardCompare($1.name) == .orderedAscending
+                    return LayerItem(
+                        entry: entry,
+                        isWhiteout: isWhiteout(entryURL, resourceType: values.fileResourceType)
+                    )
                 }
             } catch {
                 capturedError = error

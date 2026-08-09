@@ -62,6 +62,7 @@ public enum StepStatus: Sendable, Equatable {
 /// Overall startup phase — drives the top-level UI state.
 public enum StartupPhase: Sendable, Equatable {
     case idle
+    case requiresAdministratorApproval
     case running(step: StartupStep)
     case completed
     case failed(step: StartupStep, message: String)

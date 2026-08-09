@@ -1,14 +1,6 @@
-import ArcBoxClient
+import Foundation
 import K8sClient
-import OSLog
-import SwiftUI
-
-/// Detail tab for services
-enum ServiceDetailTab: String, CaseIterable, Identifiable {
-    case info = "Info"
-
-    var id: String { rawValue }
-}
+import Observation
 
 /// Service list state
 @MainActor
@@ -16,13 +8,9 @@ enum ServiceDetailTab: String, CaseIterable, Identifiable {
 class ServicesViewModel {
     var services: [ServiceViewModel] = []
     var selectedID: String?
-    var activeTab: ServiceDetailTab = .info
-    var listWidth: CGFloat = 320
-    var isLoading: Bool = false
+    var streamPhase: KubernetesStreamPhase = .connecting
     var searchText: String = ""
     var isSearching: Bool = false
-
-    private var k8sClient: K8sClient?
 
     var serviceCount: Int { services.count }
     var filteredServices: [ServiceViewModel] {
@@ -39,51 +27,20 @@ class ServicesViewModel {
 
     var selectedService: ServiceViewModel? {
         guard let id = selectedID else { return nil }
-        return filteredServices.first { $0.id == id }
+        return services.first { $0.id == id }
     }
 
-    func selectService(_ id: String) {
-        selectedID = id
-    }
-
-    /// Fetch kubeconfig via gRPC, create K8sClient, then load services.
-    /// Returns `true` if the request succeeded (even if the list is empty).
-    @discardableResult
-    func loadServices(client: ArcBoxClient?) async -> Bool {
-        guard let client else {
-            Log.services.debug("No gRPC client available")
-            return false
-        }
-
-        isLoading = true
-        defer { isLoading = false }
-
-        do {
-            if k8sClient == nil {
-                let kubeconfigResponse: Arcbox_V1_KubernetesKubeconfigResponse = try await client.kubernetes
-                    .getKubeconfig(.init(), options: ArcBoxClient.defaultCallOptions)
-                let config = try KubeConfig(yaml: kubeconfigResponse.kubeconfig)
-                self.k8sClient = try K8sClient(config: config)
-            }
-
-            guard let k8s = k8sClient else { return false }
-            let serviceList = try await k8s.listAllServices()
-            self.services = serviceList.items.compactMap { Self.mapService($0) }
-            return true
-        } catch {
-            Log.services.error("Error loading services: \(error.localizedDescription, privacy: .private)")
-            ErrorReporting.capture(error, domain: .service, operation: "list")
-            self.services = []
-            self.k8sClient = nil
-            return false
-        }
+    /// Replace the list with a watch snapshot. Called by ``KubernetesState``, which owns the
+    /// client and the stream.
+    func apply(_ items: [K8sService]) {
+        services = items.compactMap { Self.mapService($0) }
     }
 
     /// Clear all service data when K8s is stopped.
     func clear() {
-        k8sClient = nil
         services = []
         selectedID = nil
+        streamPhase = .connecting
     }
 
     // MARK: - Mapping

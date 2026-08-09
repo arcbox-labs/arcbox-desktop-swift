@@ -5,16 +5,35 @@ import SwiftUI
 struct DaemonLoadingView: View {
     let state: DaemonState
 
-    private var message: String {
+    @Environment(\.startupOrchestrator) private var orchestrator
+
+    @ViewBuilder
+    var body: some View {
         switch state {
+        case .error(let message):
+            unavailable(
+                title: "ArcBox Daemon Unavailable",
+                message: message,
+                actionTitle: "Retry"
+            )
+        case .stopped:
+            unavailable(
+                title: "ArcBox Daemon Is Stopped",
+                message: "Start the daemon to use ArcBox resources.",
+                actionTitle: "Start"
+            )
+        case .starting:
+            progress("Starting ArcBox Daemon…")
+        case .registered:
+            progress("Connecting to ArcBox Daemon…")
         case .stopping:
-            return "Stopping ArcBox Daemon..."
-        default:
-            return "Starting ArcBox Daemon..."
+            progress("Stopping ArcBox Daemon…")
+        case .running:
+            EmptyView()
         }
     }
 
-    var body: some View {
+    private func progress(_ message: String) -> some View {
         VStack(spacing: 12) {
             Spacer()
             ProgressView()
@@ -25,5 +44,24 @@ struct DaemonLoadingView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func unavailable(
+        title: LocalizedStringKey,
+        message: String,
+        actionTitle: LocalizedStringKey
+    ) -> some View {
+        ContentUnavailableView {
+            Label(title, systemImage: "exclamationmark.triangle")
+        } description: {
+            Text(message)
+        } actions: {
+            if let orchestrator {
+                Button(actionTitle) {
+                    Task { await orchestrator.retry() }
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
     }
 }

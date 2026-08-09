@@ -13,7 +13,7 @@ struct IconButton: View {
             Image(systemName: symbol)
                 .font(.system(size: 12))
                 .foregroundStyle(color)
-                .frame(width: 26, height: 26)
+                .frame(width: AppMetrics.rowActionButton, height: AppMetrics.rowActionButton)
                 .background(
                     RoundedRectangle(cornerRadius: 5)
                         .fill(isHovered ? AppColors.hover : Color.clear)

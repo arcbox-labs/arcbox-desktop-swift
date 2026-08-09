@@ -15,29 +15,30 @@ struct VolumesListView: View {
                 StartupProgressView(orchestrator: orchestrator)
             } else if !daemonManager.state.isRunning {
                 DaemonLoadingView(state: daemonManager.state)
-            } else if vm.volumes.isEmpty {
-                VolumeEmptyState()
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        if !inUseVolumes.isEmpty {
-                            sectionHeader("In Use")
-                            ForEach(inUseVolumes) { volume in
-                                volumeRow(volume)
-                            }
-                        }
-                        if !unusedVolumes.isEmpty {
-                            sectionHeader("Unused")
-                            ForEach(unusedVolumes) { volume in
-                                volumeRow(volume)
-                            }
-                        }
-                    }
+            } else if !daemonManager.setupPhase.isDockerReady {
+                ProgressView("Starting Docker engine…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if docker == nil {
+                ContentUnavailableView {
+                    Label("Docker Client Unavailable", systemImage: "shippingbox")
+                } description: {
+                    Text("ArcBox is running, but no Docker client is available.")
                 }
+            } else {
+                VolumesListControllerView(
+                    viewModel: vm,
+                    loadingTitle: "Loading volumes…",
+                    onRetry: {
+                        Task { await vm.loadVolumes(docker: docker) }
+                    },
+                    onDelete: { name in
+                        Task { await vm.removeVolume(name, docker: docker) }
+                    }
+                )
             }
         }
         .navigationTitle("Volumes")
-        .navigationSubtitle(vm.totalSize)
+        .navigationSubtitle(listSubtitle)
         .searchable(text: Bindable(vm).searchText, isPresented: Bindable(vm).isSearching)
         .onChange(of: vm.isSearching) { _, newValue in
             if !newValue { vm.searchText = "" }
@@ -45,6 +46,7 @@ struct VolumesListView: View {
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 SortMenuButton(sortBy: Bindable(vm).sortBy, ascending: Bindable(vm).sortAscending)
+                    .disabled(!dockerActionsAvailable)
                 Button(
                     action: { vm.showNewVolumeSheet = true },
                     label: {
@@ -53,54 +55,85 @@ struct VolumesListView: View {
                 )
                 .accessibilityLabel("New volume")
                 .keyboardShortcut("n", modifiers: .command)
+                .disabled(!dockerActionsAvailable)
             }
         }
         .sheet(isPresented: Bindable(vm).showNewVolumeSheet) {
             NewVolumeSheet()
         }
-        .errorToast(message: Bindable(vm).lastError)
+        .listErrorToast(
+            operationError: Bindable(vm).lastError,
+            refreshError: Bindable(vm).refreshError,
+            resourceName: "volumes"
+        )
         .task(id: daemonManager.setupPhase.isDockerReady && docker != nil) {
             guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             await vm.loadVolumes(docker: docker)
         }
         .onReceive(NotificationCenter.default.publisher(for: .dockerVolumeChanged)) { _ in
+            guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             Task { await vm.loadVolumes(docker: docker) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .dockerDataChanged)) { _ in
+            guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             Task { await vm.loadVolumes(docker: docker) }
         }
     }
 
-    private var inUseVolumes: [VolumeViewModel] {
-        vm.sortedVolumes.filter(\.inUse)
+    private var dockerActionsAvailable: Bool {
+        (orchestrator?.isReady ?? true)
+            && daemonManager.state.isRunning
+            && daemonManager.setupPhase.isDockerReady
+            && docker != nil
     }
 
-    private var unusedVolumes: [VolumeViewModel] {
-        vm.sortedVolumes.filter { !$0.inUse }
-    }
-
-    @ViewBuilder
-    private func sectionHeader(_ title: String) -> some View {
-        HStack {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(AppColors.textSecondary)
-            Spacer()
+    private var listSubtitle: String {
+        if let orchestrator, !orchestrator.isReady {
+            return "Starting…"
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
+        guard daemonManager.state.isRunning else {
+            return "Unavailable"
+        }
+        guard daemonManager.setupPhase.isDockerReady else {
+            return "Starting…"
+        }
+        guard docker != nil else {
+            return "Unavailable"
+        }
+        return switch vm.loadState {
+        case .waiting, .loading:
+            "Loading…"
+        case .failed:
+            "Unavailable"
+        case .loaded:
+            vm.totalSize
+        }
+    }
+}
+
+private struct VolumesListControllerView: NSViewControllerRepresentable {
+    let viewModel: VolumesViewModel
+    let loadingTitle: String
+    let onRetry: @MainActor () -> Void
+    let onDelete: @MainActor (String) -> Void
+
+    func makeNSViewController(context _: Context) -> VolumesListViewController {
+        VolumesListViewController(
+            viewModel: viewModel,
+            loadingTitle: loadingTitle,
+            onRetry: onRetry,
+            onDelete: onDelete
+        )
     }
 
-    @ViewBuilder
-    private func volumeRow(_ volume: VolumeViewModel) -> some View {
-        VolumeRowView(
-            volume: volume,
-            isSelected: vm.selectedID == volume.id,
-            onSelect: { vm.selectVolume(volume.id) },
-            onDelete: {
-                Task { await vm.removeVolume(volume.name, docker: docker) }
-            }
+    func updateNSViewController(
+        _ controller: VolumesListViewController,
+        context _: Context
+    ) {
+        controller.update(
+            loadingTitle: loadingTitle,
+            onRetry: onRetry,
+            onDelete: onDelete
         )
     }
 }

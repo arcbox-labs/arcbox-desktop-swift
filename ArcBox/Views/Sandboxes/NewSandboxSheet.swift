@@ -3,15 +3,22 @@ import SwiftUI
 
 /// Network mode options for sandbox creation
 enum SandboxNetworkMode: String, CaseIterable, Identifiable {
-    case tap
+    case enabled
     case none
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .tap: "TAP (default)"
+        case .enabled: "Enabled (default)"
         case .none: "None"
+        }
+    }
+
+    var protobufValue: Arcbox_Sandbox_V1_NetworkMode {
+        switch self {
+        case .enabled: .enabled
+        case .none: .none
         }
     }
 }
@@ -25,11 +32,12 @@ struct NewSandboxSheet: View {
     @Environment(ImagesViewModel.self) private var imagesVM
 
     @State private var isCreating = false
+    @State private var errorMessage: String?
 
     // Count
     @State private var count: Int = 1
 
-    // Image — empty string means "use the daemon default rootfs"
+    // Image — empty string selects the daemon's built-in minimal template.
     @State private var image = ""
 
     // Resources
@@ -42,7 +50,7 @@ struct NewSandboxSheet: View {
     @State private var user = ""
 
     // Network
-    @State private var networkMode: SandboxNetworkMode = .tap
+    @State private var networkMode: SandboxNetworkMode = .enabled
 
     // Lifecycle
     @State private var ttlSeconds: Int = 0
@@ -60,13 +68,14 @@ struct NewSandboxSheet: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 12))
                             .foregroundStyle(AppColors.textSecondary)
-                            .frame(width: 24, height: 24)
+                            .frame(width: AppMetrics.sheetCloseButton, height: AppMetrics.sheetCloseButton)
                     }
                 )
                 .buttonStyle(.plain)
+                .disabled(isCreating)
             }
             .padding(.horizontal, 16)
-            .frame(height: 44)
+            .frame(height: AppMetrics.sheetTitleBarHeight)
             .overlay(alignment: .bottom) { Divider() }
 
             // Scrollable form
@@ -77,7 +86,7 @@ struct NewSandboxSheet: View {
 
                 Section("Image") {
                     Picker("Image", selection: $image) {
-                        Text("Default rootfs").tag("")
+                        Text("Built-in minimal").tag("")
                         ForEach(availableImages, id: \.self) { name in
                             Text(name).tag(name)
                         }
@@ -111,22 +120,32 @@ struct NewSandboxSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .disabled(isCreating)
 
             // Footer buttons
             HStack {
+                SheetErrorMessage(message: errorMessage)
+
                 Spacer()
 
                 Button("Cancel") {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
+                .disabled(isCreating)
 
                 Button("Create") {
+                    let requestedCount = count
                     isCreating = true
+                    errorMessage = nil
                     Task {
-                        await createSandboxes()
+                        let createdCount = await createSandboxes(count: requestedCount)
                         isCreating = false
-                        dismiss()
+                        if createdCount == requestedCount {
+                            dismiss()
+                        } else {
+                            count = requestedCount - createdCount
+                        }
                     }
                 }
                 .keyboardShortcut(.defaultAction)
@@ -136,8 +155,10 @@ struct NewSandboxSheet: View {
             .padding(.vertical, 12)
             .overlay(alignment: .top) { Divider() }
         }
-        .frame(width: 480, height: 540)
+        .frame(width: AppMetrics.sheetWidth, height: 540)
+        .interactiveDismissDisabled(isCreating)
         .task {
+            vm.clearError()
             // Populate the image picker even when the Images view hasn't been
             // opened yet; loadImages no-ops if the Docker client isn't ready.
             await imagesVM.loadImages(docker: docker, iconClient: client)
@@ -155,7 +176,13 @@ struct NewSandboxSheet: View {
         ).sorted()
     }
 
-    private func createSandboxes() async {
+    private func createSandboxes(count requestedCount: Int) async -> Int {
+        guard client != nil else {
+            errorMessage = "ArcBox daemon is unavailable."
+            return 0
+        }
+
+        vm.clearError()
         var spec = SandboxCreateSpec()
         spec.image = image.trimmingCharacters(in: .whitespaces)
         spec.vcpus = UInt32(vcpus)
@@ -164,12 +191,26 @@ struct NewSandboxSheet: View {
         spec.cmd = trimmedCommand.isEmpty ? [] : trimmedCommand.split(separator: " ").map(String.init)
         spec.workingDir = workingDir.trimmingCharacters(in: .whitespaces)
         spec.user = user.trimmingCharacters(in: .whitespaces)
-        spec.networkMode = networkMode.rawValue
+        spec.networkMode = networkMode.protobufValue
         spec.ttlSeconds = UInt32(ttlSeconds)
 
-        for _ in 0..<count {
-            let id = await vm.createSandbox(spec, client: client, docker: docker)
-            if id == nil { break }
+        var createdCount = 0
+        for _ in 0..<requestedCount {
+            let id = await vm.createSandbox(spec, client: client)
+            guard id != nil else {
+                let failure = vm.lastError ?? "Sandbox creation failed."
+                vm.clearError()
+                if createdCount == 0 {
+                    errorMessage = failure
+                } else {
+                    errorMessage =
+                        "Created \(createdCount) of \(requestedCount) sandboxes. \(failure)"
+                }
+                return createdCount
+            }
+            createdCount += 1
         }
+        await vm.loadSandboxes(client: client)
+        return createdCount
     }
 }

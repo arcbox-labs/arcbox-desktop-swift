@@ -20,6 +20,7 @@ pub fn run(args: MacosArgs) -> Result<()> {
 
     match args.command {
         MacosCommand::Embed(args) => embed::run(args),
+        MacosCommand::StageResources(args) => dmg::stage_resources_command(args),
         MacosCommand::Bundle(args) => bundle::run(args),
         MacosCommand::PrepareResources(args) => dmg::prepare_resources_command(args),
         MacosCommand::Dmg(args) => dmg::run(args),

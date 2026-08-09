@@ -1,5 +1,5 @@
 /// Detail tab for volumes
-enum VolumeDetailTab: String, CaseIterable, Identifiable {
+enum VolumeDetailTab: String, @MainActor DetailTab {
     case info = "Info"
     case files = "Files"
 

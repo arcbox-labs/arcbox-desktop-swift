@@ -1,0 +1,75 @@
+name: Bug report
+description: Something in the ArcBox macOS app is broken
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For containers, VMs, networking, or `abctl` misbehaving — even when you hit it
+        through the app — file against [arcboxlabs/arcbox](https://github.com/arcboxlabs/arcbox/issues)
+        instead. When in doubt, file here and we will move it.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the Containers tab
+        2. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where in the app
+      options:
+        - Containers
+        - Images
+        - Volumes / Networks
+        - Kubernetes
+        - Machines
+        - Sandboxes / Templates
+        - Activity
+        - Settings
+        - Startup, daemon, or updates
+        - Somewhere else / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: ArcBox version
+      description: ArcBox → About ArcBox
+      placeholder: "1.31.2"
+    validations:
+      required: true
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version and chip
+      placeholder: "15.5, M2 Pro"
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostic report
+      description: |
+        Settings → General → Troubleshooting → Export Diagnostic Report… produces a
+        plain-text report (system info, daemon status, and the last hour of logs).
+        Home-directory paths are replaced with `~`, but log lines can still carry
+        other paths and identifiers — read it before you attach it.
+    validations:
+      required: false

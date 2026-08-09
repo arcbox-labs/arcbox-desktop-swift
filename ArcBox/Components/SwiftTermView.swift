@@ -1,44 +1,25 @@
 import SwiftTerm
 import SwiftUI
 
-/// NSViewRepresentable wrapper to embed SwiftTerm's TerminalView in SwiftUI.
-///
-/// The `delegate` is retained by the Coordinator to prevent deallocation,
-/// since SwiftTerm's `terminalDelegate` is a weak reference.
-struct SwiftTermView: NSViewRepresentable {
+/// Temporary SwiftUI adapter for the AppKit terminal controller.
+struct SwiftTermView: NSViewControllerRepresentable {
     let delegate: any TerminalViewDelegate
     let onTerminalCreated: (TerminalView) -> Void
     var theme: String = "system"
 
     @Environment(\.colorScheme) private var colorScheme
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
+    func makeNSViewController(context _: Context) -> TerminalViewController {
+        let controller = TerminalViewController(delegate: delegate, theme: theme)
+        onTerminalCreated(controller.terminalView)
+        return controller
     }
 
-    func makeNSView(context: Context) -> TerminalView {
-        let tv = TerminalView(frame: .zero)
-        tv.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-
-        // Store delegate in coordinator so it stays alive
-        context.coordinator.delegate = delegate
-        tv.terminalDelegate = delegate
-
-        onTerminalCreated(tv)
-
-        // Request keyboard focus after the view is in the window hierarchy
-        DispatchQueue.main.async {
-            tv.window?.makeFirstResponder(tv)
-        }
-        return tv
-    }
-
-    func updateNSView(_ nsView: TerminalView, context: Context) {
-        // Reconfigure colors when system appearance or theme preference changes
-        TerminalAppearance.configure(nsView, theme: theme)
-    }
-
-    class Coordinator {
-        var delegate: (any TerminalViewDelegate)?
+    func updateNSViewController(
+        _ nsViewController: TerminalViewController,
+        context _: Context
+    ) {
+        _ = colorScheme
+        nsViewController.update(theme: theme)
     }
 }

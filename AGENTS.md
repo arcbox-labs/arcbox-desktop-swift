@@ -1,16 +1,22 @@
 # ArcBox Desktop — Agent Guidelines
 
 ## Build & Test
-- Build: `xcodebuild build -project ArcBox.xcodeproj -scheme ArcBox -configuration Debug`
-- Test all: `xcodebuild test -project ArcBox.xcodeproj -scheme ArcBox -configuration Debug -destination 'platform=macOS'`
-- Swift-only (skip Rust): add `SKIP_RUST_BUILD=1 CODE_SIGN_IDENTITY=-` to xcodebuild
-- Rust binaries: the Xcode build phase runs `cargo xtask macos embed`, which calls `make build-rust` in `../arcbox`
+- Build: `make build` — Swift only, no embedded Rust binaries
+- Test all: `make test`
+- **A local package's tests only run because `ArcBoxTests` compiles their sources.** xcodegen refuses a SwiftPM test target in the scheme's test action ("invalid test target"), so a package's `Tests/` directory is listed under `ArcBoxTests.sources` in `project.yml`. Add a new local package's test path there or nothing will ever run it — `swift test` in the package directory is not part of any gate. The bundle links them through its test host; adding the package as a direct dependency instead duplicates the link and fails.
+- Format / lint: `make format`, `make lint`
+- xtask (Rust): `make lint-xtask`, `make test-xtask` — `make lint`/`make test` cover Swift only
+- Regenerate the Xcode project after adding or removing a file: `make generate-xcodeproj`
+- Rust binaries: the Xcode build phase runs `cargo xtask macos embed`, which calls `make build-rust` in `../arcbox`. `make build`/`make test` set `SKIP_RUST_BUILD=1`. Use `make dmg-signed` for a bundle that actually runs — `make dmg` ad-hoc signs the daemon bundle without entitlements, so its daemon is killed on launch.
+
+**Do not call `xcodebuild` or `xcodegen` directly.** This repo uses devenv, whose Rust toolchain exports `CC`/`CXX`/`LD`/`SDKROOT`/`DEVELOPER_DIR` (pointed at a nix SDK) and ~30 `NIX_*` variables. A bare `xcodebuild` then fails with `no such module 'SwiftShims'`, `unknown argument: -index-store-path`, or `ld: unknown options: -Xlinker`, and devenv's `xcodegen` is older than `project.yml`'s `minimumXcodeGenVersion`. The Makefile targets run xcodebuild in an allowlisted environment and pick a new enough xcodegen, so they work identically inside `devenv shell` and on a clean CI runner — which is what CI itself runs.
 
 ## Architecture
-- **ArcBox/** — SwiftUI macOS app (MVVM): Views/, ViewModels/, Models/, Services/, Components/, Theme/, Integrations/, Support/
+- **ArcBox/** — SwiftUI macOS app (MVVM): App/, Views/, ViewModels/, Models/, Services/, Components/, Theme/, Integrations/, Support/
 - **Packages/ArcBoxClient** — gRPC client (protobuf), DaemonManager (SMAppService), StartupOrchestrator
 - **Packages/DockerClient** — Docker Engine API client over Unix socket (`~/.arcbox/run/docker.sock`)
 - **Packages/K8sClient** — Kubernetes API client with kubeconfig + exec-based auth
+- **Packages/ArcBoxAuth** — OIDC/PKCE sign-in for ArcBox Platform, tokens in the keychain
 - Daemon (`arcbox-daemon`) is a separate Rust binary from the `../arcbox` repo; communicates via gRPC over `~/.arcbox/run/arcbox.sock`
 - Entitlements for the daemon live in `../arcbox/bundle/arcbox.entitlements` (single source of truth)
 - When bumping the embedded daemon version, use `make bump-arcbox VERSION=vX.Y.Z` so `arcbox.version` and generated protobuf client code are updated atomically
@@ -52,5 +58,5 @@ Any state change inside a `fixedSize(vertical: true)` subtree in a main-window v
 - ViewModels use `@Observable`; environment injection via custom `EnvironmentKey`
 - Logging: use the `Log` enum (OSLog-based) in the app, `ClientLog` in Packages
 - Prefer `async/await` over Combine; use `Task.detached` only for Sendable-isolated gRPC calls
-- No Combine, no third-party UI libraries; only external deps: Sparkle, SwiftTerm, Sentry
+- No Combine, no third-party UI libraries; only external deps: Sparkle, SwiftTerm, Sentry, PostHog
 - Imports: Foundation/SwiftUI first, then local packages, then third-party; one blank line before body

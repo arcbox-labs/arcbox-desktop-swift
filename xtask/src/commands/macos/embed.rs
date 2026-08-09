@@ -168,8 +168,13 @@ pub fn run(_args: MacosEmbedArgs) -> Result<()> {
     let daemon_name = profile.daemon_label();
     // Host binaries dir + guest (Linux musl) binaries dir of a local checkout.
     let local_dirs = arcbox_repo.as_ref().map(|r| {
+        let host_dir = env("ARCBOX_HOST_BIN_DIR");
         (
-            r.join("target").join("release"),
+            if host_dir.is_empty() {
+                r.join("target").join("release")
+            } else {
+                PathBuf::from(host_dir)
+            },
             r.join("target")
                 .join("aarch64-unknown-linux-musl")
                 .join("release"),
@@ -183,8 +188,9 @@ pub fn run(_args: MacosEmbedArgs) -> Result<()> {
     // workflow had already downloaded release tarballs.
     let host_bins_ready = local_dirs.as_ref().is_some_and(|(local, _)| {
         let abctl = local.join("abctl");
+        let helper = local.join("arcbox-helper");
         let daemon = local.join("arcbox-daemon");
-        abctl.is_file() && daemon.is_file() && xfs::is_macho(&daemon)
+        abctl.is_file() && helper.is_file() && daemon.is_file() && xfs::is_macho(&daemon)
     });
     if let Some(repo) = &arcbox_repo {
         if repo.join("Makefile").is_file() {

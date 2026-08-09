@@ -52,6 +52,16 @@ extension ImagesViewModel {
             return
         }
 
+        await listLoadGate.run {
+            await self.performLoadImages(docker: docker, iconClient: iconClient)
+        }
+    }
+
+    private func performLoadImages(
+        docker: DockerClient,
+        iconClient: ArcBoxClient?
+    ) async {
+        let isRefresh = loadState.beginLoading()
         do {
             let imageList = try await Perf.measure("image.list") {
                 let response = try await docker.api.ImageList(.init())
@@ -62,9 +72,18 @@ extension ImagesViewModel {
             images = viewModels
             Log.image.info("Loaded \(self.images.count, privacy: .public) images")
             await fetchIcons(client: iconClient)
+            loadState = .loaded
+            refreshError = nil
         } catch {
+            if loadState.cancelLoading(for: error, retainingLoadedContent: isRefresh) {
+                return
+            }
             Log.image.error("Error loading images: \(error.localizedDescription, privacy: .private)")
             ErrorReporting.capture(error, domain: .image, operation: "list")
+            refreshError = loadState.fail(
+                error.localizedDescription,
+                retainingLoadedContent: isRefresh
+            )
         }
     }
 
@@ -93,7 +112,11 @@ extension ImagesViewModel {
 
     /// Pull an image from a registry. Returns true on success.
     func pullImage(_ reference: String, platform: String?, docker: DockerClient?) async -> Bool {
-        guard let docker else { return false }
+        lastError = nil
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return false
+        }
         let parsed = parseImageReference(reference)
 
         do {
@@ -108,13 +131,18 @@ extension ImagesViewModel {
             Log.image.error(
                 "Error pulling image \(reference, privacy: .private): \(String(describing: error), privacy: .private)")
             ErrorReporting.capture(error, domain: .image, operation: "pull")
+            lastError = error.localizedDescription
             return false
         }
     }
 
     /// Import an image from a local tar archive (equivalent to `docker load`). Returns true on success.
     func importImage(tarURL: URL, docker: DockerClient?) async -> Bool {
-        guard let docker else { return false }
+        lastError = nil
+        guard let docker else {
+            lastError = "Docker client unavailable."
+            return false
+        }
         do {
             let data = try Data(contentsOf: tarURL, options: .mappedIfSafe)
             let response = try await docker.api.ImageLoad(
@@ -127,6 +155,7 @@ extension ImagesViewModel {
         } catch {
             Log.image.error("Error importing image: \(String(describing: error), privacy: .private)")
             ErrorReporting.capture(error, domain: .image, operation: "import")
+            lastError = error.localizedDescription
             return false
         }
     }

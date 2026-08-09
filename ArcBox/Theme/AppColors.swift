@@ -27,14 +27,14 @@ enum AppColors {
             }))
 
     /// Opaque icon background — visually matches surfaceElevated but won't let selection color bleed through
-    static let iconBackground = Color(
-        nsColor: NSColor(
-            name: nil,
-            dynamicProvider: { appearance in
-                appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-                    ? NSColor(white: 0.18, alpha: 1)
-                    : NSColor(white: 0.95, alpha: 1)
-            }))
+    static let iconBackgroundNSColor = NSColor(
+        name: nil,
+        dynamicProvider: { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                ? NSColor(white: 0.18, alpha: 1)
+                : NSColor(white: 0.95, alpha: 1)
+        })
+    static let iconBackground = Color(nsColor: iconBackgroundNSColor)
     static let border = Color(nsColor: .separatorColor)
     static let borderSubtle = Color(nsColor: .separatorColor).opacity(0.5)
     static let borderFocused = Color.accentColor
@@ -60,4 +60,25 @@ enum AppColors {
     // Sidebar specific
     static let sidebarItemHover = Color.primary.opacity(0.03)
     static let sidebarItemSelected = Color.primary.opacity(0.06)
+}
+
+extension ContainerState {
+    var color: Color {
+        switch self {
+        case .running: AppColors.running
+        case .stopped: AppColors.stopped
+        case .restarting, .paused: AppColors.warning
+        case .dead: AppColors.error
+        }
+    }
+}
+
+extension MachineState {
+    var color: Color {
+        switch self {
+        case .running: AppColors.running
+        case .created, .stopped: AppColors.stopped
+        case .starting, .stopping: AppColors.warning
+        }
+    }
 }

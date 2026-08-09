@@ -39,19 +39,32 @@ final class SandboxEventMonitor {
             while !Task.isCancelled {
                 if await stoppedCheck() { break }
                 do {
-                    try await client.sandboxes.events(
-                        Sandbox_V1_SandboxEventsRequest(),
+                    let streamError: (any Error)? = try await client.sandboxes.events(
+                        Arcbox_Sandbox_V1_SandboxEventsRequest(),
                         metadata: metadata
                     ) { response in
-                        for try await event in response.messages {
-                            guard !Task.isCancelled else { break }
-                            await MainActor.run { [weak self] in
-                                self?.record(event)
-                            }
+                        // Events have no replay cursor. Resync after every
+                        // successful subscription to cover the reconnect gap.
+                        await MainActor.run {
+                            NotificationCenter.default.post(name: .sandboxChanged, object: nil)
                         }
+                        do {
+                            for try await frame in response.messages {
+                                guard !Task.isCancelled else { break }
+                                guard case .event(let event)? = frame.payload else { continue }
+                                await MainActor.run { [weak self] in
+                                    self?.record(event)
+                                }
+                            }
+                        } catch {
+                            return error
+                        }
+                        return nil
                     }
-                    // Stream ended cleanly — reset backoff.
+                    // Reaching the response handler means the subscription
+                    // succeeded, even if the stream later disconnected.
                     backoffSeconds = 2
+                    if let streamError { throw streamError }
                 } catch {
                     if Task.isCancelled { break }
                     if await stoppedCheck() { break }
@@ -86,7 +99,7 @@ final class SandboxEventMonitor {
 
     // MARK: - Private
 
-    private func record(_ event: Sandbox_V1_SandboxEvent) {
+    private func record(_ event: Arcbox_Sandbox_V1_SandboxEvent) {
         recentEvents.append(SandboxEventRecord(from: event))
         if recentEvents.count > Self.maxRecentEvents {
             recentEvents.removeFirst(recentEvents.count - Self.maxRecentEvents)

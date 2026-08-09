@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest something the ArcBox macOS app should do
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: The workflow you are stuck on, not the solution you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like the app to do
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: How you work around it today
+      description: Another tool, the CLI, or nothing at all.
+    validations:
+      required: false

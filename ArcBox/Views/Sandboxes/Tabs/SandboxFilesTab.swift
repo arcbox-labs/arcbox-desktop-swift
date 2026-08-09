@@ -29,6 +29,7 @@ struct SandboxFilesTab: View {
 
     @State private var path = ""
     @State private var isTransferring = false
+    @State private var isShowingUploader = false
     @State private var transfers: [FileTransferRecord] = []
 
     var body: some View {
@@ -64,6 +65,23 @@ struct SandboxFilesTab: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .fileImporter(
+            isPresented: $isShowingUploader,
+            allowedContentTypes: [.data]
+        ) { result in
+            switch result {
+            case .success(let source):
+                performUpload(from: source)
+            case .failure(let error):
+                guard (error as? CocoaError)?.code != .userCancelled else { return }
+                record(
+                    .upload,
+                    path.trimmingCharacters(in: .whitespaces),
+                    error.localizedDescription,
+                    false
+                )
+            }
+        }
     }
 
     @ViewBuilder
@@ -131,31 +149,25 @@ struct SandboxFilesTab: View {
 
         let panel = NSSavePanel()
         panel.nameFieldStringValue = (remotePath as NSString).lastPathComponent
-        guard panel.runModal() == .OK, let destination = panel.url else { return }
-
-        isTransferring = true
-        Task {
-            defer { isTransferring = false }
-            do {
-                let data = try await vm.readFile(
-                    sandboxID: sandbox.id, path: remotePath, client: client)
-                try data.write(to: destination)
-                record(.download, remotePath, "Saved \(byteCount(data.count)) to \(destination.path)", true)
-            } catch {
-                let message = vm.reportError(error, operation: "read_file", surface: false)
-                record(.download, remotePath, message, false)
-            }
+        guard let presentingWindow = NSApp.keyWindow else { return }
+        panel.beginSheetModal(for: presentingWindow) { response in
+            guard response == .OK, let destination = panel.url else { return }
+            performDownload(
+                remotePath: remotePath,
+                destination: destination,
+                client: client
+            )
         }
     }
 
     private func upload() {
+        guard client != nil else { return }
+        isShowingUploader = true
+    }
+
+    private func performUpload(from source: URL) {
         guard let client else { return }
         let remotePath = path.trimmingCharacters(in: .whitespaces)
-
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let source = panel.url else { return }
 
         // Uploading onto a path that ends with "/" targets the directory:
         // append the local file name.
@@ -167,6 +179,10 @@ struct SandboxFilesTab: View {
         isTransferring = true
         Task {
             defer { isTransferring = false }
+            let hasAccess = source.startAccessingSecurityScopedResource()
+            defer {
+                if hasAccess { source.stopAccessingSecurityScopedResource() }
+            }
             do {
                 let data = try Data(contentsOf: source)
                 try await vm.writeFile(
@@ -175,6 +191,26 @@ struct SandboxFilesTab: View {
             } catch {
                 let message = vm.reportError(error, operation: "write_file", surface: false)
                 record(.upload, target, message, false)
+            }
+        }
+    }
+
+    private func performDownload(
+        remotePath: String,
+        destination: URL,
+        client: ArcBoxClient
+    ) {
+        isTransferring = true
+        Task {
+            defer { isTransferring = false }
+            do {
+                let data = try await vm.readFile(
+                    sandboxID: sandbox.id, path: remotePath, client: client)
+                try data.write(to: destination)
+                record(.download, remotePath, "Saved \(byteCount(data.count)) to \(destination.path)", true)
+            } catch {
+                let message = vm.reportError(error, operation: "read_file", surface: false)
+                record(.download, remotePath, message, false)
             }
         }
     }
@@ -191,6 +227,6 @@ struct SandboxFilesTab: View {
     }
 
     private func byteCount(_ count: Int) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(count), countStyle: .file)
+        formattedBytes(Int64(count))
     }
 }

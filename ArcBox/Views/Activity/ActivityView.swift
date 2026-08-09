@@ -1,332 +1,206 @@
 import ArcBoxClient
-import Charts
 import SwiftUI
 
-/// Live resource monitor for the System VM: machine CPU / memory / network
-/// with short history sparklines, a PSI memory-pressure gauge, and a
-/// per-container table. Backed by the daemon's `StatsService` stream via
-/// `ActivityViewModel`.
+/// Live resource monitor for the System VM, backed by the daemon's
+/// `StatsService` stream via `ActivityViewModel`.
+///
+/// The machine-wide metrics float in the Liquid Glass layer while the
+/// per-container table scrolls beneath them, so the numbers you are comparing
+/// against stay on screen while you scan containers.
 struct ActivityView: View {
     @Environment(ActivityViewModel.self) private var vm
+    @Environment(ContainersViewModel.self) private var containersVM
+    @Environment(DaemonManager.self) private var daemonManager
+    @Environment(\.startupOrchestrator) private var orchestrator
     @Environment(\.arcboxClient) private var arcboxClient
+    @Environment(\.dockerClient) private var docker
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @State private var searchText = ""
+    @State private var isSearching = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                header
-
-                if let stats = vm.current {
-                    charts(stats)
-                    containerSection(stats)
-                } else {
-                    waitingForData
-                }
-            }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .background(AppColors.background)
-        .navigationTitle("Activity")
-        // Re-key on the client's identity so the stream (re)starts when the
-        // client first becomes available or is swapped.
-        .task(id: arcboxClient.map(ObjectIdentifier.init)) {
-            guard let client = arcboxClient else { return }
-            await vm.run(client: client)
-        }
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        HStack {
-            Text("System VM")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(AppColors.text)
-            Spacer()
-            switch vm.phase {
-            case .live:
-                StatusBadge(color: AppColors.running, label: "LIVE")
-            case .reconnecting:
-                // Charts keep showing the last data; the badge tells the
-                // user it is stale while the stream reconnects.
-                StatusBadge(color: AppColors.warning, label: "RECONNECTING")
-            case .connecting:
-                EmptyView()
-            }
-        }
-    }
-
-    private var waitingForData: some View {
-        HStack(spacing: 10) {
-            ProgressView().controlSize(.small)
-            Text(waitingLabel)
-                .foregroundStyle(AppColors.textSecondary)
-                .font(.system(size: 13))
-        }
-        .frame(maxWidth: .infinity, minHeight: 160)
-    }
-
-    /// Distinguishes a first connection from a stream that keeps failing
-    /// before its first sample, so persistent errors don't render as an
-    /// eternal "waiting" spinner.
-    private var waitingLabel: String {
-        if case .reconnecting(let attempt) = vm.phase {
-            return "Stats stream unavailable — retrying (attempt \(attempt))…"
-        }
-        return "Waiting for the first sample…"
-    }
-
-    // MARK: - Charts
-
-    private func charts(_ stats: MachineResourceStats) -> some View {
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 240), spacing: 12)],
-            spacing: 12
-        ) {
-            SparklineCard(
-                title: "CPU",
-                value: StatsFormat.percent(stats.cpuPercent),
-                subtitle: "\(stats.onlineCPUs) cores · load \(String(format: "%.2f", stats.loadaverage1))",
-                points: vm.cpuHistory,
-                tint: AppColors.running,
-                yDomain: 0...100
-            )
-            SparklineCard(
-                title: "Memory",
-                value: StatsFormat.percent(stats.memoryUsedPercent),
-                subtitle: "\(StatsFormat.bytes(stats.memoryUsedBytes)) / \(StatsFormat.bytes(stats.memoryTotalBytes))",
-                points: vm.memoryHistory,
-                tint: AppColors.accent,
-                yDomain: 0...100
-            )
-            SparklineCard(
-                title: "Network",
-                value: StatsFormat.rate(
-                    stats.networkReceiveBytesPerSecond + stats.networkTransmitBytesPerSecond),
-                subtitle:
-                    "↓ \(StatsFormat.rate(stats.networkReceiveBytesPerSecond))   ↑ \(StatsFormat.rate(stats.networkTransmitBytesPerSecond))",
-                points: vm.networkHistory,
-                tint: AppColors.warning,
-                yDomain: nil
-            )
-            PressureCard(stats: stats)
-        }
-    }
-
-    // MARK: - Containers
-
-    @ViewBuilder
-    private func containerSection(_ stats: MachineResourceStats) -> some View {
-        Text("Containers")
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(AppColors.sectionHeader)
-            .textCase(.uppercase)
-            .padding(.top, 4)
-
-        if stats.containers.isEmpty {
-            Text("No running containers")
-                .foregroundStyle(AppColors.textMuted)
-                .font(.system(size: 13))
-                .padding(.vertical, 8)
-        } else {
-            VStack(spacing: 0) {
-                ContainerStatsHeader()
-                ForEach(stats.containers) { container in
-                    ContainerStatsRow(container: container)
-                    if container.id != stats.containers.last?.id {
-                        Divider().overlay(AppColors.borderSubtle)
+        Group {
+            if let orchestrator, !orchestrator.isReady {
+                StartupProgressView(orchestrator: orchestrator)
+            } else if !daemonManager.state.isRunning {
+                DaemonLoadingView(state: daemonManager.state)
+            } else if !daemonManager.setupPhase.isDockerReady {
+                ProgressView("Starting ArcBox runtime…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if arcboxClient == nil {
+                ContentUnavailableView {
+                    Label("Activity Unavailable", systemImage: "waveform.path.ecg")
+                } description: {
+                    Text("ArcBox is running, but no daemon client is available.")
+                } actions: {
+                    if let orchestrator {
+                        Button("Retry") {
+                            Task { await orchestrator.retry() }
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
                 }
+            } else {
+                activityContent
             }
-            .cardStyle()
         }
-    }
-}
-
-// MARK: - Sparkline card
-
-private struct SparklineCard: View {
-    let title: String
-    let value: String
-    let subtitle: String
-    let points: [ActivityViewModel.MetricPoint]
-    let tint: Color
-    /// Fixed y-axis range, or `nil` to autoscale (used for byte rates).
-    let yDomain: ClosedRange<Double>?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(AppColors.textSecondary)
-                .textCase(.uppercase)
-            Text(value)
-                .font(.system(size: 28, weight: .semibold, design: .rounded))
-                .foregroundStyle(AppColors.text)
-                .contentTransition(.numericText())
-            chart
-                .frame(height: 44)
-            Text(subtitle)
-                .font(.system(size: 11))
-                .foregroundStyle(AppColors.textMuted)
-                .lineLimit(1)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle()
+        .navigationTitle("Activity")
     }
 
-    private var chart: some View {
-        Chart(points) { point in
-            AreaMark(x: .value("t", point.index), y: .value("v", point.value))
-                .foregroundStyle(tint.opacity(0.15))
-                .interpolationMethod(.monotone)
-            LineMark(x: .value("t", point.index), y: .value("v", point.value))
-                .foregroundStyle(tint)
-                .interpolationMethod(.monotone)
-        }
-        .chartXAxis(.hidden)
-        .chartYAxis(.hidden)
-        .chartYScale(domain: yDomain ?? autoDomain)
-        .animation(.easeOut(duration: 0.25), value: points.last?.index)
-    }
-
-    /// Headroom above the observed peak so a flat-zero series still renders.
-    private var autoDomain: ClosedRange<Double> {
-        let peak = points.map(\.value).max() ?? 1
-        return 0...max(peak * 1.2, 1)
-    }
-}
-
-// MARK: - Pressure gauge card
-
-private struct PressureCard: View {
-    let stats: MachineResourceStats
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Memory Pressure")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(AppColors.textSecondary)
-                .textCase(.uppercase)
-            Text(valueText)
-                .font(.system(size: 28, weight: .semibold, design: .rounded))
-                .foregroundStyle(tint)
-                .contentTransition(.numericText())
-            Gauge(value: stats.hasMemoryPressure ? min(stats.memoryPressurePercent, 100) : 0, in: 0...100) {
-                EmptyView()
+    private var activityContent: some View {
+        content
+            .searchable(text: $searchText, isPresented: $isSearching, prompt: "Filter Containers")
+            // Dismissing the field has to drop the query with it, or the table
+            // stays filtered with nothing on screen explaining the missing
+            // rows. Every other list in the app does this; the placement is
+            // left to the system for the same reason.
+            .onChange(of: isSearching) { _, searching in
+                if !searching { searchText = "" }
             }
-            .gaugeStyle(.accessoryLinearCapacity)
-            .tint(tint)
-            .frame(height: 44)
-            .opacity(stats.hasMemoryPressure ? 1 : 0.35)
-            Text(stats.hasMemoryPressure ? "PSI full avg10" : "PSI unavailable (no CONFIG_PSI)")
-                .font(.system(size: 11))
-                .foregroundStyle(AppColors.textMuted)
-                .lineLimit(1)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle()
+            // Keyed on the arrival of data, not on the data: the screen
+            // materialises once, and the 1 Hz samples inside it do not drag the
+            // whole hierarchy through a transition every second.
+            .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: vm.current == nil)
+            .navigationSubtitle(subtitle)
+            .toolbar {
+                ToolbarItem(placement: .status) {
+                    StreamStatusPill(phase: vm.phase)
+                }
+            }
+            // Re-key on the client's identity so the stream (re)starts when the
+            // client first becomes available or is swapped.
+            .task(id: arcboxClient.map(ObjectIdentifier.init)) {
+                guard let client = arcboxClient else { return }
+                await vm.run(client: client)
+            }
+            // Activity owns its own Docker load. `ContainersListView` is not in
+            // the hierarchy while this screen is up — the content column
+            // collapses — so its load and its event handler cannot keep the
+            // join fresh, and the menu bar's copy only runs once the menu is
+            // opened. Without this, containers started while Activity is
+            // showing never gain a project, and a launch straight into Activity
+            // has no Docker metadata at all.
+            //
+            // Gated on `isDockerReady` rather than `dockerSocketLinked`, and
+            // keyed on both readiness and client presence, because the client
+            // can arrive after the daemon is already up.
+            .task(id: daemonManager.setupPhase.isDockerReady && docker != nil) {
+                guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
+                await containersVM.loadContainersFromDocker(docker: docker, iconClient: arcboxClient)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .dockerContainerChanged)) { _ in
+                guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
+                Task {
+                    await containersVM.loadContainersFromDocker(
+                        docker: docker, iconClient: arcboxClient)
+                }
+            }
     }
 
-    private var valueText: String {
-        stats.hasMemoryPressure ? StatsFormat.percent(stats.memoryPressurePercent) : "n/a"
-    }
-
-    /// Green under light pressure, amber past 10%, red past 40% — matching
-    /// the daemon's own pressure thresholds.
-    private var tint: Color {
-        guard stats.hasMemoryPressure else { return AppColors.textMuted }
-        switch stats.memoryPressurePercent {
-        case ..<10: return AppColors.running
-        case ..<40: return AppColors.warning
-        default: return AppColors.error
-        }
-    }
-}
-
-// MARK: - Container table
-
-private struct ContainerStatsHeader: View {
-    var body: some View {
-        HStack(spacing: 12) {
-            cell("CONTAINER", width: nil, alignment: .leading)
-            cell("CPU", width: 64, alignment: .trailing)
-            cell("MEMORY", width: 96, alignment: .trailing)
-            cell("DISK R/W", width: 128, alignment: .trailing)
-            cell("NET ↓/↑", width: 128, alignment: .trailing)
-            cell("PIDS", width: 48, alignment: .trailing)
-        }
-        .font(.system(size: 10, weight: .medium))
-        .foregroundStyle(AppColors.sectionHeader)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-    }
-
-    private func cell(_ text: String, width: CGFloat?, alignment: Alignment) -> some View {
-        Text(text)
-            .frame(width: width, alignment: alignment)
-            .frame(maxWidth: width == nil ? .infinity : nil, alignment: alignment)
-    }
-}
-
-private struct ContainerStatsRow: View {
-    let container: ContainerResourceStats
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text(container.displayName)
-                .font(.system(size: 13))
-                .foregroundStyle(AppColors.text)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Text(StatsFormat.percent(container.cpuPercent))
-                .frame(width: 64, alignment: .trailing)
-            Text(memoryText)
-                .frame(width: 96, alignment: .trailing)
-            Text(
-                "\(StatsFormat.rate(container.diskReadBytesPerSecond)) / \(StatsFormat.rate(container.diskWriteBytesPerSecond))"
+    /// Rates come from deltas, so the first usable frame is two samples in — a
+    /// second or two at the daemon's 1 Hz cadence. Rather than hold the screen
+    /// back behind a spinner for that, the real layout goes up immediately and
+    /// carries redacted values until the numbers are real. Nothing false is
+    /// shown, nothing moves when the data lands, and there is no separate
+    /// loading screen to perceive.
+    @ViewBuilder
+    private var content: some View {
+        if streamHasGivenUp {
+            unavailable
+        } else {
+            ActivityContainerTable(
+                containers: vm.current?.containers ?? [],
+                docker: dockerContainers,
+                searchText: searchText,
+                // "No containers" is a finding; before the first frame it would
+                // be a guess.
+                hasLoaded: vm.current != nil
             )
-            .frame(width: 128, alignment: .trailing)
-            Text(
-                "\(StatsFormat.rate(container.networkReceiveBytesPerSecond)) / \(StatsFormat.rate(container.networkTransmitBytesPerSecond))"
-            )
-            .frame(width: 128, alignment: .trailing)
-            Text("\(container.pids)")
-                .frame(width: 48, alignment: .trailing)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                ActivityMetricStrip(
+                    stats: vm.current,
+                    cpuHistory: vm.cpuHistory,
+                    memoryHistory: vm.memoryHistory,
+                    networkHistory: vm.networkHistory
+                )
+                // Only the strip redacts. The table's column headers are known
+                // labels, not pending data, and `TableColumn` gives no handle
+                // to exempt them — an empty table under live headers already
+                // reads as rows on the way.
+                .redacted(reason: vm.current == nil ? .placeholder : [])
+            }
+            .softScrollEdge(for: .top)
         }
-        .font(.system(size: 12).monospacedDigit())
-        .foregroundStyle(AppColors.textSecondary)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
     }
 
-    private var memoryText: String {
-        if container.memoryLimitBytes == 0 {
-            return StatsFormat.bytes(container.memoryCurrentBytes)
-        }
+    /// A stream that keeps failing before its first sample is not loading, and
+    /// must stop looking like it.
+    private var streamHasGivenUp: Bool {
+        guard vm.current == nil, case .reconnecting(let attempt) = vm.phase else { return false }
+        return attempt >= 3
+    }
+
+    /// Docker's view of the containers the stats stream reports, keyed by ID.
+    /// The two sources are independent, so this is a join, not a lookup: an ID
+    /// the Engine has not reported simply contributes nothing.
+    private var dockerContainers: [String: ActivityContainerFacts] {
+        Dictionary(
+            containersVM.containers.map {
+                ($0.id, ActivityContainerFacts(project: $0.composeProject, image: $0.image))
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+    }
+
+    /// The machine's shape, once known — the toolbar's own line for the
+    /// constants the tiles would otherwise have to repeat.
+    private var subtitle: String {
+        guard let stats = vm.current else { return "System VM" }
         return
-            "\(StatsFormat.bytes(container.memoryCurrentBytes)) / \(StatsFormat.bytes(container.memoryLimitBytes))"
+            "System VM · \(stats.onlineCPUs) cores · \(StatsFormat.bytes(stats.memoryTotalBytes)) · up \(StatsFormat.uptime(stats.uptime))"
+    }
+
+    @ViewBuilder
+    private var unavailable: some View {
+        ContentUnavailableView {
+            Label("Stats Unavailable", systemImage: "waveform.path.ecg")
+        } description: {
+            if case .reconnecting(let attempt) = vm.phase {
+                Text("The daemon's stats stream keeps dropping. Retrying — attempt \(attempt).")
+            }
+        }
     }
 }
 
-// MARK: - Formatting
+// MARK: - Status
 
-/// Formatting for resource values, using `ByteCountFormatter` (memory
-/// style) so sizes match Finder/Activity Monitor conventions.
-enum StatsFormat {
-    static func percent(_ value: Double) -> String {
-        String(format: "%.0f%%", value)
+/// Stream health, in the toolbar's status slot: absent while connecting, quiet
+/// once live, and loud only when the data on screen has gone stale.
+private struct StreamStatusPill: View {
+    let phase: ActivityViewModel.StreamPhase
+
+    var body: some View {
+        if let (color, label) = descriptor {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 7, height: 7)
+                Text(label)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+        }
     }
 
-    static func bytes(_ value: UInt64) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(clamping: value), countStyle: .memory)
-    }
-
-    static func rate(_ bytesPerSecond: Double) -> String {
-        let clamped = Int64(max(0, bytesPerSecond).rounded())
-        return ByteCountFormatter.string(fromByteCount: clamped, countStyle: .memory) + "/s"
+    private var descriptor: (Color, LocalizedStringKey)? {
+        switch phase {
+        case .live: (AppColors.running, "Live")
+        // Charts keep showing the last data; the pill tells the user it is
+        // stale while the stream reconnects.
+        case .reconnecting: (AppColors.warning, "Reconnecting")
+        case .connecting: nil
+        }
     }
 }

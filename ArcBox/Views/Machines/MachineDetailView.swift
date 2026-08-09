@@ -14,12 +14,8 @@ struct MachineDetailView: View {
                 switch vm.activeTab {
                 case .info:
                     MachineInfoTab(machine: machine)
-                case .logs:
-                    MachineLogsTab(machine: machine)
                 case .terminal:
                     MachineTerminalTab(machine: machine)
-                case .files:
-                    MachineFilesTab(machine: machine)
                 }
             } else {
                 Spacer()
@@ -35,15 +31,7 @@ struct MachineDetailView: View {
             await vm.loadMachineDetails(id, client: client)
         }
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Picker("Tab", selection: $vm.activeTab) {
-                    ForEach(MachineDetailTab.allCases) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 300)
-            }
+            DetailTabPicker(selection: $vm.activeTab)
         }
     }
 }

@@ -1,126 +1,169 @@
 import AppKit
-import SwiftUI
 
-extension AboutView {
-    var headerSection: some View {
-        VStack(spacing: 8) {
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .frame(width: 80, height: 80)
+extension AboutViewController {
+    func headerSection() -> NSView {
+        let icon = NSImageView(image: NSApp.applicationIconImage)
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        icon.setAccessibilityElement(true)
+        icon.setAccessibilityRole(.image)
+        icon.setAccessibilityLabel("ArcBox application icon")
+        NSLayoutConstraint.activate([
+            icon.widthAnchor.constraint(equalToConstant: 80),
+            icon.heightAnchor.constraint(equalToConstant: 80),
+        ])
 
-            Text("ArcBox")
-                .font(.title)
-                .fontWeight(.bold)
-
-            Text(verbatim: "Version \(appVersion) (\(buildNumber))")
-                .font(.subheadline)
-                .foregroundStyle(AppColors.textSecondary)
-        }
-        .padding(.top, 8)
+        let title = label("ArcBox", font: .boldSystemFont(ofSize: 26), alignment: .center)
+        let version = label(
+            "Version \(appVersion) (\(buildNumber))",
+            font: .systemFont(ofSize: 13),
+            color: .secondaryLabelColor,
+            alignment: .center
+        )
+        let stack = verticalStack([icon, title, version], spacing: 8)
+        stack.alignment = .centerX
+        return stack
     }
 
-    var versionInfoSection: some View {
-        VStack(spacing: 0) {
-            InfoRow(label: "Desktop App", value: appVersion)
-            InfoRow(label: "ArcBox Daemon", value: daemonVersion)
-            InfoRow(label: "macOS", value: macOSVersion)
-            InfoRow(label: "Architecture", value: architecture)
-        }
-        .infoSectionStyle()
-    }
-
-    @ViewBuilder
-    var whatsNewSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("What's New")
-                .font(.headline)
-                .padding(.horizontal, 4)
-
-            if releases.isEmpty {
-                Text("No changelog available.")
-                    .font(.subheadline)
-                    .foregroundStyle(AppColors.textMuted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 20)
-            } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(releases.prefix(3).enumerated()), id: \.element.id) { index, release in
-                        releaseRow(release)
-                            .padding(12)
-
-                        if index < min(releases.count, 3) - 1 {
-                            Divider().opacity(0.3).padding(.horizontal, 12)
-                        }
-                    }
-
-                    Divider().opacity(0.3).padding(.horizontal, 12)
-
-                    Button {
-                        if let url = URL(string: "https://github.com/arcboxlabs/arcbox-desktop/releases") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Text("View Full Changelog")
-                            Image(systemName: "arrow.up.right")
-                                .font(.caption)
-                            Spacer()
-                        }
-                        .padding(.vertical, 10)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(AppColors.accent)
-                }
-                .infoSectionStyle()
+    func versionInfoSection() -> NSView {
+        let values = [
+            ("Desktop App", appVersion),
+            ("ArcBox Daemon", daemonVersion),
+            ("macOS", macOSVersion),
+            ("Architecture", architecture),
+        ]
+        var rows: [NSView] = []
+        for (index, value) in values.enumerated() {
+            rows.append(infoRow(label: value.0, value: value.1))
+            if index < values.count - 1 {
+                rows.append(separator())
             }
         }
+        let copyButton = NSButton(
+            title: "Copy System Info",
+            target: self,
+            action: #selector(copySystemInfo)
+        )
+        copyButton.bezelStyle = .inline
+        copyButton.image = NSImage(
+            systemSymbolName: "doc.on.doc",
+            accessibilityDescription: nil
+        )
+        copyButton.imagePosition = .imageLeading
+        copyButton.toolTip = "Copy ArcBox and system version information"
+        copyButton.setAccessibilityHelp(copyButton.toolTip)
+
+        return verticalStack([card(containing: verticalStack(rows, spacing: 0)), copyButton], spacing: 6)
     }
 
-    var helpSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Help & Support")
-                .font(.headline)
-                .padding(.horizontal, 4)
-
-            // Short links managed via arcbox.link / git.new:
-            //   arcbox.link/docs      → https://docs.arcbox.dev
-            //   arcbox.link/dsup      → https://github.com/arcboxlabs/arcbox-desktop/issues
-            //   arcbox.link/dreleases → https://github.com/arcboxlabs/arcbox-desktop/releases
-            //   git.new/orbstack      → https://github.com/arcboxlabs/arcbox-desktop
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                linkButton(icon: "book", title: "Documentation", url: "https://arcbox.link/docs")
-                linkButton(
-                    icon: "lifepreserver", title: "Support",
-                    url: "https://arcbox.link/dsup"
-                )
-                linkButton(
-                    icon: "tag", title: "Release Notes",
-                    url: "https://arcbox.link/dreleases"
-                )
-                linkButton(
-                    icon: "chevron.left.forwardslash.chevron.right", title: "Source Code",
-                    url: "https://git.new/orbstack"
-                )
-            }
-        }
+    func whatsNewSection() -> NSView {
+        changelogContent.alignment = .width
+        changelogContent.orientation = .vertical
+        changelogContent.translatesAutoresizingMaskIntoConstraints = false
+        showReleases([])
+        return verticalStack(
+            [
+                label("What's New", font: .systemFont(ofSize: 13, weight: .semibold)),
+                changelogContent,
+            ], spacing: 12)
     }
 
-    var footerSection: some View {
-        VStack(spacing: 6) {
-            let year = Calendar.current.component(.year, from: Date())
-            Text(verbatim: "© 2024–\(year) ArcBox Labs. All rights reserved.")
-                .font(.system(size: 11))
-                .foregroundStyle(AppColors.textMuted)
-
-            Button("Acknowledgements") {
-                // TODO(ABXD): Show acknowledgements for open-source dependencies
-            }
-            .buttonStyle(.plain)
-            .font(.system(size: 11))
-            .foregroundStyle(AppColors.textMuted)
-            .disabled(true)
+    func showReleases(_ releases: [ChangelogRelease]) {
+        for view in changelogContent.arrangedSubviews {
+            changelogContent.removeArrangedSubview(view)
+            view.removeFromSuperview()
         }
-        .padding(.top, 8)
+        guard !releases.isEmpty else {
+            let empty = label(
+                "No changelog available.",
+                font: .systemFont(ofSize: 13),
+                color: .tertiaryLabelColor,
+                alignment: .center
+            )
+            changelogContent.addArrangedSubview(padded(empty, horizontal: 0, vertical: 20))
+            return
+        }
+
+        var rows: [NSView] = []
+        for (index, release) in releases.prefix(3).enumerated() {
+            rows.append(padded(releaseRow(release), horizontal: 12, vertical: 12))
+            if index < min(releases.count, 3) - 1 {
+                rows.append(padded(separator(), horizontal: 12, vertical: 0))
+            }
+        }
+        rows.append(padded(separator(), horizontal: 12, vertical: 0))
+        rows.append(
+            padded(
+                linkButton(
+                    icon: "arrow.up.right",
+                    title: "View Full Changelog",
+                    url: "https://github.com/arcboxlabs/arcbox-desktop/releases"
+                ),
+                horizontal: 12,
+                vertical: 6
+            )
+        )
+        changelogContent.addArrangedSubview(card(containing: verticalStack(rows, spacing: 0)))
+    }
+
+    func helpSection() -> NSView {
+        let grid = NSGridView(views: [
+            [
+                linkButton(icon: "book", title: "Documentation", url: "https://arcbox.link/docs"),
+                linkButton(icon: "lifepreserver", title: "Support", url: "https://arcbox.link/dsup"),
+            ],
+            [
+                linkButton(icon: "tag", title: "Release Notes", url: "https://arcbox.link/dreleases"),
+                linkButton(
+                    icon: "chevron.left.forwardslash.chevron.right",
+                    title: "Source Code",
+                    url: "https://github.com/arcboxlabs/arcbox-desktop"
+                ),
+            ],
+        ])
+        grid.columnSpacing = 8
+        grid.rowSpacing = 8
+        for index in 0..<grid.numberOfColumns {
+            grid.column(at: index).xPlacement = .fill
+        }
+        return verticalStack(
+            [
+                label("Help & Support", font: .systemFont(ofSize: 13, weight: .semibold)),
+                grid,
+            ], spacing: 12)
+    }
+
+    func footerSection() -> NSView {
+        let year = Calendar.current.component(.year, from: Date())
+        let copyright = label(
+            "© 2024–\(year) ArcBox Labs. All rights reserved.",
+            font: .systemFont(ofSize: 11),
+            color: .tertiaryLabelColor,
+            alignment: .center
+        )
+        let stack = verticalStack([copyright], spacing: 6)
+        stack.alignment = .centerX
+        return stack
+    }
+
+    private func infoRow(label title: String, value: String) -> NSView {
+        let titleLabel = label(title, font: .systemFont(ofSize: 13, weight: .medium))
+        let valueLabel = label(
+            value,
+            font: .systemFont(ofSize: 13),
+            color: .secondaryLabelColor,
+            alignment: .right
+        )
+        valueLabel.isSelectable = true
+        valueLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        let row = NSStackView(views: [titleLabel, valueLabel])
+        row.alignment = .firstBaseline
+        row.distribution = .fill
+        row.orientation = .horizontal
+        row.spacing = 12
+        row.setAccessibilityElement(true)
+        row.setAccessibilityRole(.group)
+        row.setAccessibilityLabel("\(title): \(value)")
+        return padded(row, horizontal: 12, vertical: 8)
     }
 }

@@ -159,9 +159,29 @@ targets:
         basedOnDependencyAnalysis: false
         script: |
           if [ "$SKIP_RUST_BUILD" = "1" ]; then echo 'note: SKIP_RUST_BUILD=1, skipping binary embedding'; exit 0; fi
-          export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+          export PATH="${PROJECT_DIR}/.devenv/profile/bin:${ARCBOX_CARGO_BIN_DIR:+${ARCBOX_CARGO_BIN_DIR}:}${ARCBOX_NODE_BIN_DIR:+${ARCBOX_NODE_BIN_DIR}:}$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
           cd "${PROJECT_DIR}"
+          if [ "$ARCBOX_STAGE_RESOURCES" = "1" ]; then
+            export ARCBOX_HOST_BIN_DIR="${ARCBOX_HOST_BIN_DIR:-${PROJECT_DIR}/.build/ArcBoxHost/release}"
+            make build-runnable-rust
+          fi
           exec cargo xtask macos embed
+    postBuildScripts:
+      - name: Stage Development Resources
+        shell: /bin/bash
+        basedOnDependencyAnalysis: false
+        script: |
+          if [ "$ARCBOX_STAGE_RESOURCES" != "1" ]; then echo 'note: ARCBOX_STAGE_RESOURCES is disabled'; exit 0; fi
+          identity="${EXPANDED_CODE_SIGN_IDENTITY:-${CODE_SIGN_IDENTITY:-}}"
+          if [ -z "$identity" ] || [ "$identity" = "-" ]; then
+            echo 'error: a development signing identity is required to stage runnable resources'
+            exit 1
+          fi
+          export PATH="${PROJECT_DIR}/.devenv/profile/bin:${ARCBOX_CARGO_BIN_DIR:+${ARCBOX_CARGO_BIN_DIR}:}${ARCBOX_NODE_BIN_DIR:+${ARCBOX_NODE_BIN_DIR}:}$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+          cd "${PROJECT_DIR}"
+          profile=()
+          if [ "$ARCBOX_PROFILE" = "development" ] || [ "$ARCBOX_PROFILE" = "dev" ]; then profile=(--dev); fi
+          exec cargo xtask macos stage-resources "${TARGET_BUILD_DIR}/${WRAPPER_NAME}" "${profile[@]}" --sign "$identity"
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -211,6 +231,12 @@ targets:
     deploymentTarget: "15.0"
     sources:
       - path: ArcBoxTests
+      # The local packages' own tests. xcodegen cannot put a SwiftPM test
+      # target into the scheme, so compiling their sources into this bundle is
+      # what puts them behind `make test` instead of leaving them to a
+      # `swift test` nobody runs.
+      - path: Packages/ArcBoxClient/Tests/ArcBoxClientTests
+      - path: Packages/ArcBoxAuth/Tests/ArcBoxAuthTests
     dependencies:
       - target: ArcBox
       - package: FleetControlClient

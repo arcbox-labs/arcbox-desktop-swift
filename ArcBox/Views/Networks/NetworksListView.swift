@@ -15,29 +15,30 @@ struct NetworksListView: View {
                 StartupProgressView(orchestrator: orchestrator)
             } else if !daemonManager.state.isRunning {
                 DaemonLoadingView(state: daemonManager.state)
-            } else if vm.networks.isEmpty {
-                NetworkEmptyState()
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        if !inUseNetworks.isEmpty {
-                            sectionHeader("In Use")
-                            ForEach(inUseNetworks) { network in
-                                networkRow(network)
-                            }
-                        }
-                        if !unusedNetworks.isEmpty {
-                            sectionHeader("Unused")
-                            ForEach(unusedNetworks) { network in
-                                networkRow(network)
-                            }
-                        }
-                    }
+            } else if !daemonManager.setupPhase.isDockerReady {
+                ProgressView("Starting Docker engine…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if docker == nil {
+                ContentUnavailableView {
+                    Label("Docker Client Unavailable", systemImage: "shippingbox")
+                } description: {
+                    Text("ArcBox is running, but no Docker client is available.")
                 }
+            } else {
+                NetworksListControllerView(
+                    viewModel: vm,
+                    loadingTitle: "Loading networks…",
+                    onRetry: {
+                        Task { await vm.loadNetworks(docker: docker) }
+                    },
+                    onDelete: { id in
+                        Task { await vm.removeNetwork(id, docker: docker) }
+                    }
+                )
             }
         }
         .navigationTitle("Networks")
-        .navigationSubtitle("\(vm.networkCount) total")
+        .navigationSubtitle(listSubtitle)
         .searchable(text: Bindable(vm).searchText, isPresented: Bindable(vm).isSearching)
         .onChange(of: vm.isSearching) { _, newValue in
             if !newValue { vm.searchText = "" }
@@ -45,6 +46,7 @@ struct NetworksListView: View {
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 SortMenuButton(sortBy: Bindable(vm).sortBy, ascending: Bindable(vm).sortAscending)
+                    .disabled(!dockerActionsAvailable)
                 Button(
                     action: { vm.showNewNetworkSheet = true },
                     label: {
@@ -53,54 +55,85 @@ struct NetworksListView: View {
                 )
                 .accessibilityLabel("New network")
                 .keyboardShortcut("n", modifiers: .command)
+                .disabled(!dockerActionsAvailable)
             }
         }
         .sheet(isPresented: Bindable(vm).showNewNetworkSheet) {
             NewNetworkSheet()
         }
-        .errorToast(message: Bindable(vm).lastError)
+        .listErrorToast(
+            operationError: Bindable(vm).lastError,
+            refreshError: Bindable(vm).refreshError,
+            resourceName: "networks"
+        )
         .task(id: daemonManager.setupPhase.isDockerReady && docker != nil) {
             guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             await vm.loadNetworks(docker: docker)
         }
         .onReceive(NotificationCenter.default.publisher(for: .dockerNetworkChanged)) { _ in
+            guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             Task { await vm.loadNetworks(docker: docker) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .dockerDataChanged)) { _ in
+            guard daemonManager.setupPhase.isDockerReady, docker != nil else { return }
             Task { await vm.loadNetworks(docker: docker) }
         }
     }
 
-    private var inUseNetworks: [NetworkViewModel] {
-        vm.sortedNetworks.filter { $0.containerCount > 0 }
+    private var dockerActionsAvailable: Bool {
+        (orchestrator?.isReady ?? true)
+            && daemonManager.state.isRunning
+            && daemonManager.setupPhase.isDockerReady
+            && docker != nil
     }
 
-    private var unusedNetworks: [NetworkViewModel] {
-        vm.sortedNetworks.filter { $0.containerCount == 0 }
-    }
-
-    @ViewBuilder
-    private func sectionHeader(_ title: String) -> some View {
-        HStack {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(AppColors.textSecondary)
-            Spacer()
+    private var listSubtitle: String {
+        if let orchestrator, !orchestrator.isReady {
+            return "Starting…"
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
+        guard daemonManager.state.isRunning else {
+            return "Unavailable"
+        }
+        guard daemonManager.setupPhase.isDockerReady else {
+            return "Starting…"
+        }
+        guard docker != nil else {
+            return "Unavailable"
+        }
+        return switch vm.loadState {
+        case .waiting, .loading:
+            "Loading…"
+        case .failed:
+            "Unavailable"
+        case .loaded:
+            "\(vm.networkCount) total"
+        }
+    }
+}
+
+private struct NetworksListControllerView: NSViewControllerRepresentable {
+    let viewModel: NetworksViewModel
+    let loadingTitle: String
+    let onRetry: @MainActor () -> Void
+    let onDelete: @MainActor (String) -> Void
+
+    func makeNSViewController(context _: Context) -> NetworksListViewController {
+        NetworksListViewController(
+            viewModel: viewModel,
+            loadingTitle: loadingTitle,
+            onRetry: onRetry,
+            onDelete: onDelete
+        )
     }
 
-    @ViewBuilder
-    private func networkRow(_ network: NetworkViewModel) -> some View {
-        NetworkRowView(
-            network: network,
-            isSelected: vm.selectedID == network.id,
-            onSelect: { vm.selectNetwork(network.id) },
-            onDelete: {
-                Task { await vm.removeNetwork(network.id, docker: docker) }
-            }
+    func updateNSViewController(
+        _ controller: NetworksListViewController,
+        context _: Context
+    ) {
+        controller.update(
+            loadingTitle: loadingTitle,
+            onRetry: onRetry,
+            onDelete: onDelete
         )
     }
 }

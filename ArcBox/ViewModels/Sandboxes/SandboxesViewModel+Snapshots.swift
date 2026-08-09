@@ -7,35 +7,76 @@ extension SandboxesViewModel {
 
     /// Load snapshots taken from one sandbox.
     func loadSnapshots(for sandboxID: String, client: ArcBoxClient?) async {
-        guard let client else { return }
+        snapshotsLoadToken = nil
         // Drop a previously-selected sandbox's snapshots up front so a slow or
         // failing load never leaves another sandbox's snapshots on screen.
         if snapshotsSandboxID != sandboxID {
             snapshots = []
             snapshotsSandboxID = sandboxID
+            snapshotsLoadState = .waiting
+            snapshotsRefreshError = nil
         }
+        guard let client else {
+            if snapshotsLoadState == .loading {
+                snapshotsLoadState = .waiting
+            }
+            return
+        }
+
+        let loadToken = UUID()
+        snapshotsLoadToken = loadToken
+        let isRefresh = snapshotsLoadState.beginLoading()
         let metadata = SandboxMetadata.forMachine(activeMachineID)
-        var request = Sandbox_V1_ListSnapshotsRequest()
-        request.sandboxID = sandboxID
         do {
-            let response = try await client.snapshots.listSnapshots(
-                request,
-                metadata: metadata,
-                options: ArcBoxClient.defaultCallOptions
-            )
-            snapshots = response.snapshots.map(SandboxSnapshotViewModel.init(from:))
+            var summaries: [Arcbox_Sandbox_V1_SnapshotSummary] = []
+            var pageToken = ""
+            repeat {
+                var request = Arcbox_Sandbox_V1_ListSnapshotsRequest()
+                request.sandboxID = sandboxID
+                request.pageSize = 1_000
+                request.pageToken = pageToken
+                let response = try await client.snapshots.listSnapshots(
+                    request,
+                    metadata: metadata,
+                    options: ArcBoxClient.defaultCallOptions
+                )
+                summaries.append(contentsOf: response.snapshots)
+                pageToken = response.nextPageToken
+            } while !pageToken.isEmpty
+
+            guard snapshotsLoadToken == loadToken, snapshotsSandboxID == sandboxID else { return }
+            snapshotsLoadToken = nil
+            snapshots = summaries.map(SandboxSnapshotViewModel.init(from:))
+            snapshotsLoadState = .loaded
+            snapshotsRefreshError = nil
+        } catch is CancellationError {
+            guard snapshotsLoadToken == loadToken, snapshotsSandboxID == sandboxID else { return }
+            snapshotsLoadToken = nil
+            snapshotsLoadState = isRefresh ? .loaded : .waiting
         } catch {
-            reportError(error, operation: "list_snapshots", surface: false)
+            guard snapshotsLoadToken == loadToken, snapshotsSandboxID == sandboxID else { return }
+            snapshotsLoadToken = nil
+            if snapshotsLoadState.cancelLoading(
+                for: error,
+                retainingLoadedContent: isRefresh
+            ) {
+                return
+            }
+            let message = reportError(error, operation: "list_snapshots", surface: false)
+            snapshotsRefreshError = snapshotsLoadState.fail(
+                message,
+                retainingLoadedContent: isRefresh
+            )
         }
     }
 
-    /// Checkpoint a ready/idle sandbox into a reusable snapshot.
+    /// Checkpoint a ready sandbox into a reusable snapshot.
     /// The sandbox is paused, snapshotted, then resumed by the daemon.
     func checkpointSandbox(_ id: String, name: String, client: ArcBoxClient?) async {
         guard let client else { return }
         let metadata = SandboxMetadata.forMachine(activeMachineID)
         setTransitioning(id, true)
-        var request = Sandbox_V1_CheckpointRequest()
+        var request = Arcbox_Sandbox_V1_CheckpointRequest()
         request.sandboxID = id
         request.name = name
         do {
@@ -44,6 +85,8 @@ extension SandboxesViewModel {
             let response = try await client.snapshots.checkpoint(request, metadata: metadata)
             Log.sandbox.info("Checkpointed \(id, privacy: .public) → \(response.snapshotID, privacy: .public)")
             await loadSnapshots(for: id, client: client)
+        } catch is CancellationError {
+            // The view initiating the operation went away.
         } catch {
             reportError(error, operation: "checkpoint")
         }
@@ -64,7 +107,7 @@ extension SandboxesViewModel {
     ) async -> String? {
         guard let client else { return nil }
         let metadata = SandboxMetadata.forMachine(activeMachineID)
-        var request = Sandbox_V1_RestoreRequest()
+        var request = Arcbox_Sandbox_V1_RestoreRequest()
         request.snapshotID = snapshotID
         request.networkOverride = freshNetwork
         do {
@@ -74,9 +117,10 @@ extension SandboxesViewModel {
                 options: ArcBoxClient.defaultCallOptions
             )
             Log.sandbox.info("Restored \(snapshotID, privacy: .public) → \(response.id, privacy: .public)")
-            recordSandboxStart()
             await loadSandboxes(client: client)
             return response.id
+        } catch is CancellationError {
+            return nil
         } catch {
             reportError(error, operation: "restore")
             return nil
@@ -87,7 +131,7 @@ extension SandboxesViewModel {
     func deleteSnapshot(_ snapshotID: String, client: ArcBoxClient?) async {
         guard let client else { return }
         let metadata = SandboxMetadata.forMachine(activeMachineID)
-        var request = Sandbox_V1_DeleteSnapshotRequest()
+        var request = Arcbox_Sandbox_V1_DeleteSnapshotRequest()
         request.snapshotID = snapshotID
         do {
             _ = try await client.snapshots.deleteSnapshot(
@@ -95,7 +139,10 @@ extension SandboxesViewModel {
                 metadata: metadata,
                 options: ArcBoxClient.defaultCallOptions
             )
+            snapshotsLoadToken = nil
             snapshots.removeAll { $0.id == snapshotID }
+        } catch is CancellationError {
+            return
         } catch {
             reportError(error, operation: "delete_snapshot")
         }

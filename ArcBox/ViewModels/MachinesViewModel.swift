@@ -1,23 +1,14 @@
 import ArcBoxClient
-import SwiftUI
-import os
+import Foundation
+import OSLog
+import Observation
 
 /// Detail tab options for machines (matches container pattern)
-enum MachineDetailTab: String, CaseIterable, Identifiable {
+enum MachineDetailTab: String, @MainActor DetailTab {
     case info = "Info"
-    case logs = "Logs"
     case terminal = "Terminal"
-    case files = "Files"
 
     var id: String { rawValue }
-}
-
-/// Machine list loading state
-enum MachineLoadState: Equatable {
-    case waiting  // Waiting for the gRPC client
-    case loading  // Fetching from the daemon
-    case loaded  // Fetch completed (machines may be empty)
-    case failed(String)  // Fetch failed with error message
 }
 
 /// Machine list state backed by the arcbox.v1 MachineService.
@@ -29,17 +20,30 @@ class MachinesViewModel {
     var activeTab: MachineDetailTab = .info
     var searchText: String = ""
     var isSearching: Bool = false
-    var loadState: MachineLoadState = .waiting
+    var loadState: LoadPhase = .waiting
+    var refreshError: String?
+    let listLoadGate = SingleFlightLoadGate()
     var showCreateSheet: Bool = false
 
     /// User-visible error from the last failed operation.
     var lastError: String?
 
     var filteredMachines: [MachineViewModel] {
-        guard !searchText.isEmpty else { return machines }
-        return machines.filter {
-            $0.name.localizedCaseInsensitiveContains(searchText)
-                || $0.distro.displayName.localizedCaseInsensitiveContains(searchText)
+        let filtered =
+            if searchText.isEmpty {
+                machines
+            } else {
+                machines.filter {
+                    $0.name.localizedCaseInsensitiveContains(searchText)
+                        || $0.distro.displayName.localizedCaseInsensitiveContains(searchText)
+                }
+            }
+        return filtered.sorted {
+            let comparison = $0.name.localizedCaseInsensitiveCompare($1.name)
+            if comparison == .orderedSame {
+                return $0.id < $1.id
+            }
+            return comparison == .orderedAscending
         }
     }
 

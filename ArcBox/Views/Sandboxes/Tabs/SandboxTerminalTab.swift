@@ -5,11 +5,12 @@ import SwiftUI
 /// Terminal tab providing an interactive shell into a sandbox.
 struct SandboxTerminalTab: View {
     let sandboxID: String
+    let canStartExecution: Bool
+    let session: SandboxTerminalSession
 
     @Environment(SandboxesViewModel.self) private var vm
     @Environment(\.arcboxClient) private var client
 
-    @State private var session = SandboxTerminalSession()
     @State private var selectedShell = "/bin/sh"
     @State private var terminalToken = UUID()
     @State private var hasConnected = false
@@ -26,8 +27,8 @@ struct SandboxTerminalTab: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .frame(width: 140)
-                .disabled(session.state == .connected)
+                .frame(width: AppMetrics.shellPickerWidth)
+                .disabled(session.state == .connected || session.state == .connecting)
 
                 Spacer()
 
@@ -50,6 +51,7 @@ struct SandboxTerminalTab: View {
                     }
                     .buttonStyle(.plain)
                     .help("Reconnect")
+                    .disabled(!canStartExecution)
                 }
             }
             .padding(.horizontal, 12)
@@ -75,14 +77,27 @@ struct SandboxTerminalTab: View {
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(AppColors.background)
+                    } else if !canStartExecution, !hasConnected {
+                        ProgressView("Waiting for sandbox to become ready…")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(AppColors.background)
                     }
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppColors.background)
+        .onAppear {
+            if case .error = session.state {
+                reconnect()
+            }
+        }
         .onDisappear {
             session.disconnect()
+        }
+        .onChange(of: canStartExecution) { _, canStartExecution in
+            guard canStartExecution, !hasConnected else { return }
+            terminalToken = UUID()
         }
     }
 
@@ -90,7 +105,7 @@ struct SandboxTerminalTab: View {
         SwiftTermView(delegate: TerminalSessionBridge(session: session)) { terminalView in
             TerminalAppearance.configure(terminalView)
 
-            guard !hasConnected, let client else { return }
+            guard canStartExecution, !hasConnected, let client else { return }
             let sandboxID = sandboxID
             let shell = selectedShell
             let machineID = vm.activeMachineID

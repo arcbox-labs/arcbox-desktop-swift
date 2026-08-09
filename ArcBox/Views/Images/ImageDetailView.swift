@@ -24,30 +24,6 @@ struct ImageDetailView: View {
                                     InfoRow(label: "Platform", value: "\(image.os)/\(image.architecture)")
                                 }
                                 .infoSectionStyle()
-
-                                // Export button
-                                HStack(spacing: 12) {
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(AppColors.surfaceElevated)
-                                        .frame(width: 24, height: 24)
-                                        .overlay {
-                                            Image(systemName: "arrow.down.circle")
-                                                .font(.system(size: 14))
-                                        }
-
-                                    Text("Export")
-                                        .font(.system(size: 13))
-
-                                    Spacer()
-
-                                    Text("\u{203A}")
-                                        .foregroundStyle(AppColors.textSecondary)
-                                }
-                                .padding(12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(AppColors.border, lineWidth: 1)
-                                )
                             }
                             .padding(16)
                         }
@@ -79,15 +55,7 @@ struct ImageDetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Picker("Tab", selection: $vm.activeTab) {
-                    ForEach(ImageDetailTab.allCases) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 250)
-            }
+            DetailTabPicker(selection: $vm.activeTab)
         }
     }
 }

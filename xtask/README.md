@@ -30,6 +30,7 @@ cargo xtask macos dmg --sign "Developer ID Application: …" --notarize
 | `macos dmg` | Build `ArcBox.app`, embed assets/binaries, bundle + sign the daemon, deep-sign, package the DMG, and notarize. Injects `PostHogAPIKey`/`SentryDSN`/`SUPublicEDKey` into Info.plist. |
 | `protocol bump` | Update `arcbox.version` and regenerate the Swift protobuf client atomically. |
 | `protocol verify` | Regenerate the Swift protobuf client from `arcbox.version` and fail if checked-in generated files drift. |
+| `release resolve` | Resolve build version, channel, prerelease flag, and arcbox ref into `GITHUB_OUTPUT`. |
 | `release appcast` | Generate or merge a Sparkle 2.x appcast XML feed. |
 | `release latest-json` | Update the `latest.json` channel manifest. |
 
@@ -39,11 +40,12 @@ cargo xtask macos dmg --sign "Developer ID Application: …" --notarize
 src/
   main.rs                 CLI shape (clap) + dispatch only — no task logic
   commands/
-    macos.rs              dispatch: embed / bundle / dmg (macOS-gated)
-    macos/{embed,bundle,dmg}.rs
+    macos.rs              dispatch: embed / bundle / prepare-resources / dmg (macOS-gated)
+    macos/{embed,bundle,dmg}.rs      prepare-resources lives in dmg.rs
+    macos/dmg/tests.rs
     protocol.rs           arcbox.version + protobuf client codegen
-    release.rs            dispatch: appcast / latest-json
-    release/{appcast,latest_json}.rs
+    release.rs            dispatch: resolve / appcast / latest-json
+    release/{resolve,appcast,latest_json}.rs
   support/fs.rs           generic helpers shared by macOS commands
 ```
 
