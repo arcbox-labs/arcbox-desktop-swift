@@ -178,12 +178,20 @@ struct ContentView: View {
                 request: request,
                 ids: Set(k8sState.podsModel.pods.map(\.id)),
                 isLoaded: k8sState.podsModel.streamPhase == .live
+                    && wasLoadedAfterRequest(
+                        k8sState.podsModel.lastStreamUpdate,
+                        request: request
+                    )
             )
         case .services:
             return ResourceDeepLinkAvailability(
                 request: request,
                 ids: Set(k8sState.servicesModel.services.map(\.id)),
                 isLoaded: k8sState.servicesModel.streamPhase == .live
+                    && wasLoadedAfterRequest(
+                        k8sState.servicesModel.lastStreamUpdate,
+                        request: request
+                    )
             )
         case .machines:
             return ResourceDeepLinkAvailability(
@@ -217,13 +225,10 @@ struct ContentView: View {
     }
 
     private func refreshVisibleResourceListIfNeeded() async {
-        guard
-            let request = appVM.pendingResourceDeepLink,
-            request.needsExplicitRefresh
-        else { return }
+        guard let request = appVM.pendingResourceDeepLink else { return }
 
         switch request.section {
-        case .activity, .pods, .services:
+        case .activity:
             break
         case .containers:
             await containersVM.loadContainersFromDocker(
@@ -236,6 +241,8 @@ struct ContentView: View {
             await imagesVM.loadImages(docker: dockerClient, iconClient: arcboxClient)
         case .networks:
             await networksVM.loadNetworks(docker: dockerClient)
+        case .pods, .services:
+            k8sState.retryStreams(client: arcboxClient)
         case .machines:
             await machinesVM.loadMachines(client: arcboxClient)
         case .sandboxes:

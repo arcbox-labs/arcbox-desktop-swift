@@ -43,7 +43,6 @@ final class ApplicationCoordinator: NSObject {
     private var menuBarHost: NSHostingController<AnyView>?
     private var startupTask: Task<Void, Never>?
     private var connectionTask: Task<Void, Never>?
-    private var dockerContextTask: Task<Void, Never>?
     private var lastDaemonState: DaemonState?
     private var lastShowInMenuBar: Bool
     private var lastUpdateChannel: String
@@ -408,15 +407,10 @@ final class ApplicationCoordinator: NSObject {
 
     @discardableResult
     private func updateDockerContext(useArcBox: Bool) -> Task<Void, Never> {
-        let previousTask = dockerContextTask
+        let operation = DockerContextManager.update(useArcBox: useArcBox)
         let task = Task {
-            await previousTask?.value
             do {
-                if useArcBox {
-                    try await DockerContextManager.switchToArcBox()
-                } else {
-                    try await DockerContextManager.restorePreviousContext()
-                }
+                try await operation.value
                 appVM.dockerContextError = nil
                 appVM.dockerContextRetryValue = nil
             } catch {
@@ -429,7 +423,6 @@ final class ApplicationCoordinator: NSObject {
                 appVM.dockerContextRetryValue = useArcBox
             }
         }
-        dockerContextTask = task
         return task
     }
 

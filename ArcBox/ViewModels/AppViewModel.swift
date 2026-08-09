@@ -8,7 +8,6 @@ class AppViewModel {
         let section: NavItem
         let id: String
         let requestedAt: ContinuousClock.Instant
-        let needsExplicitRefresh: Bool
     }
 
     var currentNav: NavItem? = .containers
@@ -24,16 +23,11 @@ class AppViewModel {
         currentNav = item
     }
 
-    func requestResourceDeepLink(
-        section: NavItem,
-        id: String,
-        needsExplicitRefresh: Bool
-    ) {
+    func requestResourceDeepLink(section: NavItem, id: String) {
         pendingResourceDeepLink = ResourceDeepLink(
             section: section,
             id: id,
-            requestedAt: ContinuousClock().now,
-            needsExplicitRefresh: needsExplicitRefresh
+            requestedAt: ContinuousClock().now
         )
         deepLinkError = nil
     }
