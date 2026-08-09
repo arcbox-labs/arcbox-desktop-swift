@@ -25,8 +25,7 @@ nonisolated private enum DockerContextError: LocalizedError {
 nonisolated enum DockerContextManager {
     private static let logger = Log.context
     private static let previousContextKey = "previousDockerContext"
-    // ponytail: One global lock is enough for rare context changes; use an actor if this becomes a frequent API.
-    private static let operationLock = NSLock()
+    @MainActor private static var operationTask: Task<Void, Error>?
 
     private static var configPath: String {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
@@ -45,61 +44,75 @@ nonisolated enum DockerContextManager {
         return profile?.caseInsensitiveCompare("development") == .orderedSame ? "arcbox-dev" : "arcbox"
     }
 
+    /// Serializes every context change in request order, including Settings and app lifecycle calls.
+    @MainActor
+    static func update(useArcBox: Bool) -> Task<Void, Error> {
+        let previousTask = operationTask
+        let task = Task {
+            if let previousTask {
+                _ = await previousTask.result
+            }
+            if useArcBox {
+                try await switchToArcBox()
+            } else {
+                try await restorePreviousContext()
+            }
+        }
+        operationTask = task
+        return task
+    }
+
     /// Switch the Docker CLI context to use ArcBox's socket.
     /// Saves the previous context so it can be restored later.
-    static func switchToArcBox() async throws {
+    private static func switchToArcBox() async throws {
         try await Task.detached {
-            try operationLock.withLock {
-                let config = try readConfig()
-                guard let dockerPath = DockerCLIResolver.findDockerCLI() else {
-                    throw DockerContextError.dockerCLIUnavailable
-                }
-
-                // Keep the context from before this ArcBox session, including Docker's
-                // implicit "default" context when the key is absent.
-                let hadSavedContext = UserDefaults.standard.string(forKey: previousContextKey) != nil
-                if !hadSavedContext {
-                    UserDefaults.standard.set(
-                        config["currentContext"] as? String ?? "default",
-                        forKey: previousContextKey
-                    )
-                }
-
-                do {
-                    try createArcBoxContext(dockerPath: dockerPath)
-
-                    var updatedConfig = config
-                    updatedConfig["currentContext"] = arcboxContextName
-                    try writeConfig(updatedConfig)
-                } catch {
-                    if !hadSavedContext {
-                        UserDefaults.standard.removeObject(forKey: previousContextKey)
-                    }
-                    throw error
-                }
-
-                logger.info("Switched Docker context to \(arcboxContextName, privacy: .public)")
+            let config = try readConfig()
+            guard let dockerPath = DockerCLIResolver.findDockerCLI() else {
+                throw DockerContextError.dockerCLIUnavailable
             }
+
+            // Keep the context from before this ArcBox session, including Docker's
+            // implicit "default" context when the key is absent.
+            let hadSavedContext = UserDefaults.standard.string(forKey: previousContextKey) != nil
+            if !hadSavedContext {
+                UserDefaults.standard.set(
+                    config["currentContext"] as? String ?? "default",
+                    forKey: previousContextKey
+                )
+            }
+
+            do {
+                try createArcBoxContext(dockerPath: dockerPath)
+
+                var updatedConfig = config
+                updatedConfig["currentContext"] = arcboxContextName
+                try writeConfig(updatedConfig)
+            } catch {
+                if !hadSavedContext {
+                    UserDefaults.standard.removeObject(forKey: previousContextKey)
+                }
+                throw error
+            }
+
+            logger.info("Switched Docker context to \(arcboxContextName, privacy: .public)")
         }.value
     }
 
     /// Restore the Docker CLI context to what it was before ArcBox started.
     /// Always restores if a previous context was saved, regardless of the current toggle state,
     /// to avoid leaving the user's Docker CLI pointing at a dead socket.
-    static func restorePreviousContext() async throws {
+    private static func restorePreviousContext() async throws {
         try await Task.detached {
-            try operationLock.withLock {
-                // Always restore if we previously saved a context — even if the toggle was turned off since.
-                guard let previousContext = UserDefaults.standard.string(forKey: previousContextKey) else {
-                    // No saved context — nothing to restore.
-                    return
-                }
-                var config = try readConfig()
-                config["currentContext"] = previousContext
-                try writeConfig(config)
-                UserDefaults.standard.removeObject(forKey: previousContextKey)
-                logger.info("Restored previous Docker context")
+            // Always restore if we previously saved a context — even if the toggle was turned off since.
+            guard let previousContext = UserDefaults.standard.string(forKey: previousContextKey) else {
+                // No saved context — nothing to restore.
+                return
             }
+            var config = try readConfig()
+            config["currentContext"] = previousContext
+            try writeConfig(config)
+            UserDefaults.standard.removeObject(forKey: previousContextKey)
+            logger.info("Restored previous Docker context")
         }.value
     }
 

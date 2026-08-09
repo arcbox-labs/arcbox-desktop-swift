@@ -231,13 +231,10 @@ struct SystemSettingsView: View {
         appVM.dockerContextError = nil
         appVM.dockerContextRetryValue = nil
         isUpdatingDockerContext = true
+        let operation = DockerContextManager.update(useArcBox: enabled)
         Task {
             do {
-                if enabled {
-                    try await DockerContextManager.switchToArcBox()
-                } else {
-                    try await DockerContextManager.restorePreviousContext()
-                }
+                try await operation.value
                 switchContextAutomatically = enabled
             } catch {
                 appVM.dockerContextError =

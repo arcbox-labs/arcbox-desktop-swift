@@ -61,7 +61,6 @@ final class DeepLinkRouter {
             target.openSettingsWindow()
         case .section(let item, let id):
             target.openMainWindow()
-            let needsExplicitRefresh = target.appVM.currentNav == item
             target.appVM.navigate(to: item)
             guard let id else {
                 target.appVM.clearResourceDeepLink()
@@ -71,11 +70,7 @@ final class DeepLinkRouter {
                 target.appVM.clearResourceDeepLink()
                 target.appVM.deepLinkError = "Activity links don’t support resource IDs."
             } else {
-                target.appVM.requestResourceDeepLink(
-                    section: item,
-                    id: id,
-                    needsExplicitRefresh: needsExplicitRefresh
-                )
+                target.appVM.requestResourceDeepLink(section: item, id: id)
             }
         }
         NSApp.activate()
