@@ -261,6 +261,9 @@ final class RunnersViewModel {
                 guard let machineID = normalizedMachineID(snapshot.machineID) else {
                     return .failed("Fleet Agent reported an invalid machine identity.")
                 }
+                if let override = connectivityOverride(loadState: loadState) {
+                    return override
+                }
                 return .enrollmentFailed(
                     FleetEnrollmentCoordinator.Failure.credentialRejected(machineID: machineID)
                         .localizedDescription,
@@ -269,6 +272,9 @@ final class RunnersViewModel {
             case .detached:
                 guard let machineID = normalizedMachineID(snapshot.machineID) else {
                     return .failed("Fleet Agent reported an invalid machine identity.")
+                }
+                if let override = connectivityOverride(loadState: loadState) {
+                    return override
                 }
                 return .enrollmentFailed(
                     FleetEnrollmentCoordinator.Failure.detached(machineID: machineID)
@@ -279,13 +285,8 @@ final class RunnersViewModel {
                 guard normalizedMachineID(snapshot.machineID) == nil else {
                     return .failed("Fleet Agent reported an invalid unenrolled state.")
                 }
-                switch loadState {
-                case .idle, .connecting:
-                    return .connecting
-                case .unavailable(let message), .failed(let message):
-                    return .unavailable(message)
-                case .ready:
-                    break
+                if let override = connectivityOverride(loadState: loadState) {
+                    return override
                 }
                 return resolveUnenrolledState(
                     enrollmentContext: enrollmentContext
@@ -344,6 +345,20 @@ final class RunnersViewModel {
                 )
             }
             return .unenrolled
+        }
+    }
+
+    /// A non-live `loadState` for a terminal snapshot (unenrolled, credential-rejected,
+    /// detached) means the watch has disconnected and the snapshot is stale — surface
+    /// connectivity instead of offering recovery actions the disconnected client can't serve.
+    private static func connectivityOverride(loadState: FleetLoadState) -> RunnersViewState? {
+        switch loadState {
+        case .idle, .connecting:
+            return .connecting
+        case .unavailable(let message), .failed(let message):
+            return .unavailable(message)
+        case .ready:
+            return nil
         }
     }
 

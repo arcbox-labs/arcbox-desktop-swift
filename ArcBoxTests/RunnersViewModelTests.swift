@@ -262,6 +262,28 @@ final class RunnersViewModelTests: XCTestCase {
         XCTAssertEqual(state, .unavailable("State stream ended."))
     }
 
+    func testRetainedCredentialRejectedSnapshotShowsUnavailableWhileWatchReconnects() {
+        let state = resolve(
+            snapshot: makeSnapshot(enrollment: .credentialRejected),
+            loadState: .failed("State stream ended."),
+            enrollmentState: .idle,
+            isSignedIn: true
+        )
+
+        XCTAssertEqual(state, .unavailable("State stream ended."))
+    }
+
+    func testRetainedDetachedSnapshotShowsConnectingWhileWatchReconnects() {
+        let state = resolve(
+            snapshot: makeSnapshot(enrollment: .detached),
+            loadState: .connecting,
+            enrollmentState: .idle,
+            isSignedIn: true
+        )
+
+        XCTAssertEqual(state, .connecting)
+    }
+
     func testCoordinatorReadyWithoutSnapshotDoesNotSynthesizeHost() {
         XCTAssertEqual(
             resolve(
