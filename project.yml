@@ -239,10 +239,6 @@ targets:
       - path: Packages/ArcBoxAuth/Tests/ArcBoxAuthTests
     dependencies:
       - target: ArcBox
-      - package: FleetControlClient
-        link: false
-      - package: FleetPlatformClient
-        link: false
       - package: K8sClient
     settings:
       base:

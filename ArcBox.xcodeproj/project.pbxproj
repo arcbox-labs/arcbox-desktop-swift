@@ -339,7 +339,6 @@
 		2D2C529811ECBAD82E110BC4 /* AuthTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthTestSupport.swift; sourceTree = "<group>"; };
 		2E8FB9C9E3349126EF773522 /* DaemonLoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonLoadingView.swift; sourceTree = "<group>"; };
 		3029D85CCC770F8C1801A392 /* LayeredRootFSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayeredRootFSTests.swift; sourceTree = "<group>"; };
-		30E098A84BBE783F294989F5 /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
 		312B3A0CBD47EB616127BBE5 /* TerminalSessionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionBridge.swift; sourceTree = "<group>"; };
 		32115BE04C97CECA9C05A273 /* StartupProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupProgressView.swift; sourceTree = "<group>"; };
 		32C86546753C11A9E6CA8CB8 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
@@ -395,6 +394,7 @@
 		66F91CF47E53375781959EC9 /* ServicesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicesListView.swift; sourceTree = "<group>"; };
 		68009FEC4A2F0EB046ACCA4C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		68B7685DAD23E5427C0F9911 /* NetworkDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDetailView.swift; sourceTree = "<group>"; };
+		68FD048401D9884E96A52412 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
 		69038D73EF8AC0CC09D4B39C /* NavItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavItem.swift; sourceTree = "<group>"; };
 		699A57392F1D9366CFA78BAF /* VolumesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumesViewModel.swift; sourceTree = "<group>"; };
 		6AC42E91F0BCACABF173B87F /* DockerTerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerTerminalSession.swift; sourceTree = "<group>"; };
@@ -454,6 +454,7 @@
 		A10ED4BA65D6B9CC56B6B329 /* ChangelogParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangelogParserTests.swift; sourceTree = "<group>"; };
 		A1FE07EA71512ACEE609B537 /* RunnerHostCapability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerHostCapability.swift; sourceTree = "<group>"; };
 		A2B6587D59B9EFA18E51A3F3 /* ImagesViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagesViewModelTests.swift; sourceTree = "<group>"; };
+		A2B92BFA23F4133B8488DDD8 /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
 		A37BB3605830EBE3A1625452 /* PodModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodModel.swift; sourceTree = "<group>"; };
 		A45A5AAA9B74A59E7543D8D0 /* LocalRootFSOutlineCoordinator+Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LocalRootFSOutlineCoordinator+Actions.swift"; sourceTree = "<group>"; };
 		A517313E1085B62A40075622 /* OnboardingWindowControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindowControllerTests.swift; sourceTree = "<group>"; };
@@ -517,7 +518,6 @@
 		DB9FDA2F6F3036772AC0B23C /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		DBEBBF08F0E4AC45D9C0BB83 /* ChangelogParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangelogParser.swift; sourceTree = "<group>"; };
 		DE564AAFEC0EF6D094409728 /* SandboxRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxRowView.swift; sourceTree = "<group>"; };
-		DE7042E523BC9A1B43EBF72C /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
 		DE7E377F9D8C89E24989DE3D /* ContentViewColumnLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewColumnLayoutTests.swift; sourceTree = "<group>"; };
 		DF34CA0688377F7956F2FD3D /* NewSandboxSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewSandboxSheet.swift; sourceTree = "<group>"; };
 		E06B22BB8B92AF78C2B87ADC /* AboutView+LinkButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AboutView+LinkButton.swift"; sourceTree = "<group>"; };
@@ -717,16 +717,6 @@
 			path = Networks;
 			sourceTree = "<group>";
 		};
-		1CFAEF26FF3E7C8ECBDCD8A8 /* arcbox-desktop-abxd-99-device-auth */ = {
-			isa = PBXGroup;
-			children = (
-				30E098A84BBE783F294989F5 /* Local.xcconfig */,
-				DE7042E523BC9A1B43EBF72C /* Version.xcconfig */,
-			);
-			name = "arcbox-desktop-abxd-99-device-auth";
-			path = .;
-			sourceTree = "<group>";
-		};
 		1FB2DBF10BA5A41982EAE9E9 /* Tabs */ = {
 			isa = PBXGroup;
 			children = (
@@ -856,7 +846,7 @@
 				AC70A79B919D909CF6D811B4 /* arcbox.version */,
 				32C86546753C11A9E6CA8CB8 /* CHANGELOG.md */,
 				DC225BF252CB33BB34E74A79 /* ArcBox */,
-				1CFAEF26FF3E7C8ECBDCD8A8 /* arcbox-desktop-abxd-99-device-auth */,
+				A6889022EABCBEE366F350AC /* arcbox-desktop */,
 				AC4AAD074C3A39ADAB6FAD7B /* ArcBoxAuthTests */,
 				C8B7319F3F54C908E990038A /* ArcBoxClientTests */,
 				F40F93A7C5C0CC3834C9D722 /* ArcBoxTests */,
@@ -1050,6 +1040,16 @@
 				B422F342095BFADBE2F147B8 /* Tabs */,
 			);
 			path = Machines;
+			sourceTree = "<group>";
+		};
+		A6889022EABCBEE366F350AC /* arcbox-desktop */ = {
+			isa = PBXGroup;
+			children = (
+				A2B92BFA23F4133B8488DDD8 /* Local.xcconfig */,
+				68FD048401D9884E96A52412 /* Version.xcconfig */,
+			);
+			name = "arcbox-desktop";
+			path = .;
 			sourceTree = "<group>";
 		};
 		AC4AAD074C3A39ADAB6FAD7B /* ArcBoxAuthTests */ = {
@@ -1291,8 +1291,6 @@
 			);
 			dependencies = (
 				23D8AA8FD74EFEAA3DC25E1B /* PBXTargetDependency */,
-				525EA2B0F32AF02BC4534188 /* PBXTargetDependency */,
-				79A065BF2492C1CD82C1BFC2 /* PBXTargetDependency */,
 			);
 			name = ArcBoxTests;
 			packageProductDependencies = (
@@ -1677,20 +1675,12 @@
 			target = 5736F290209CBC17FA7F78A4 /* ArcBox */;
 			targetProxy = E5DB5C7D0FE3D3B3E84C9A60 /* PBXContainerItemProxy */;
 		};
-		525EA2B0F32AF02BC4534188 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			productRef = "TEMP_F6B9ED89-0D40-4DA3-89D6-E1D196C5A72A" /* FleetControlClient */;
-		};
-		79A065BF2492C1CD82C1BFC2 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			productRef = "TEMP_71D64F44-2EC3-43A4-A2D5-A0C5B0114B40" /* FleetPlatformClient */;
-		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		30201713747F358DB9057B09 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 30E098A84BBE783F294989F5 /* Local.xcconfig */;
+			baseConfigurationReference = A2B92BFA23F4133B8488DDD8 /* Local.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -1781,7 +1771,7 @@
 		};
 		A05F50A0D3A02115582BD519 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = DE7042E523BC9A1B43EBF72C /* Version.xcconfig */;
+			baseConfigurationReference = 68FD048401D9884E96A52412 /* Version.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -1828,7 +1818,7 @@
 		};
 		B65D4F0FCC4C62119FDE962D /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 30E098A84BBE783F294989F5 /* Local.xcconfig */;
+			baseConfigurationReference = A2B92BFA23F4133B8488DDD8 /* Local.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -1923,7 +1913,7 @@
 		};
 		FA16326409B9B381CDC02A57 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 30E098A84BBE783F294989F5 /* Local.xcconfig */;
+			baseConfigurationReference = A2B92BFA23F4133B8488DDD8 /* Local.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -2110,14 +2100,6 @@
 		E3B0A98EBADEEAA76280EF06 /* K8sClient */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = K8sClient;
-		};
-		"TEMP_71D64F44-2EC3-43A4-A2D5-A0C5B0114B40" /* FleetPlatformClient */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = FleetPlatformClient;
-		};
-		"TEMP_F6B9ED89-0D40-4DA3-89D6-E1D196C5A72A" /* FleetControlClient */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = FleetControlClient;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
