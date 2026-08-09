@@ -41,6 +41,7 @@ final class DockerTerminalSessionIntegrationTests: XCTestCase {
         try requireDockerWithPostgresImage()
 
         let terminalView = TerminalView(frame: .zero)
+        terminalView.resize(cols: 80, rows: 24)
         let session = DockerTerminalSession()
 
         session.runImage(imageName: "postgres:18", shell: "/bin/sh", terminalView: terminalView)
@@ -49,6 +50,18 @@ final class DockerTerminalSessionIntegrationTests: XCTestCase {
         let firstVolumes = try await anonymousVolumes(whenContainerAppears: firstContainer)
         cleanupVolumeNames.append(contentsOf: firstVolumes)
 
+        let trapCommand = Data(
+            "trap 'printf \"OLD-%s\\n\" \"SESSION\"' TERM; printf \"TRAP-%s\\n\" \"READY\"\r".utf8
+        )
+        let trapReady = try await eventually {
+            let output = String(bytes: terminalView.getTerminal().getBufferAsData(), encoding: .utf8)
+            if output?.contains("TRAP-READY") == true { return true }
+            session.send(trapCommand)
+            return false
+        }
+        XCTAssertTrue(trapReady, "Image terminal never installed its TERM trap")
+        terminalView.getTerminal().resetToInitialState()
+
         session.runImage(imageName: "postgres:18", shell: "/bin/sh", terminalView: terminalView)
         let secondContainer = try XCTUnwrap(session.activeImageContainerName)
         cleanupContainerNames.append(secondContainer)
@@ -56,6 +69,23 @@ final class DockerTerminalSessionIntegrationTests: XCTestCase {
         cleanupVolumeNames.append(contentsOf: secondVolumes)
 
         try await assertRemoved(container: firstContainer, volumes: firstVolumes)
+
+        let newShellReadyProbe = Data("printf \"NEW-%s\\n\" \"READY\"\r".utf8)
+        let newShellReady = try await eventually {
+            let output = String(bytes: terminalView.getTerminal().getBufferAsData(), encoding: .utf8)
+            if output?.contains("NEW-READY") == true { return true }
+            session.send(newShellReadyProbe)
+            return false
+        }
+        XCTAssertTrue(newShellReady, "Replacement image terminal shell never became ready")
+
+        let outputAfterReplacement = try XCTUnwrap(
+            String(bytes: terminalView.getTerminal().getBufferAsData(), encoding: .utf8)
+        )
+        XCTAssertFalse(
+            outputAfterReplacement.contains("OLD-SESSION"),
+            "Old image terminal output appeared after replacement"
+        )
 
         session.disconnect()
 

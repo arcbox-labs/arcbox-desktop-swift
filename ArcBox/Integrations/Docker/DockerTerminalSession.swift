@@ -113,12 +113,11 @@ class DockerTerminalSession {
         terminalView: TerminalView,
         imageContainerName: String? = nil
     ) {
+        sessionGeneration += 1
         // Tear down old process without touching state (avoids intermediate .disconnected flicker)
         teardownProcess()
         self.terminalView = terminalView
 
-        // Bump generation so stale callbacks from the old session are ignored
-        sessionGeneration += 1
         let currentGen = sessionGeneration
 
         state = .connecting
@@ -184,7 +183,8 @@ class DockerTerminalSession {
                 if bytesRead <= 0 { break }
                 let data = Array(UnsafeBufferPointer(start: buffer, count: bytesRead))
                 await MainActor.run { [weak self] in
-                    self?.terminalView?.feed(byteArray: ArraySlice(data))
+                    guard let self, self.sessionGeneration == currentGen else { return }
+                    self.terminalView?.feed(byteArray: data[...])
                 }
             }
 
@@ -251,6 +251,7 @@ class DockerTerminalSession {
 
     /// Disconnect and clean up the session.
     func disconnect() {
+        sessionGeneration += 1
         teardownProcess()
         if state == .connected || state == .connecting {
             state = .disconnected
