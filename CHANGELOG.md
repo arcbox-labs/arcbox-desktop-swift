@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.34.2](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.1...v1.34.2) (2026-08-10)
+
+
+### Bug Fixes
+
+* **app:** align product claims with supported behavior ([c850f1b](https://github.com/arcboxlabs/arcbox-desktop/commit/c850f1bec2c2f1c06fa2522849dd62b02b0cf8cf))
+* **app:** resolve production UX audit findings ([3e0c442](https://github.com/arcboxlabs/arcbox-desktop/commit/3e0c4424fdd405c56deac32fc6f34960c48350a4))
+* **app:** serialize refresh and context updates ([d1bb292](https://github.com/arcboxlabs/arcbox-desktop/commit/d1bb2927d0eeed85bd5b1eb82a30edc56ad153f3))
+* **settings:** preserve Docker context retry intent ([62d3407](https://github.com/arcboxlabs/arcbox-desktop/commit/62d340762ba9c3325cd5d374b359ac7bb10a6ac4))
+* **startup:** restart terminal failure on retry ([97ba68b](https://github.com/arcboxlabs/arcbox-desktop/commit/97ba68be495c37083221db6517560a72428e8e2b))
+
 ## [1.34.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.0...v1.34.1) (2026-08-04)
 
 ### Highlights
