@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.34.3](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.2...v1.34.3) (2026-08-10)
+
+
+### Bug Fixes
+
+* **app:** address production-audit regressions (ABXD-136/137/138/140/149/151) ([#369](https://github.com/arcboxlabs/arcbox-desktop/issues/369)) ([93a77c8](https://github.com/arcboxlabs/arcbox-desktop/commit/93a77c84517af51117cec78f273a016a87d2af0b))
+
 ## [1.34.2](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.1...v1.34.2) (2026-08-10)
 
 
