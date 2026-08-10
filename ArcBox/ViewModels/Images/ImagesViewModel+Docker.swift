@@ -88,6 +88,7 @@ extension ImagesViewModel {
             await fetchIcons(client: iconClient)
             loadState = .loaded
             refreshError = nil
+            lastSuccessfulListLoad = ContinuousClock().now
         } catch {
             if loadState.cancelLoading(for: error, retainingLoadedContent: isRefresh) {
                 return

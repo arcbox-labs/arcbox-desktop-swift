@@ -213,3 +213,30 @@ final class ResourceDeletionTests: XCTestCase {
         XCTAssertNil(viewModel.selectedID)
     }
 }
+
+final class ArgumentListTests: XCTestCase {
+    func testParsesQuotedArgumentInput() throws {
+        let cases: [(String, [String])] = [
+            ("", []),
+            ("one\t two\nthree", ["one", "two", "three"]),
+            (#"sh -c "echo hello world""#, ["sh", "-c", "echo hello world"]),
+            (#"printf '%s %s' "hello world" café"#, ["printf", "%s %s", "hello world", "café"]),
+            (#"one\ two "three\"four" 'five\six'"#, ["one two", "three\"four", #"five\six"#]),
+            ("\"\" ''", ["", ""]),
+            (#"echo "你好 世界" 🐳"#, ["echo", "你好 世界", "🐳"]),
+        ]
+
+        for (input, expected) in cases {
+            XCTAssertEqual(try ArgumentList.parse(input), expected, input)
+        }
+    }
+
+    func testRejectsUnterminatedInput() {
+        XCTAssertThrowsError(try ArgumentList.parse(#""unterminated"#)) {
+            XCTAssertEqual($0 as? ArgumentList.ParseError, .unterminatedQuote("\""))
+        }
+        XCTAssertThrowsError(try ArgumentList.parse("trailing\\")) {
+            XCTAssertEqual($0 as? ArgumentList.ParseError, .danglingEscape)
+        }
+    }
+}

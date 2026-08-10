@@ -120,7 +120,7 @@ struct OnboardingView: View {
                 capabilityCell(
                     "Kubernetes",
                     symbol: NavItem.pods.sfSymbol,
-                    detail: "Manage local pods and services."
+                    detail: "Inspect local pods and services."
                 )
             }
 
@@ -130,7 +130,7 @@ struct OnboardingView: View {
                 capabilityCell(
                     "Linux VMs",
                     symbol: NavItem.machines.sfSymbol,
-                    detail: "Full Linux machines with terminal and files."
+                    detail: "Full Linux machines with terminal access."
                 )
                 Divider()
                 capabilityCell(
@@ -210,7 +210,7 @@ struct OnboardingView: View {
 
     @ViewBuilder
     private var setupPage: some View {
-        if orchestrator.isReady {
+        if orchestrator.isRuntimeReady {
             VStack(spacing: 16) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 52))
@@ -280,7 +280,7 @@ struct OnboardingView: View {
                     }
                 }
             case .setup:
-                if orchestrator.isReady {
+                if orchestrator.isRuntimeReady {
                     Spacer()
                     primaryButton("Open ArcBox", action: onComplete)
                 } else {
