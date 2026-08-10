@@ -210,15 +210,10 @@ struct SandboxSnapshotViewModel: Identifiable, Hashable {
     }
 }
 
-/// A port mapping exposed via ExposePort during this app session.
-///
-/// sandbox.v1 has no RPC to query existing mappings, so the Ports tab can only
-/// track exposures made from this app; mappings created elsewhere (CLI/SDK)
-/// are not listed.
+/// A host listener currently owned by a sandbox.
 struct SandboxExposedPort: Identifiable, Hashable {
     let sandboxPort: UInt32
     let hostPort: UInt32
-    let guestPort: UInt32
     let networkProtocol: String
 
     var id: String { "\(networkProtocol):\(sandboxPort)" }

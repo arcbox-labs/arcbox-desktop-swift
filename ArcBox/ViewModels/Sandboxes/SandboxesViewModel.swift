@@ -74,8 +74,16 @@ class SandboxesViewModel {
     /// change or a failed reload.
     var snapshotsSandboxID: String?
 
-    /// Ports exposed from this app session, keyed by sandbox ID.
+    /// Authoritative host listeners, keyed by sandbox ID.
     var exposedPorts: [String: [SandboxExposedPort]] = [:]
+
+    /// Loading state for mappings belonging to `exposedPortsSandboxID`.
+    var exposedPortsLoadState: LoadPhase = .waiting
+    var exposedPortsRefreshError: String?
+    var exposedPortsLoadToken: UUID?
+
+    /// The sandbox whose mappings are currently visible in the Ports tab.
+    var exposedPortsSandboxID: String?
 
     var sandboxCount: Int { sandboxes.count }
 
@@ -108,9 +116,14 @@ class SandboxesViewModel {
         snapshotsLoadToken != nil
     }
 
+    var isLoadingExposedPorts: Bool {
+        exposedPortsLoadToken != nil
+    }
+
     func selectSandbox(_ id: String) {
         if selectedID != id {
             snapshotsLoadToken = nil
+            exposedPortsLoadToken = nil
         }
         selectedID = id
     }
@@ -137,6 +150,12 @@ class SandboxesViewModel {
     func removeSandboxLocally(_ id: String) {
         sandboxes.removeAll { $0.id == id }
         exposedPorts[id] = nil
+        if exposedPortsSandboxID == id {
+            exposedPortsSandboxID = nil
+            exposedPortsLoadToken = nil
+            exposedPortsLoadState = .waiting
+            exposedPortsRefreshError = nil
+        }
         if selectedID == id {
             selectedID = nil
             snapshotsLoadToken = nil
