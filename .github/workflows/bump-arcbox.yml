@@ -89,6 +89,22 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-cargo-xtask-${{ hashFiles('xtask/Cargo.lock') }}-
             ${{ runner.os }}-${{ runner.arch }}-cargo-xtask-
 
+      # Same key construction as pr.yml's, so a bump reuses the plugin build
+      # master already saved instead of resolving and compiling them cold.
+      - name: Record build environment
+        id: build_environment
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          XCODE_CACHE_KEY=$(xcodebuild -version | awk 'NR == 1 { version = $2 } NR == 2 { build = $3 } END { print version "-" build }')
+          echo "xcode_cache_key=$XCODE_CACHE_KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Restore protoc plugin cache
+        if: steps.check.outputs.needed == 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: .build/protoc-plugins/
+          key: ${{ runner.os }}-${{ runner.arch }}-protoc-plugins-${{ steps.build_environment.outputs.xcode_cache_key }}-${{ hashFiles('Packages/ArcBoxClient/Package.resolved', 'Packages/ArcBoxClient/Package.swift', 'Packages/ArcBoxClient/generate.sh') }}
+
       - name: Bump the pin and regenerate the client
         if: steps.check.outputs.needed == 'true'
         shell: bash
