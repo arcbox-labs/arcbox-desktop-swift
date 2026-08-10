@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.34.4](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.3...v1.34.4) (2026-08-10)
+
+
+### Miscellaneous
+
+* bump arcbox version to v0.6.4 ([#377](https://github.com/arcboxlabs/arcbox-desktop/issues/377)) ([de8ca68](https://github.com/arcboxlabs/arcbox-desktop/commit/de8ca68fed594b35f13e58e931ddf22e410b5aa8))
+
+
+### CI
+
+* own the arcbox daemon bump end to end ([#379](https://github.com/arcboxlabs/arcbox-desktop/issues/379)) ([1fc0498](https://github.com/arcboxlabs/arcbox-desktop/commit/1fc0498cc3ea85a9f22d11a3310f2c58f28f6fe8))
+
 ## [1.34.3](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.2...v1.34.3) (2026-08-10)
 
 
