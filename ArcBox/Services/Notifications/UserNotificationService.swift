@@ -26,10 +26,12 @@ final class UserNotificationService: NSObject {
     private static let destinationKey = "destination"
 
     private let center: UNUserNotificationCenter
+    private let defaults: UserDefaults
     private var authorization: Authorization = .unrequested
 
-    init(center: UNUserNotificationCenter = .current()) {
+    init(center: UNUserNotificationCenter = .current(), defaults: UserDefaults = .standard) {
         self.center = center
+        self.defaults = defaults
         super.init()
     }
 
@@ -46,6 +48,12 @@ final class UserNotificationService: NSObject {
     // MARK: - Private
 
     private func deliver(_ notification: AppNotification) async {
+        guard defaults.bool(forKey: notification.category.preferenceKey) else {
+            Log.notifications.debug(
+                "Suppressed \(notification.identifier, privacy: .public): \(notification.category.rawValue, privacy: .public) notifications are off"
+            )
+            return
+        }
         guard await isAuthorized() else { return }
 
         let content = UNMutableNotificationContent()

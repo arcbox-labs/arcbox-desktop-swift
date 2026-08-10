@@ -3,75 +3,97 @@ import XCTest
 
 @testable import ArcBox
 
-/// Tests for which daemon state transitions produce a user notification.
+/// Tests for which daemon state transitions produce a user notification, and
+/// how long the daemon has to stay broken before the user hears about it.
 ///
-/// The distinction that matters: a daemon that died on its own is worth
-/// interrupting the user for, a shutdown they asked for is not.
+/// The distinctions that matter: a daemon that died on its own is worth
+/// interrupting the user for, a shutdown they asked for is not, and a drop that
+/// recovers on its own — waking from sleep — must not say anything at all.
 @MainActor
 final class DaemonNotificationRulesTests: XCTestCase {
 
-    private func notification(from previous: DaemonState?, to current: DaemonState) -> AppNotification? {
-        DaemonNotificationRules.notification(from: previous, to: current)
+    private func alert(from previous: DaemonState?, to current: DaemonState) -> DaemonHealthAlert? {
+        DaemonNotificationRules.alert(from: previous, to: current)
     }
 
     // MARK: - Worth saying
 
-    /// `DaemonManager` only regresses a running daemon to `.registered` after
-    /// its reconnect grace window, so this transition means genuinely gone.
     func testRunningToRegisteredNotifies() {
-        XCTAssertEqual(notification(from: .running, to: .registered)?.title, "ArcBox daemon is unreachable")
+        XCTAssertEqual(
+            alert(from: .running, to: .registered)?.notification.title, "ArcBox daemon is unreachable")
     }
 
-    func testFatalErrorNotifiesWithReason() {
-        let result = notification(from: .running, to: .error("vm failed to boot"))
+    /// The regression that matters: `DaemonManager` gives up on a stream after
+    /// ~3.5 s, which is tuned for the window, not for a banner. Waking from
+    /// sleep breaks the stream every time, so an unreachable daemon must be
+    /// confirmed over a longer window before the user is told.
+    func testUnreachableIsConfirmedBeforeNotifying() {
+        let confirmAfter = alert(from: .running, to: .registered)?.confirmAfter
 
-        XCTAssertEqual(result?.title, "ArcBox daemon stopped")
-        XCTAssertEqual(result?.body, "vm failed to boot")
+        XCTAssertEqual(confirmAfter, DaemonNotificationRules.unreachableConfirmation)
+        XCTAssertGreaterThan(confirmAfter ?? .zero, .seconds(10))
+    }
+
+    /// A fatal setup failure is the daemon's own verdict; it is not coming back
+    /// on its own, so there is nothing to wait for.
+    func testFatalErrorNotifiesImmediately() {
+        let result = alert(from: .running, to: .error("vm failed to boot"))
+
+        XCTAssertEqual(result?.notification.title, "ArcBox daemon stopped")
+        XCTAssertEqual(result?.notification.body, "vm failed to boot")
+        XCTAssertEqual(result?.confirmAfter, .zero)
     }
 
     func testFatalErrorFromAnyStateNotifies() {
-        XCTAssertNotNil(notification(from: .starting, to: .error("boom")))
-        XCTAssertNotNil(notification(from: nil, to: .error("boom")))
+        XCTAssertNotNil(alert(from: .starting, to: .error("boom")))
+        XCTAssertNotNil(alert(from: nil, to: .error("boom")))
     }
 
     /// A different fatal cause is new information.
     func testChangedErrorReasonNotifiesAgain() {
-        XCTAssertNotNil(notification(from: .error("first"), to: .error("second")))
+        XCTAssertNotNil(alert(from: .error("first"), to: .error("second")))
     }
 
     func testEmptyErrorReasonFallsBackToGenericBody() {
-        XCTAssertEqual(notification(from: .running, to: .error(""))?.body, "The daemon reported a fatal error.")
+        XCTAssertEqual(
+            alert(from: .running, to: .error(""))?.notification.body,
+            "The daemon reported a fatal error."
+        )
     }
 
     /// One health story: a later verdict replaces the earlier banner.
     func testHealthNotificationsShareAnIdentifier() {
         XCTAssertEqual(
-            notification(from: .running, to: .registered)?.identifier,
-            notification(from: .running, to: .error("boom"))?.identifier
+            alert(from: .running, to: .registered)?.notification.identifier,
+            alert(from: .running, to: .error("boom"))?.notification.identifier
         )
+    }
+
+    func testHealthNotificationsAreSwitchableOnTheirOwn() {
+        XCTAssertEqual(alert(from: .running, to: .registered)?.notification.category, .daemonHealth)
     }
 
     // MARK: - Not worth saying
 
     /// `.stopping` and `.stopped` are the states of a shutdown the user asked for.
     func testIntentionalShutdownIsSilent() {
-        XCTAssertNil(notification(from: .running, to: .stopping))
-        XCTAssertNil(notification(from: .running, to: .stopped))
+        XCTAssertNil(alert(from: .running, to: .stopping))
+        XCTAssertNil(alert(from: .running, to: .stopped))
     }
 
     func testStartupIsSilent() {
-        XCTAssertNil(notification(from: nil, to: .stopped))
-        XCTAssertNil(notification(from: nil, to: .registered))
-        XCTAssertNil(notification(from: .starting, to: .registered))
-        XCTAssertNil(notification(from: .registered, to: .running))
+        XCTAssertNil(alert(from: nil, to: .stopped))
+        XCTAssertNil(alert(from: nil, to: .registered))
+        XCTAssertNil(alert(from: .starting, to: .registered))
+        XCTAssertNil(alert(from: .registered, to: .running))
     }
 
     /// A daemon that was never up cannot become unreachable.
     func testRegisteredToRegisteredIsSilent() {
-        XCTAssertNil(notification(from: .registered, to: .registered))
+        XCTAssertNil(alert(from: .registered, to: .registered))
     }
 
     func testRepeatedErrorIsSilent() {
-        XCTAssertNil(notification(from: .error("same"), to: .error("same")))
+        XCTAssertNil(alert(from: .error("same"), to: .error("same")))
     }
 }

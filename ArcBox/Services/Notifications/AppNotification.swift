@@ -14,4 +14,23 @@ struct AppNotification: Equatable {
     let body: String
     /// Where clicking the notification takes the user.
     let destination: DeepLink
+    /// What this is about, so the user can switch off one kind without losing
+    /// the other.
+    let category: Category
+}
+
+extension AppNotification {
+    enum Category: String, CaseIterable {
+        case sandbox
+        case daemonHealth
+
+        /// Preference gating delivery. Registered in `AppPreferences`, so an
+        /// unset key reads as enabled rather than as `false`.
+        var preferenceKey: String {
+            switch self {
+            case .sandbox: "notifySandboxResults"
+            case .daemonHealth: "notifyDaemonProblems"
+            }
+        }
+    }
 }

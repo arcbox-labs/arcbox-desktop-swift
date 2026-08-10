@@ -153,4 +153,25 @@ final class SandboxNotificationRulesTests: XCTestCase {
         XCTAssertNotNil(first?.identifier)
         XCTAssertNotEqual(first?.identifier, second?.identifier)
     }
+
+    /// Failures are the opposite: an execution retrying in a loop should leave
+    /// its latest result on screen, not one banner per attempt.
+    func testFailuresOfOneSandboxShareAnIdentifier() {
+        let first = rules.notification(for: event(.idle, after: 1, ["exit_code": "1"]))
+        let second = rules.notification(for: event(.idle, after: 2, ["exit_code": "1"]))
+
+        XCTAssertNotNil(first?.identifier)
+        XCTAssertEqual(first?.identifier, second?.identifier)
+    }
+
+    func testFailuresOfDifferentSandboxesDoNotReplaceEachOther() {
+        let a = rules.notification(for: event(.idle, id: "sandbox-a", ["exit_code": "1"]))
+        let b = rules.notification(for: event(.idle, id: "sandbox-b", ["exit_code": "1"]))
+
+        XCTAssertNotEqual(a?.identifier, b?.identifier)
+    }
+
+    func testSandboxNotificationsAreSwitchableOnTheirOwn() {
+        XCTAssertEqual(rules.notification(for: event(.failed))?.category, .sandbox)
+    }
 }

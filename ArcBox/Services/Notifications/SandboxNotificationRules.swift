@@ -28,8 +28,8 @@ struct SandboxNotificationRules {
         case .failed:
             executionStart.removeValue(forKey: event.sandboxID)
             let reason = Self.attribute("error", of: event)
-            return Self.notification(
-                for: event,
+            return Self.failure(
+                event,
                 title: "Sandbox failed",
                 body: reason.map { "\(Self.name(of: event)) — \($0)" }
                     ?? "\(Self.name(of: event)) stopped with an unrecoverable error."
@@ -56,39 +56,59 @@ struct SandboxNotificationRules {
 
         // On `idle`, "error" means the session broke before an exit was seen.
         if let error = Self.attribute("error", of: event) {
-            return Self.notification(for: event, title: "Sandbox execution failed", body: "\(name) — \(error)")
+            return Self.failure(event, title: "Sandbox execution failed", body: "\(name) — \(error)")
         }
         if let signal = Self.attribute("signal", of: event) {
-            return Self.notification(
-                for: event, title: "Sandbox execution killed", body: "\(name) was killed by \(signal).")
+            return Self.failure(
+                event, title: "Sandbox execution killed", body: "\(name) was killed by \(signal).")
         }
         if let exitCode = Self.attribute("exit_code", of: event).flatMap(Int.init), exitCode != 0 {
-            return Self.notification(
-                for: event, title: "Sandbox execution failed", body: "\(name) exited with code \(exitCode).")
+            return Self.failure(
+                event, title: "Sandbox execution failed", body: "\(name) exited with code \(exitCode).")
         }
 
         guard let startedAt else { return nil }
         let elapsed = event.timestamp.timeIntervalSince(startedAt)
         guard elapsed >= Self.minimumSuccessDuration else { return nil }
-        return Self.notification(
-            for: event,
+        return Self.success(
+            event,
             title: "Sandbox execution finished",
             body: "\(name) finished in \(Self.formatted(elapsed))."
         )
     }
 
+    /// One failure banner per sandbox. An execution that fails in a retry loop
+    /// should leave its latest result on screen, not a stack of them.
+    private static func failure(
+        _ event: SandboxEventRecord, title: String, body: String
+    ) -> AppNotification {
+        notification(event, identifier: "sandbox.\(event.sandboxID).failure", title: title, body: body)
+    }
+
+    /// Distinct per event: two executions completing are two results, and the
+    /// second must not silently replace the first.
+    private static func success(
+        _ event: SandboxEventRecord, title: String, body: String
+    ) -> AppNotification {
+        notification(
+            event,
+            identifier: "sandbox.\(event.sandboxID).finished.\(Int(event.timestamp.timeIntervalSince1970))",
+            title: title,
+            body: body
+        )
+    }
+
     private static func notification(
-        for event: SandboxEventRecord, title: String, body: String
+        _ event: SandboxEventRecord, identifier: String, title: String, body: String
     ) -> AppNotification {
         AppNotification(
-            // Distinct per event: two executions finishing are two results, and
-            // the second must not silently replace the first.
-            identifier: "sandbox.\(event.sandboxID).\(Int(event.timestamp.timeIntervalSince1970))",
+            identifier: identifier,
             title: title,
             body: body,
             // Events carry no labels, and the deep link router cannot select a
             // sandbox by ID anyway, so this lands on the section.
-            destination: .section(.sandboxes, id: nil)
+            destination: .section(.sandboxes, id: nil),
+            category: .sandbox
         )
     }
 

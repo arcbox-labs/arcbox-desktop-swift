@@ -58,6 +58,7 @@ final class ApplicationCoordinator: NSObject {
     /// a reset owed from a previous run is not missed.  Bookkeeping, not a user
     /// preference, so it stays out of `AppPreferences`.
     private static let analyticsIdentifiedKey = "analyticsIdentified"
+    private var pendingDaemonAlert: Task<Void, Never>?
     private var lastShowInMenuBar: Bool
     private var lastUpdateChannel: String
     private var lastTelemetryEnabled: Bool
@@ -238,6 +239,8 @@ final class ApplicationCoordinator: NSObject {
         guard !isTerminating else { return false }
         isTerminating = true
 
+        pendingDaemonAlert?.cancel()
+        pendingDaemonAlert = nil
         authSession.cancelSignIn()
         statusItemController?.closePopover()
         statusItemController?.setVisible(false)
@@ -331,6 +334,28 @@ final class ApplicationCoordinator: NSObject {
             notifications.post(notification)
         }
         notifications.start()
+    }
+
+    /// Tell the user about a daemon problem, but only once it has outlasted the
+    /// alert's confirmation window. Every state change restarts this, so a
+    /// daemon that drops and recovers — waking from sleep, a stream hiccup —
+    /// says nothing at all.
+    private func reportDaemonHealth(from previous: DaemonState?, to current: DaemonState) {
+        pendingDaemonAlert?.cancel()
+        pendingDaemonAlert = nil
+
+        guard let alert = DaemonNotificationRules.alert(from: previous, to: current) else { return }
+        guard alert.confirmAfter > .zero else {
+            notifications.post(alert.notification)
+            return
+        }
+
+        pendingDaemonAlert = Task { [weak self] in
+            try? await Task.sleep(for: alert.confirmAfter)
+            guard !Task.isCancelled, let self, !isTerminating else { return }
+            guard !daemonManager.state.isRunning else { return }
+            notifications.post(alert.notification)
+        }
     }
 
     /// Whether what a notification would announce is already on screen. A
@@ -511,9 +536,7 @@ final class ApplicationCoordinator: NSObject {
         let previousState = lastDaemonState
         lastDaemonState = state
 
-        if let notification = DaemonNotificationRules.notification(from: previousState, to: state) {
-            notifications.post(notification)
-        }
+        reportDaemonHealth(from: previousState, to: state)
 
         if state.isRunning {
             if dockerClient == nil {
