@@ -81,6 +81,18 @@ jobs:
       - name: Lint and test xtask
         run: make lint-xtask test-xtask
 
+      # Release DMG extracts the same section to feed Sparkle's update dialog,
+      # and refuses to build without it. Running it here fails the release PR
+      # while a missing `### Highlights` is still an edit away from fixed —
+      # once that PR merges, the tag and the draft release already exist.
+      # On every other PR the manifest names the last shipped version, so this
+      # only re-checks an entry that is already curated.
+      - name: Verify curated release highlights
+        run: |
+          cargo xtask release notes \
+            --version "$(jq -r '."."' .release-please-manifest.json)" \
+            --output "$RUNNER_TEMP/release-notes.md"
+
       # `make lint` is what a contributor runs, and scripts/tool.sh holds the
       # version floors, so the two cannot drift apart.
       - name: Lint

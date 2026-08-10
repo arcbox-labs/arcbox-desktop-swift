@@ -2,6 +2,10 @@
 
 ## [1.34.4](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.3...v1.34.4) (2026-08-10)
 
+### Highlights
+
+The bundled ArcBox engine moves to v0.6.4, which brings sandbox pause and resume, idle auto-pause with transparent resume on the next request, and exposed-port listing for sandboxes.
+
 
 ### Miscellaneous
 
@@ -14,12 +18,22 @@
 
 ## [1.34.3](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.2...v1.34.3) (2026-08-10)
 
+### Highlights
+
+Images, Networks, and Volumes now report the details their inspectors promised, and browsing files inside an image or container no longer trips over overlapping requests. Terminal tabs also stop mixing output from a session that has already gone away.
+
 
 ### Bug Fixes
 
 * **app:** address production-audit regressions (ABXD-136/137/138/140/149/151) ([#369](https://github.com/arcboxlabs/arcbox-desktop/issues/369)) ([93a77c8](https://github.com/arcboxlabs/arcbox-desktop/commit/93a77c84517af51117cec78f273a016a87d2af0b))
 
 ## [1.34.2](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.1...v1.34.2) (2026-08-10)
+
+### Highlights
+
+Settings, the create sheets, and the terminal tabs went through a production pass: controls that never did anything are gone, failures explain themselves, and the app no longer advertises capabilities it does not have.
+
+Turning the Docker context integration on or off is also more forgiving. The setting only sticks once the change succeeds, "Try Again" retries what actually failed, and a startup that ended in failure now restarts the daemon instead of retrying against a dead one.
 
 
 ### Bug Fixes
