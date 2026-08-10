@@ -2,6 +2,12 @@
 
 ## [1.34.5](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.4...v1.34.5) (2026-08-10)
 
+### Highlights
+
+This is the first build published since 1.34.1, so updating brings 1.34.2 through 1.34.4 along with it.
+
+That means the production pass over Settings, the create sheets, and the terminal tabs; Images, Networks, and Volumes reporting the details their inspectors promised; and the ArcBox v0.6.4 engine, which adds sandbox pause and resume with idle auto-pause.
+
 
 ### Refactoring
 
