@@ -51,6 +51,9 @@ make test
   the release-please PR. Before merging that PR, add a `### Highlights` section
   under the new release with concise user-facing changes and impact. Sparkle
   shows it in the update dialog, and the PR check fails while it is missing.
+- Merging the release PR cuts the tag and opens a draft GitHub release. The
+  Release DMG workflow attaches the signed DMG and publishes it, so a release
+  that stays a draft means that build failed.
 
 ## Reporting security issues
 

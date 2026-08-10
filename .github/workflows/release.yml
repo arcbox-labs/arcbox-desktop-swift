@@ -682,6 +682,11 @@ jobs:
           echo "=== Release assets ==="
           ls -lh release-assets/
 
+      # release-please leaves a draft release behind on the tag (see
+      # release-please-config.json). This job uploads the DMG into that draft
+      # and then flips it to published, so the releases page never shows a
+      # version whose download is missing. `draft: false` is what drives the
+      # flip; the action keeps the release in draft while it uploads assets.
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
         with:
