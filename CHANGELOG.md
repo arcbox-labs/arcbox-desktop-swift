@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.34.5](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.4...v1.34.5) (2026-08-10)
+
+### Highlights
+
+This is the first build published since 1.34.1, so updating brings 1.34.2 through 1.34.4 along with it.
+
+That means the production pass over Settings, the create sheets, and the terminal tabs; Images, Networks, and Volumes reporting the details their inspectors promised; and the ArcBox v0.6.4 engine, which adds sandbox pause and resume with idle auto-pause.
+
+
+### Refactoring
+
+* **client:** stop linking Sentry from ArcBoxClient, cache the protoc plugin build ([#380](https://github.com/arcboxlabs/arcbox-desktop/issues/380)) ([7c816cf](https://github.com/arcboxlabs/arcbox-desktop/commit/7c816cf61fbeff82b4e6fcb34d903fbf8ead570d))
+
+
+### CI
+
+* fail the release PR when a release has no Highlights ([581a33c](https://github.com/arcboxlabs/arcbox-desktop/commit/581a33c0008255ac8e32f4f7eafa841818f3b754))
+* **release:** publish the GitHub release only once the DMG exists ([094cfcc](https://github.com/arcboxlabs/arcbox-desktop/commit/094cfccfbfe7891266d49be47bca584b3ec0638f))
+
 ## [1.34.4](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.3...v1.34.4) (2026-08-10)
 
 ### Highlights
