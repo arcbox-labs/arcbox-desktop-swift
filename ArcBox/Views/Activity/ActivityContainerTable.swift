@@ -27,6 +27,7 @@ struct ActivityContainerTable: View {
         KeyPathComparator(\ActivityRow.cpuPercent, order: .reverse)
     ]
     @State private var selection: ActivityRow.ID?
+    @State private var disclosureState = ActivityRowDisclosureState()
     @State private var columnLayout = TableColumnCustomization<ActivityRow>()
     /// `TableColumnCustomization` is `Codable` but not `RawRepresentable`, so it
     /// rides in `AppStorage` as its own encoding rather than through a
@@ -89,7 +90,10 @@ struct ActivityContainerTable: View {
                 if group.children.isEmpty {
                     TableRow(group.summary)
                 } else {
-                    DisclosureTableRow(group.summary) {
+                    DisclosureTableRow(
+                        group.summary,
+                        isExpanded: disclosureBinding(for: group.id)
+                    ) {
                         ForEach(group.children) { TableRow($0) }
                     }
                 }
@@ -145,6 +149,19 @@ struct ActivityContainerTable: View {
         guard let id = row.containerID, let container = docker[id] else { return false }
         return container.image.lowercased().contains(query)
             || (container.project?.lowercased().contains(query) ?? false)
+    }
+
+    private func disclosureBinding(for groupID: String) -> Binding<Bool> {
+        let isFiltering = !searchText.isEmpty
+        return Binding {
+            disclosureState.isExpanded(groupID, isFiltering: isFiltering)
+        } set: { expanded in
+            disclosureState.setExpanded(
+                expanded,
+                for: groupID,
+                isFiltering: isFiltering
+            )
+        }
     }
 
     // MARK: - Cells

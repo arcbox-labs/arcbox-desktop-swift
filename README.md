@@ -36,8 +36,8 @@ One three-column window — sources, list, detail — over everything the daemon
   opens onto info, streaming logs, an interactive terminal, and a file browser that reads through the
   overlay layers.
 - **Kubernetes** — pods and services from the daemon-managed k3s cluster.
-- **Machines** — full Linux VMs: create from a distro image, drive the lifecycle, then attach a terminal
-  or browse the guest filesystem.
+- **Machines** — full Linux VMs: create from a distro image, drive the lifecycle, and attach an
+  interactive terminal.
 - **Sandboxes** — disposable microVMs from templates, with ports, snapshots, and an event log.
 - **Activity** — live CPU, memory, and network for the system VM and every running container.
 

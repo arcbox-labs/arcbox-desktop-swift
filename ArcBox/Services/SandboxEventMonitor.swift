@@ -23,7 +23,7 @@ final class SandboxEventMonitor {
 
     @ObservationIgnored private var debounceTask: Task<Void, Never>?
     private static let debounceInterval: Duration = .milliseconds(300)
-    private static let maxRecentEvents = 500
+    static let maxRecentEvents = 500
 
     // MARK: - Lifecycle
 

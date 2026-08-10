@@ -72,6 +72,12 @@ jobs:
             --arcbox-ref "${{ inputs.arcbox_ref }}" \
             --tag "${{ inputs.tag }}"
 
+      - name: Extract curated release notes
+        run: |
+          cargo xtask release notes \
+            --version "${{ steps.resolve.outputs.version }}" \
+            --output release-notes.md
+
       - name: Checkout arcbox
         id: checkout_arcbox
         uses: actions/checkout@v6
@@ -650,6 +656,7 @@ jobs:
           path: |
             ${{ steps.dmg.outputs.dmg_path }}
             ${{ steps.dmg.outputs.dmg_path }}.sha256
+            release-notes.md
           retention-days: 30
 
       # Keychain cleanup is handled automatically by apple-actions/import-codesign-certs
@@ -704,8 +711,7 @@ jobs:
     needs: [build-dmg]
     runs-on: ubuntu-latest
     permissions:
-      # The releases/generate-notes API requires contents: write.
-      contents: write
+      contents: read
 
     steps:
       - name: Download DMG artifact
@@ -725,20 +731,13 @@ jobs:
 
       # Sparkle renders these inline in the update dialog. Linking the GitHub
       # release page instead would load the whole GitHub website in the dialog.
-      - name: Generate release notes HTML
-        id: release_notes
-        continue-on-error: true
+      - name: Render curated release notes HTML
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION="${{ needs.build-dmg.outputs.version }}"
-          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-            -f tag_name="$VERSION" --jq '.body // empty' > notes.md
-          # GitHub-flavored HTML, with PR/compare URLs collapsed to short links
           gh api markdown -f mode=gfm -f context="$GITHUB_REPOSITORY" \
-            -F text=@notes.md > notes.html
+            -F text=@artifacts/release-notes.md > notes.html
           [ -s notes.html ]
-          echo "found=true" >> "$GITHUB_OUTPUT"
 
       - name: Generate appcast + latest.json
         id: feeds
@@ -750,14 +749,13 @@ jobs:
           DMG_NAME: ${{ needs.build-dmg.outputs.dmg }}
           DMG_LENGTH: ${{ needs.build-dmg.outputs.dmg_length }}
           ED_SIGNATURE: ${{ needs.build-dmg.outputs.ed_signature }}
-          HAS_NOTES: ${{ steps.release_notes.outputs.found }}
         with:
           script: |
             const fs = require('fs');
             const path = require('path');
 
             const {
-              VERSION, CHANNEL, BUILD_NUMBER, DMG_NAME, DMG_LENGTH, ED_SIGNATURE, HAS_NOTES,
+              VERSION, CHANNEL, BUILD_NUMBER, DMG_NAME, DMG_LENGTH, ED_SIGNATURE,
             } = process.env;
             const displayVersion = VERSION.replace(/^v/, '');
             const dmgUrl = `https://release.arcboxcdn.com/desktop/${VERSION}/${DMG_NAME}`;
@@ -786,9 +784,7 @@ jobs:
               const channelElement = CHANNEL !== 'stable'
                 ? `\n        <sparkle:channel>${CHANNEL}</sparkle:channel>`
                 : '';
-              const notesElement = releaseNotesHtml
-                ? `        <description>${cdata(releaseNotesHtml)}</description>`
-                : `        <sparkle:releaseNotesLink>https://github.com/arcboxlabs/arcbox-desktop/releases/tag/v${displayVersion}</sparkle:releaseNotesLink>`;
+              const notesElement = `        <description>${cdata(releaseNotesHtml)}</description>`;
               return [
                 '      <item>',
                 `        <title>ArcBox ${displayVersion}</title>`,
@@ -841,12 +837,7 @@ jobs:
               return merged.replace('    </channel>', `${item}\n    </channel>`);
             }
 
-            let releaseNotesHtml = null;
-            if (HAS_NOTES === 'true' && fs.existsSync('notes.html')) {
-              const raw = fs.readFileSync('notes.html', 'utf8').trim();
-              if (raw) releaseNotesHtml = raw;
-            }
-
+            const releaseNotesHtml = fs.readFileSync('notes.html', 'utf8').trim();
             const item = buildItem({ releaseNotesHtml });
             const existingAppcast = await fetchOptional(
               `https://release.arcboxcdn.com/desktop/appcast/${CHANNEL}.xml`,

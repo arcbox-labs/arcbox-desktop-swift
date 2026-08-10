@@ -11,6 +11,7 @@ struct GeneralSettingsView: View {
     @Environment(ContainersViewModel.self) private var containersVM
     @Environment(ImagesViewModel.self) private var imagesVM
     @Environment(UpdaterSettingsModel.self) private var updaterSettings
+    @Environment(\.scenePhase) private var scenePhase
 
     @AppStorage("startAtLogin") private var startAtLogin = false
     @AppStorage("showInMenuBar") private var showInMenuBar = false
@@ -19,8 +20,9 @@ struct GeneralSettingsView: View {
     @AppStorage("externalTerminal") private var externalTerminal = ExternalTerminalApp.terminalBundleIdentifier
     @AppStorage("telemetryEnabled") private var telemetryEnabled = true
 
-    @State private var isSyncingLoginItem = false
     @State private var isExportingDiagnostics = false
+    @State private var loginItemErrorMessage: String?
+    @State private var diagnosticErrorMessage: String?
     @State private var externalTerminalApps = ExternalTerminalDiscovery.availableTerminals()
     @State private var externalTerminalSelection = ExternalTerminalApp.terminalBundleIdentifier
     @State private var isShowingExternalTerminalImporter = false
@@ -30,11 +32,22 @@ struct GeneralSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Start at login", isOn: $startAtLogin)
-                    .onChange(of: startAtLogin) { _, newValue in
-                        guard !isSyncingLoginItem else { return }
-                        updateLoginItem(enabled: newValue)
+                Toggle(
+                    "Start at login",
+                    isOn: Binding(
+                        get: { startAtLogin },
+                        set: { updateLoginItem(enabled: $0) }
+                    )
+                )
+                if let loginItemErrorMessage {
+                    Label(loginItemErrorMessage, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                    Button("Open Login Items Settings") {
+                        SMAppService.openSystemSettingsLoginItems()
                     }
+                    .font(.caption)
+                }
                 Toggle("Show in menu bar", isOn: $showInMenuBar)
             }
 
@@ -108,16 +121,26 @@ struct GeneralSettingsView: View {
 
             Section("Troubleshooting") {
                 Button("Export Diagnostic Report...") {
-                    guard let presentingWindow = NSApp.keyWindow else { return }
+                    guard let presentingWindow = NSApp.keyWindow ?? NSApp.mainWindow else {
+                        diagnosticErrorMessage =
+                            "ArcBox could not present the save panel. Reopen Settings and try again."
+                        return
+                    }
+                    diagnosticErrorMessage = nil
                     isExportingDiagnostics = true
                     Task {
-                        await DiagnosticBundleExporter.exportInteractively(
-                            daemonManager: daemonManager,
-                            containersVM: containersVM,
-                            imagesVM: imagesVM,
-                            presentingWindow: presentingWindow
-                        )
-                        isExportingDiagnostics = false
+                        defer { isExportingDiagnostics = false }
+                        do {
+                            _ = try await DiagnosticBundleExporter.exportInteractively(
+                                daemonManager: daemonManager,
+                                containersVM: containersVM,
+                                imagesVM: imagesVM,
+                                presentingWindow: presentingWindow
+                            )
+                        } catch {
+                            diagnosticErrorMessage =
+                                "Diagnostic report was not exported: \(error.localizedDescription)"
+                        }
                     }
                 }
                 .disabled(isExportingDiagnostics)
@@ -130,6 +153,12 @@ struct GeneralSettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                if let diagnosticErrorMessage {
+                    Label(diagnosticErrorMessage, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
         }
         .formStyle(.grouped)
@@ -137,6 +166,11 @@ struct GeneralSettingsView: View {
         .onAppear {
             syncLoginItemState()
             refreshExternalTerminalApps()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                syncLoginItemState()
+            }
         }
         .fileImporter(
             isPresented: $isShowingExternalTerminalImporter,
@@ -226,12 +260,16 @@ struct GeneralSettingsView: View {
     // MARK: - Login Item
 
     private func syncLoginItemState() {
-        isSyncingLoginItem = true
-        startAtLogin = SMAppService.mainApp.status == .enabled
-        isSyncingLoginItem = false
+        let status = SMAppService.mainApp.status
+        startAtLogin = status == .enabled
+        loginItemErrorMessage =
+            status == .requiresApproval
+            ? "macOS requires approval before ArcBox can start at login."
+            : nil
     }
 
     private func updateLoginItem(enabled: Bool) {
+        var operationError: Error?
         do {
             if enabled {
                 try SMAppService.mainApp.register()
@@ -239,8 +277,23 @@ struct GeneralSettingsView: View {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            // Revert on failure
-            startAtLogin = !enabled
+            operationError = error
+        }
+
+        let status = SMAppService.mainApp.status
+        startAtLogin = status == .enabled
+        guard startAtLogin != enabled else {
+            loginItemErrorMessage = nil
+            return
+        }
+
+        if status == .requiresApproval {
+            loginItemErrorMessage = "macOS requires approval before ArcBox can start at login."
+        } else if let operationError {
+            loginItemErrorMessage =
+                "The login item was not changed: \(operationError.localizedDescription)"
+        } else {
+            loginItemErrorMessage = "macOS did not apply the requested login item setting."
         }
     }
 }

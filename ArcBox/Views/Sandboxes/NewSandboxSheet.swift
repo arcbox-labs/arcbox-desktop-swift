@@ -100,7 +100,12 @@ struct NewSandboxSheet: View {
                 }
 
                 Section("Workload") {
-                    TextField("Command", text: $command, prompt: Text("empty = boot to ready"))
+                    VStack(alignment: .leading, spacing: 2) {
+                        TextField("Command", text: $command, prompt: Text("empty = boot to ready"))
+                        Text(ArgumentList.inputHelp)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     TextField("Working directory", text: $workingDir)
                     TextField("User", text: $user, prompt: Text("e.g. root"))
                 }
@@ -187,8 +192,12 @@ struct NewSandboxSheet: View {
         spec.image = image.trimmingCharacters(in: .whitespaces)
         spec.vcpus = UInt32(vcpus)
         spec.memoryMiB = UInt64(memoryMiB)
-        let trimmedCommand = command.trimmingCharacters(in: .whitespaces)
-        spec.cmd = trimmedCommand.isEmpty ? [] : trimmedCommand.split(separator: " ").map(String.init)
+        do {
+            spec.cmd = try ArgumentList.parse(command)
+        } catch {
+            errorMessage = "Invalid command: \(error.localizedDescription)"
+            return 0
+        }
         spec.workingDir = workingDir.trimmingCharacters(in: .whitespaces)
         spec.user = user.trimmingCharacters(in: .whitespaces)
         spec.networkMode = networkMode.protobufValue

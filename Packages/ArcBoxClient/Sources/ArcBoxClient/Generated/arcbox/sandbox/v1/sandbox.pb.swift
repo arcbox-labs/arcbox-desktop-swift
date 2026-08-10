@@ -51,10 +51,16 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
 ///   STARTING ──► READY ──► RUNNING ──► READY  (execution exited, sandbox alive)
 ///                  │          │
 ///                  ├──────────┴──► STOPPING ──► STOPPED
-///                  │          │
-///                  ├──────────┴──► PAUSING ──► PAUSED ──(Resume)──► STARTING  (same ID)
+///                  │
+///                  ├──► PAUSING ──► PAUSED ──(Resume)──► STARTING  (same ID)
 ///                  │          │
 ///                  └──────────┴──► FAILED  (error reason set)
+///
+/// PAUSING branches from READY only: pausing means checkpointing a quiescent
+/// sandbox, and a RUNNING one has a live execution whose host-side session
+/// cannot survive the VM being checkpointed and killed — finish or stop the
+/// execution first (the idle detector pauses on the READY edge for the same
+/// reason). Every other non-terminal state can also reach FAILED.
 public enum Arcbox_Sandbox_V1_SandboxState: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case unspecified // = 0
@@ -1266,6 +1272,54 @@ public struct Arcbox_Sandbox_V1_ExposePortResponse: Sendable {
 
   /// Reserved-range guest port carrying the DNAT relay.
   public var guestPort: UInt32 = 0
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Request to list a sandbox's current exposed ports.
+public struct Arcbox_Sandbox_V1_ListExposedPortsRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Sandbox ID.
+  public var id: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// One host listener currently owned by a sandbox.
+public struct Arcbox_Sandbox_V1_ExposedPort: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Port the workload listens on inside the sandbox.
+  public var sandboxPort: UInt32 = 0
+
+  /// Loopback host port where the service is reachable.
+  public var hostPort: UInt32 = 0
+
+  /// Transport protocol.
+  public var `protocol`: Arcbox_Sandbox_V1_PortProtocol = .unspecified
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Response to ListExposedPorts.
+public struct Arcbox_Sandbox_V1_ListExposedPortsResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Current mappings, ordered by sandbox port, protocol, then host port.
+  public var ports: [Arcbox_Sandbox_V1_ExposedPort] = []
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -2621,6 +2675,106 @@ extension Arcbox_Sandbox_V1_ExposePortResponse: SwiftProtobuf.Message, SwiftProt
   public static func ==(lhs: Arcbox_Sandbox_V1_ExposePortResponse, rhs: Arcbox_Sandbox_V1_ExposePortResponse) -> Bool {
     if lhs.hostPort != rhs.hostPort {return false}
     if lhs.guestPort != rhs.guestPort {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_Sandbox_V1_ListExposedPortsRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ListExposedPortsRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.id.isEmpty {
+      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_Sandbox_V1_ListExposedPortsRequest, rhs: Arcbox_Sandbox_V1_ListExposedPortsRequest) -> Bool {
+    if lhs.id != rhs.id {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_Sandbox_V1_ExposedPort: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ExposedPort"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}sandbox_port\0\u{3}host_port\0\u{1}protocol\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.sandboxPort) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.hostPort) }()
+      case 3: try { try decoder.decodeSingularEnumField(value: &self.`protocol`) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.sandboxPort != 0 {
+      try visitor.visitSingularUInt32Field(value: self.sandboxPort, fieldNumber: 1)
+    }
+    if self.hostPort != 0 {
+      try visitor.visitSingularUInt32Field(value: self.hostPort, fieldNumber: 2)
+    }
+    if self.`protocol` != .unspecified {
+      try visitor.visitSingularEnumField(value: self.`protocol`, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_Sandbox_V1_ExposedPort, rhs: Arcbox_Sandbox_V1_ExposedPort) -> Bool {
+    if lhs.sandboxPort != rhs.sandboxPort {return false}
+    if lhs.hostPort != rhs.hostPort {return false}
+    if lhs.`protocol` != rhs.`protocol` {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arcbox_Sandbox_V1_ListExposedPortsResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ListExposedPortsResponse"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}ports\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedMessageField(value: &self.ports) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.ports.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.ports, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Arcbox_Sandbox_V1_ListExposedPortsResponse, rhs: Arcbox_Sandbox_V1_ListExposedPortsResponse) -> Bool {
+    if lhs.ports != rhs.ports {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

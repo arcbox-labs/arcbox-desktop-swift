@@ -1,6 +1,28 @@
 # Changelog
 
+## [1.34.3](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.2...v1.34.3) (2026-08-10)
+
+
+### Bug Fixes
+
+* **app:** address production-audit regressions (ABXD-136/137/138/140/149/151) ([#369](https://github.com/arcboxlabs/arcbox-desktop/issues/369)) ([93a77c8](https://github.com/arcboxlabs/arcbox-desktop/commit/93a77c84517af51117cec78f273a016a87d2af0b))
+
+## [1.34.2](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.1...v1.34.2) (2026-08-10)
+
+
+### Bug Fixes
+
+* **app:** align product claims with supported behavior ([c850f1b](https://github.com/arcboxlabs/arcbox-desktop/commit/c850f1bec2c2f1c06fa2522849dd62b02b0cf8cf))
+* **app:** resolve production UX audit findings ([3e0c442](https://github.com/arcboxlabs/arcbox-desktop/commit/3e0c4424fdd405c56deac32fc6f34960c48350a4))
+* **app:** serialize refresh and context updates ([d1bb292](https://github.com/arcboxlabs/arcbox-desktop/commit/d1bb2927d0eeed85bd5b1eb82a30edc56ad153f3))
+* **settings:** preserve Docker context retry intent ([62d3407](https://github.com/arcboxlabs/arcbox-desktop/commit/62d340762ba9c3325cd5d374b359ac7bb10a6ac4))
+* **startup:** restart terminal failure on retry ([97ba68b](https://github.com/arcboxlabs/arcbox-desktop/commit/97ba68be495c37083221db6517560a72428e8e2b))
+
 ## [1.34.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.0...v1.34.1) (2026-08-04)
+
+### Highlights
+
+Settings, onboarding, file pickers, and quit progress now open in the expected place and behave more like native macOS surfaces. Container domains also remain visible and show their configured addresses, making local services easier to identify.
 
 
 ### Bug Fixes
@@ -21,6 +43,10 @@
 
 ## [1.34.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.33.0...v1.34.0) (2026-08-03)
 
+### Highlights
+
+Sandbox creation and terminal sessions are now more reliable when connections drop. Retried creation keeps one sandbox identity, while reconnected terminal sessions avoid replaying input.
+
 
 ### Features
 
@@ -32,6 +58,12 @@
 * bump arcbox version to v0.6.2 ([#360](https://github.com/arcboxlabs/arcbox-desktop/issues/360)) ([7d849f0](https://github.com/arcboxlabs/arcbox-desktop/commit/7d849f0dfcacadb60c8d67ddb4c4b78d275e2465))
 
 ## [1.33.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.32.1...v1.33.0) (2026-08-02)
+
+### Highlights
+
+New installs now include guided setup and a replayable Getting Started tour for Machines, Containers, Kubernetes, and Sandboxes.
+
+The main window also behaves more like a native Mac app, with more consistent navigation, resource lists, detail tabs, window sizing, and quit flows.
 
 
 ### Features
