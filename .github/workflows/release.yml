@@ -46,10 +46,15 @@ jobs:
           # Shallow+unshallow is slower than a single full fetch on this repo.
           fetch-depth: 0
 
+      # The musl target is only needed to build arcbox's guest agents from
+      # source; a version tag downloads them prebuilt. Installing it here
+      # anyway costs seconds and matches pr.yml, rather than making the
+      # toolchain depend on which arcbox ref the build resolved.
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+          targets: aarch64-unknown-linux-musl
 
       - name: Restore desktop Rust tooling cache
         id: desktop_rust_cache
@@ -151,9 +156,6 @@ jobs:
       # which is reachable only for branch and SHA refs. v1.34.5 spent its
       # first run discovering that the hard way — arcbox v0.6.4 shipped with no
       # assets, and the fallback died three minutes later on missing protoc.
-      # That gap is still open: building arcbox from source needs protoc, which
-      # this workflow never installs, so the branch/SHA path wants a
-      # `brew install protobuf` before anyone relies on it.
       - name: Download pre-built arcbox binaries
         id: prebuilt
         env:
@@ -272,11 +274,27 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-cargo-arcbox-release-${{ hashFiles('arcbox-core/**/Cargo.lock') }}-
             ${{ runner.os }}-${{ runner.arch }}-cargo-arcbox-release-
 
+      # arcbox's rpc crates run protoc from build.rs, so the source build needs
+      # it — the same `brew install protobuf` arcbox's own release job runs.
+      # Conditional because the prebuilt path never invokes a build script.
+      - name: Install protobuf compiler
+        if: steps.prebuilt.outputs.found != 'true'
+        timeout-minutes: 5
+        run: |
+          brew install protobuf
+          command -v protoc
+
+      # arcbox splits this across two parallel jobs at 15 and 10 minutes, and
+      # the 15 is what timed out on v0.6.4's cold cache. Here the host
+      # binaries, the daemon signature, and the musl guest agents all come out
+      # of one serial step, so it gets both budgets and room to miss the cache.
       - name: Build Rust binaries (release)
         if: steps.prebuilt.outputs.found != 'true'
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: |
-          make build-rust ARCBOX_DIR="${{ github.workspace }}/arcbox-core"
+          make build-rust \
+            ARCBOX_DIR="${{ github.workspace }}/arcbox-core" \
+            REQUIRE_GUEST_AGENTS=1
 
       - name: Save arcbox Rust build cache
         if: steps.prebuilt.outputs.found != 'true' && steps.arcbox_rust_cache.outputs.cache-hit != 'true'
