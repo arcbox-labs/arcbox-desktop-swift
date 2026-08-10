@@ -146,9 +146,16 @@ jobs:
           echo "Decoded provisioning profile to $RUNNER_TEMP/embedded.provisionprofile"
           security cms -D -i "$RUNNER_TEMP/embedded.provisionprofile" | head -5
 
+      # A version tag must resolve to arcbox binaries that already exist: this
+      # step fails the build rather than falling through to the source build,
+      # which is reachable only for branch and SHA refs. v1.34.5 spent its
+      # first run discovering that the hard way — arcbox v0.6.4 shipped with no
+      # assets, and the fallback died three minutes later on missing protoc.
+      # That gap is still open: building arcbox from source needs protoc, which
+      # this workflow never installs, so the branch/SHA path wants a
+      # `brew install protobuf` before anyone relies on it.
       - name: Download pre-built arcbox binaries
         id: prebuilt
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -159,17 +166,22 @@ jobs:
           # Branches and SHAs must be built from the checked-out source below.
           if [[ ! "$REF" =~ ^v[0-9] ]]; then
             echo "Ref '$REF' is not a version tag; building arcbox from source"
-            exit 1
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           RELEASE_TAG="$REF"
 
           echo "Downloading arcbox binaries from release $RELEASE_TAG..."
 
           DOWNLOAD_DIR="$(mktemp -d)"
-          gh release download "$RELEASE_TAG" \
+          if ! gh release download "$RELEASE_TAG" \
             --repo arcboxlabs/arcbox \
             --dir "$DOWNLOAD_DIR" \
-            --skip-existing
+            --skip-existing; then
+            echo "::error::arcboxlabs/arcbox $RELEASE_TAG has no downloadable assets." \
+              "Its own release build did not finish — repair that release, then re-run this one."
+            exit 1
+          fi
 
           echo "Downloaded assets:"
           ls -la "$DOWNLOAD_DIR"
@@ -192,7 +204,8 @@ jobs:
           VM_AGENT_BIN=$(find "$DOWNLOAD_DIR" -type f -name "vm-agent" | head -1)
 
           if [ -z "$CLI_BIN" ] || [ -z "$DAEMON_BIN" ] || [ -z "$HELPER_BIN" ]; then
-            echo "Could not find required pre-built host binaries (abctl, arcbox-daemon, arcbox-helper) in release assets"
+            echo "::error::arcboxlabs/arcbox $RELEASE_TAG is missing host binaries" \
+              "(abctl, arcbox-daemon, arcbox-helper) among its release assets."
             exit 1
           fi
 
