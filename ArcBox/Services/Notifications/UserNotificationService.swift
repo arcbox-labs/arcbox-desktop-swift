@@ -15,19 +15,10 @@ final class UserNotificationService: NSObject {
     /// Applies a notification's destination when it is clicked.
     var openDestination: ((DeepLink) -> Void)?
 
-    /// Authorization is requested the first time there is something to say, so
-    /// the prompt arrives attached to a real event instead of at launch.
-    private enum Authorization {
-        case unrequested
-        case granted
-        case denied
-    }
-
     private static let destinationKey = "destination"
 
     private let center: UNUserNotificationCenter
     private let defaults: UserDefaults
-    private var authorization: Authorization = .unrequested
 
     init(center: UNUserNotificationCenter = .current(), defaults: UserDefaults = .standard) {
         self.center = center
@@ -72,28 +63,32 @@ final class UserNotificationService: NSObject {
         }
     }
 
+    /// Authorization is requested the first time there is something to say, so
+    /// the prompt arrives attached to a real event instead of at launch.
+    ///
+    /// The answer is deliberately re-read every time rather than cached: a user
+    /// who denies and later turns notifications back on in System Settings —
+    /// which the button in Settings invites them to do — would otherwise get
+    /// nothing until they relaunched the app. Notifications are rare enough
+    /// that asking the system each time costs nothing.
     private func isAuthorized() async -> Bool {
-        switch authorization {
-        case .granted: return true
-        case .denied: return false
-        case .unrequested: break
+        switch await center.notificationSettings().authorizationStatus {
+        case .notDetermined:
+            do {
+                return try await center.requestAuthorization(options: [.alert, .sound])
+            } catch {
+                Log.notifications.error(
+                    "Notification authorization failed: \(error.localizedDescription, privacy: .private)")
+                return false
+            }
+        case .authorized, .provisional, .ephemeral:
+            return true
+        case .denied:
+            Log.notifications.debug("Notifications are turned off for ArcBox in System Settings")
+            return false
+        @unknown default:
+            return false
         }
-
-        // Idempotent: once the user has decided, this reports that decision
-        // instead of prompting again.
-        let granted: Bool
-        do {
-            granted = try await center.requestAuthorization(options: [.alert, .sound])
-        } catch {
-            Log.notifications.error(
-                "Notification authorization failed: \(error.localizedDescription, privacy: .private)")
-            granted = false
-        }
-        authorization = granted ? .granted : .denied
-        if !granted {
-            Log.notifications.info("Notifications not authorized; no further delivery will be attempted")
-        }
-        return granted
     }
 
     private func destination(of notification: UNNotification) -> DeepLink? {

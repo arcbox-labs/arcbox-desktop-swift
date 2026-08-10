@@ -105,9 +105,10 @@ struct SandboxNotificationRules {
             identifier: identifier,
             title: title,
             body: body,
-            // Events carry no labels, and the deep link router cannot select a
-            // sandbox by ID anyway, so this lands on the section.
-            destination: .section(.sandboxes, id: nil),
+            // A sandbox that no longer exists by the time the user clicks
+            // resolves to the section plus an explanatory error, which is what
+            // `resolveResourceDeepLink` is for.
+            destination: .section(.sandboxes, id: event.sandboxID),
             category: .sandbox
         )
     }

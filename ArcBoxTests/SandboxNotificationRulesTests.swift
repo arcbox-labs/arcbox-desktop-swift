@@ -41,7 +41,13 @@ final class SandboxNotificationRulesTests: XCTestCase {
         let notification = rules.notification(for: event(.idle, after: 60, ["exit_code": "0"]))
 
         XCTAssertEqual(notification?.title, "Sandbox execution finished")
-        XCTAssertEqual(notification?.destination, .section(.sandboxes, id: nil))
+    }
+
+    /// Clicking a result lands on the sandbox it is about, not just the list.
+    func testNotificationsPointAtTheSandbox() {
+        let notification = rules.notification(for: event(.failed, id: "sandbox-xyz"))
+
+        XCTAssertEqual(notification?.destination, .section(.sandboxes, id: "sandbox-xyz"))
     }
 
     /// A quick success finished while the user was still looking at it.
