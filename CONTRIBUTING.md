@@ -47,7 +47,10 @@ make test
   in the changelog.
 - Keep commits atomic and buildable.
 - No `Co-Authored-By` lines.
-- `CHANGELOG.md` and `Version.xcconfig` are generated. Never hand-edit them.
+- `CHANGELOG.md` and `Version.xcconfig` are generated. Do not edit them outside
+  the release-please PR. Before merging that PR, add a `### Highlights` section
+  under the new release with concise user-facing changes and impact; release
+  publication fails when it is missing.
 
 ## Reporting security issues
 

@@ -26,10 +26,24 @@ struct SandboxPortsTab: View {
         VStack(spacing: 0) {
             toolbar
             Divider()
+            scopeNotice
+            Divider()
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppColors.background)
+    }
+
+    private var scopeNotice: some View {
+        Label(
+            "This list only tracks mappings created by ArcBox since launch. CLI, SDK, and earlier mappings aren’t shown; listeners bind to localhost.",
+            systemImage: "info.circle"
+        )
+        .font(.system(size: 11))
+        .foregroundStyle(AppColors.textMuted)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
     }
 
     private var toolbar: some View {
@@ -70,10 +84,10 @@ struct SandboxPortsTab: View {
                 Image(systemName: "network")
                     .font(.system(size: 24))
                     .foregroundStyle(AppColors.textMuted)
-                Text("No ports exposed from this session.")
+                Text("No port mappings tracked since ArcBox launched.")
                     .font(.system(size: 13))
                     .foregroundStyle(AppColors.textSecondary)
-                Text("Host listeners bind on localhost. Mappings created by the CLI or SDK are not listed here.")
+                Text("Expose a port above to add it to this list.")
                     .font(.system(size: 12))
                     .foregroundStyle(AppColors.textMuted)
                     .multilineTextAlignment(.center)

@@ -105,6 +105,20 @@ final class ActivityRowGroupingTests: XCTestCase {
             "a container ID is hex, so the project prefix has to break that")
     }
 
+    func testFilteringTemporarilyExpandsGroupsAndRestoresTheirState() {
+        var state = ActivityRowDisclosureState()
+        state.setExpanded(true, for: "project:expanded", isFiltering: false)
+
+        XCTAssertFalse(state.isExpanded("project:collapsed", isFiltering: false))
+        XCTAssertTrue(state.isExpanded("project:expanded", isFiltering: false))
+        XCTAssertTrue(state.isExpanded("project:collapsed", isFiltering: true))
+        XCTAssertTrue(state.isExpanded("project:expanded", isFiltering: true))
+
+        state.setExpanded(false, for: "project:expanded", isFiltering: true)
+        XCTAssertFalse(state.isExpanded("project:collapsed", isFiltering: false))
+        XCTAssertTrue(state.isExpanded("project:expanded", isFiltering: false))
+    }
+
     // MARK: - Fixtures
 
     private func row(

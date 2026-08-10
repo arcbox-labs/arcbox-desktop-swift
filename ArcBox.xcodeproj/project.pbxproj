@@ -227,6 +227,7 @@
 		CCD9ABC3F69FE5DA233E85EC /* MachineModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0647CCB67160C2509345B5E /* MachineModelTests.swift */; };
 		D0518D07973520530916560B /* ServiceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F238F21169A97B94193454CF /* ServiceDetailView.swift */; };
 		D0A2395C0C2BC0A77B175840 /* MachineEventMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2021CE387B9546EE87FA4CD5 /* MachineEventMonitor.swift */; };
+		D16762EE419CC9055CDD90FF /* DockerTerminalSessionIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27C52C15D6902B3EAB6307AA /* DockerTerminalSessionIntegrationTests.swift */; };
 		D2AB4B6BF0723EE12A0DBC83 /* GuestDataMountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27130DDA57D2645C7E81D75D /* GuestDataMountTests.swift */; };
 		D2F870759080FB9D1DF58A3A /* NewContainerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B011CA693D5A9EFCCF61AA2D /* NewContainerSheet.swift */; };
 		D32166A92BDA2FB6B6037D94 /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C649765AA76CFCBFC3302DA /* DeepLinkRouter.swift */; };
@@ -336,6 +337,7 @@
 		24D2CE72E40718D37B0293D1 /* StatePlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatePlaceholderView.swift; sourceTree = "<group>"; };
 		269B74A3C7704AB81139FA52 /* ContainerLogsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerLogsModels.swift; sourceTree = "<group>"; };
 		27130DDA57D2645C7E81D75D /* GuestDataMountTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestDataMountTests.swift; sourceTree = "<group>"; };
+		27C52C15D6902B3EAB6307AA /* DockerTerminalSessionIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerTerminalSessionIntegrationTests.swift; sourceTree = "<group>"; };
 		297FCAB334AF289575D13F72 /* NetworksListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworksListView.swift; sourceTree = "<group>"; };
 		2D053B8542825698996A16FE /* ArcBoxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ArcBoxTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D2C529811ECBAD82E110BC4 /* AuthTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthTestSupport.swift; sourceTree = "<group>"; };
@@ -1222,6 +1224,7 @@
 				6DFE1C88F20E40C1A36A384C /* CreateOperationErrorTests.swift */,
 				F5B3B3C54B6D49C6198E9E26 /* DeepLinkTests.swift */,
 				06DFFB59D72F27F14A233B81 /* DockerEventMonitorTests.swift */,
+				27C52C15D6902B3EAB6307AA /* DockerTerminalSessionIntegrationTests.swift */,
 				92FD51B5947EFEEFD73D00F9 /* FleetEnrollmentCoordinatorTests.swift */,
 				239658775BBC68EB492EF715 /* FleetViewModelTests.swift */,
 				27130DDA57D2645C7E81D75D /* GuestDataMountTests.swift */,
@@ -1662,6 +1665,7 @@
 				853F2D06A878BE9A867BE3FD /* CreateOperationErrorTests.swift in Sources */,
 				EE2D38BC76500BF768EEE20F /* DeepLinkTests.swift in Sources */,
 				8466B000B68A87CEECA6756F /* DockerEventMonitorTests.swift in Sources */,
+				D16762EE419CC9055CDD90FF /* DockerTerminalSessionIntegrationTests.swift in Sources */,
 				2437ABD6C32B0F3CE43F3125 /* FleetControlClientTests.swift in Sources */,
 				868F62A98F4BD1023DD79167 /* FleetEnrollmentCoordinatorTests.swift in Sources */,
 				D94E27BE03BF936F525337A1 /* FleetPlatformClientTests.swift in Sources */,

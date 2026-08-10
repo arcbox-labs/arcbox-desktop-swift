@@ -42,6 +42,77 @@ final class DeepLinkTests: XCTestCase {
         }
     }
 
+    @MainActor func testRoutesEverySectionWithoutID() {
+        let (router, appVM) = makeRouter()
+
+        for item in NavItem.allCases {
+            router.handle(URL(string: "arcbox://\(item.rawValue)")!)
+
+            XCTAssertEqual(appVM.currentNav, item)
+            XCTAssertNil(appVM.pendingResourceDeepLink)
+            XCTAssertNil(appVM.deepLinkError)
+        }
+    }
+
+    @MainActor func testResolvesValidAndReportsMissingIDsForEveryResourceSection() {
+        let (router, appVM) = makeRouter()
+        let resourceSections = NavItem.allCases.filter { $0 != .activity && $0 != .runner }
+
+        for item in resourceSections {
+            let validID = "valid-\(item.rawValue)"
+            router.handle(URL(string: "arcbox://\(item.rawValue)/\(validID)")!)
+
+            let resolved = appVM.resolveResourceDeepLink(
+                availableIDs: [validID],
+                isLoaded: true
+            )
+            XCTAssertEqual(resolved?.section, item)
+            XCTAssertEqual(resolved?.id, validID)
+            XCTAssertNil(appVM.deepLinkError)
+
+            let missingID = "missing-\(item.rawValue)"
+            router.handle(URL(string: "arcbox://\(item.rawValue)/\(missingID)")!)
+
+            XCTAssertNil(
+                appVM.resolveResourceDeepLink(availableIDs: [validID], isLoaded: true)
+            )
+            XCTAssertEqual(
+                appVM.deepLinkError,
+                "Resource “\(missingID)” wasn’t found in \(item.label)."
+            )
+        }
+    }
+
+    @MainActor func testWaitsForFreshResourceListBeforeResolvingID() {
+        let (router, appVM) = makeRouter()
+        router.handle(URL(string: "arcbox://machines/machine-id")!)
+
+        XCTAssertNil(
+            appVM.resolveResourceDeepLink(
+                availableIDs: ["machine-id"],
+                isLoaded: false
+            )
+        )
+        XCTAssertEqual(appVM.pendingResourceDeepLink?.section, .machines)
+        XCTAssertEqual(appVM.pendingResourceDeepLink?.id, "machine-id")
+        XCTAssertNil(appVM.deepLinkError)
+    }
+
+    @MainActor func testRejectsSectionsWithoutResourceSelectionVisibly() {
+        let (router, appVM) = makeRouter()
+
+        for item in [NavItem.activity, .runner] {
+            router.handle(URL(string: "arcbox://\(item.rawValue)/resource-id")!)
+
+            XCTAssertEqual(appVM.currentNav, item)
+            XCTAssertNil(appVM.pendingResourceDeepLink)
+            XCTAssertEqual(
+                appVM.deepLinkError,
+                "\(item.label) links don’t support resource IDs."
+            )
+        }
+    }
+
     @MainActor func testDecodesPercentEncodedID() {
         XCTAssertEqual(parse("arcbox://volumes/my%20volume"), .section(.volumes, id: "my volume"))
     }
@@ -67,5 +138,18 @@ final class DeepLinkTests: XCTestCase {
 
     @MainActor func testRejectsUnavailableTemplatesSection() {
         XCTAssertNil(parse("arcbox://templates"))
+    }
+
+    @MainActor private func makeRouter() -> (DeepLinkRouter, AppViewModel) {
+        let router = DeepLinkRouter()
+        let appVM = AppViewModel()
+        router.configure(
+            .init(
+                appVM: appVM,
+                openMainWindow: {},
+                openSettingsWindow: {}
+            )
+        )
+        return (router, appVM)
     }
 }

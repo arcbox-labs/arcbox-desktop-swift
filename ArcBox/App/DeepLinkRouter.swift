@@ -8,10 +8,6 @@ import OSLog
 final class DeepLinkRouter {
     struct Target {
         let appVM: AppViewModel
-        let containersVM: ContainersViewModel
-        let volumesVM: VolumesViewModel
-        let imagesVM: ImagesViewModel
-        let networksVM: NetworksViewModel
         let openMainWindow: () -> Void
         let openSettingsWindow: () -> Void
     }
@@ -53,23 +49,17 @@ final class DeepLinkRouter {
         case .section(let item, let id):
             target.openMainWindow()
             target.appVM.navigate(to: item)
-            if let id {
-                select(id, in: item, with: target)
+            guard let id else {
+                target.appVM.clearResourceDeepLink()
+                break
+            }
+            if item == .activity || item == .runner {
+                target.appVM.clearResourceDeepLink()
+                target.appVM.deepLinkError = "\(item.label) links don’t support resource IDs."
+            } else {
+                target.appVM.requestResourceDeepLink(section: item, id: id)
             }
         }
         NSApp.activate()
-    }
-
-    /// Item selection is only wired for Docker resources; the other sections'
-    /// view models are local to `ContentView` and not reachable from here.
-    private func select(_ id: String, in item: NavItem, with target: Target) {
-        switch item {
-        case .containers: target.containersVM.selectedID = id
-        case .volumes: target.volumesVM.selectedID = id
-        case .images: target.imagesVM.selectedID = id
-        case .networks: target.networksVM.selectedID = id
-        case .activity, .pods, .services, .machines, .sandboxes, .runner:
-            Log.deepLink.info("Item selection unsupported for \(item.rawValue, privacy: .public)")
-        }
     }
 }

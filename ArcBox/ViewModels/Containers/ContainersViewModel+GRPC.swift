@@ -92,10 +92,15 @@ extension ContainersViewModel {
         }
         var config = Components.Schemas.ContainerConfig()
         config.Image = options.image
-        let cmdParts = options.command.split(separator: " ").map(String.init)
-        if !cmdParts.isEmpty { config.Cmd = cmdParts }
-        let entrypointParts = options.entrypoint.split(separator: " ").map(String.init)
-        if !entrypointParts.isEmpty { config.Entrypoint = entrypointParts }
+        do {
+            let command = try ArgumentList.parse(options.command)
+            if !command.isEmpty { config.Cmd = command }
+            let entrypoint = try ArgumentList.parse(options.entrypoint)
+            if !entrypoint.isEmpty { config.Entrypoint = entrypoint }
+        } catch {
+            lastError = "Invalid command or entrypoint: \(error.localizedDescription)"
+            return nil
+        }
         if !options.workingDir.isEmpty { config.WorkingDir = options.workingDir }
 
         let policyName: Components.Schemas.RestartPolicy.NamePayload =
