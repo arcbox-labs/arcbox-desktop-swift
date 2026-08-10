@@ -47,7 +47,7 @@ class ImagesViewModel {
             case .name:
                 comparison = a.repository.localizedCaseInsensitiveCompare(b.repository)
             case .dateCreated:
-                comparison = a.createdAt.compare(b.createdAt)
+                comparison = (a.createdAt ?? .distantPast).compare(b.createdAt ?? .distantPast)
             case .size:
                 comparison =
                     a.sizeBytes == b.sizeBytes
