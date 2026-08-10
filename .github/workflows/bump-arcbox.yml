@@ -41,6 +41,7 @@ jobs:
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
+          permission-issues: write
 
       - uses: actions/checkout@v6
         with:
@@ -118,3 +119,29 @@ jobs:
             --head "$BRANCH" \
             --title "chore: bump arcbox version to ${VERSION}" \
             --body "Automated update from [arcbox ${VERSION}](https://github.com/arcboxlabs/arcbox/releases/tag/${VERSION})."
+
+      # Nobody watches this workflow: arcbox dispatches it and moves on, and the
+      # run's actor is a bot, so the failure notification goes nowhere. Without
+      # a signal here a broken bump is invisible in exactly the way the
+      # half-bump this replaces was — the desktop just quietly keeps shipping
+      # the old daemon.
+      - name: Report a failed bump
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ inputs.version }}
+          TITLE: "Bumping arcbox to ${{ inputs.version }} failed"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Listing rather than searching: reruns of a flaky bump are minutes
+          # apart and the search index is not consistent on that timescale.
+          if gh issue list --state open --limit 100 --json title \
+            --jq '.[].title' | grep -qxF "$TITLE"; then
+            echo "Already reported."
+            exit 0
+          fi
+          gh issue create --title "$TITLE" --body "$(printf '%s\n' \
+            "The [Bump ArcBox run](${RUN_URL}) for \`${VERSION}\` failed, so no bump PR was opened and this repo still embeds the previous daemon." \
+            "" \
+            "Rerun it from the Actions tab, or bump by hand with \`make bump-arcbox VERSION=${VERSION}\`.")"
