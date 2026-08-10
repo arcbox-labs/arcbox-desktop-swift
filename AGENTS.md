@@ -52,6 +52,7 @@ The default tab's view renders during startup. Other tabs render lazily when the
 - Swift 6 strict concurrency (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPROACHABLE_CONCURRENCY = YES`)
 - ViewModels use `@Observable`; environment injection via custom `EnvironmentKey`
 - Logging: use the `Log` enum (OSLog-based) in the app, `ClientLog` in Packages
+- Crash reporting: only the app links Sentry. Packages emit through `ClientDiagnostics` and the app installs the sink — a package that imports Sentry drags its ~500 MB of binary artifacts into protobuf regeneration
 - Prefer `async/await` over Combine; use `Task.detached` only for Sendable-isolated gRPC calls
 - No Combine, no third-party UI libraries; only external deps: Sparkle, SwiftTerm, Sentry, PostHog
 - Imports: Foundation/SwiftUI first, then local packages, then third-party; one blank line before body
