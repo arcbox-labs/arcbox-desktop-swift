@@ -25,15 +25,17 @@ enum ExternalTerminalLauncher {
         let script = makeCommandScript(command: command)
         guard let scriptURL = writeCommandScript(script) else { return }
 
-        Analytics.capture(
-            .terminalOpened,
-            properties: [
-                "surface": "external",
-                "target": containerID == nil ? "host" : "container",
-            ])
+        // Reported from whichever launch path actually succeeds — every one of
+        // them can fail, and a failed launch must not count as a terminal open.
+        let target = containerID == nil ? "host" : "container"
         openCommandScript(
             scriptURL,
-            terminal: ExternalTerminalDiscovery.resolve(preference: preference)
+            terminal: ExternalTerminalDiscovery.resolve(preference: preference),
+            onOpened: {
+                Analytics.capture(
+                    .terminalOpened,
+                    properties: ["surface": "external", "target": target])
+            }
         )
     }
 
@@ -92,54 +94,68 @@ enum ExternalTerminalLauncher {
         }
     }
 
+    /// - Parameter onOpened: Invoked once, on whichever path successfully
+    ///   launches a terminal; never invoked when every path fails.
     private static func openCommandScript(
         _ scriptURL: URL,
-        terminal: ExternalTerminalApp
+        terminal: ExternalTerminalApp,
+        onOpened: @escaping @Sendable () -> Void
     ) {
         guard let appURL = terminal.appURL else {
-            NSWorkspace.shared.open(scriptURL)
+            if NSWorkspace.shared.open(scriptURL) { onOpened() }
             return
         }
 
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         NSWorkspace.shared.open([scriptURL], withApplicationAt: appURL, configuration: configuration) { _, error in
-            guard let error else { return }
+            guard let error else {
+                onOpened()
+                return
+            }
             Task { @MainActor in
                 logger.error("Failed to open command script: \(error.localizedDescription, privacy: .public)")
                 if let backend = terminal.appleScriptBackend {
-                    openWithAppleScript(backend: backend, command: fallbackCommand(for: scriptURL))
-                } else {
-                    NSWorkspace.shared.open(scriptURL)
+                    openWithAppleScript(
+                        backend: backend,
+                        command: fallbackCommand(for: scriptURL),
+                        onOpened: onOpened
+                    )
+                } else if NSWorkspace.shared.open(scriptURL) {
+                    onOpened()
                 }
             }
         }
     }
 
-    private static func openWithAppleScript(backend: ExternalTerminalApp.AppleScriptBackend, command: String) {
+    private static func openWithAppleScript(
+        backend: ExternalTerminalApp.AppleScriptBackend,
+        command: String,
+        onOpened: @escaping @Sendable () -> Void
+    ) {
         switch backend {
         case .terminal:
-            openTerminalApp(command: command)
+            openTerminalApp(command: command, onOpened: onOpened)
         case .iTerm:
-            openITerm(command: command)
+            openITerm(command: command, onOpened: onOpened)
         }
     }
 
     // MARK: - Terminal.app
 
-    private static func openTerminalApp(command: String) {
+    private static func openTerminalApp(command: String, onOpened: @escaping @Sendable () -> Void) {
         let script = """
             tell application "Terminal"
                 activate
                 do script "\(escapeForAppleScript(command))"
             end tell
             """
-        runAppleScript(script)
+        runAppleScript(script, onSuccess: onOpened)
     }
 
     // MARK: - iTerm
 
-    private static func openITerm(command: String) {
+    private static func openITerm(command: String, onOpened: @escaping @Sendable () -> Void) {
         let script = """
             tell application "iTerm"
                 activate
@@ -149,7 +165,7 @@ enum ExternalTerminalLauncher {
                 end tell
             end tell
             """
-        runAppleScript(script)
+        runAppleScript(script, onSuccess: onOpened)
     }
 
     // MARK: - Helpers
@@ -168,7 +184,7 @@ enum ExternalTerminalLauncher {
             .replacingOccurrences(of: "\"", with: "\\\"")
     }
 
-    private static func runAppleScript(_ source: String) {
+    private static func runAppleScript(_ source: String, onSuccess: (@Sendable () -> Void)? = nil) {
         let scriptSource = source
         Task.detached {
             guard let script = NSAppleScript(source: scriptSource) else {
@@ -180,7 +196,9 @@ enum ExternalTerminalLauncher {
             if let error {
                 let errorMessage = (error[NSAppleScript.errorMessage] as? String) ?? "Unknown AppleScript error"
                 await MainActor.run { logger.error("AppleScript error: \(errorMessage, privacy: .public)") }
+                return
             }
+            onSuccess?()
         }
     }
 }

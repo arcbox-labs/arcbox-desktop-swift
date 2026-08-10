@@ -47,6 +47,10 @@ final class ApplicationCoordinator: NSObject {
     /// The identity currently mirrored into PostHog, so re-identify only runs
     /// when it actually changes — `loadUserInfo()` enriches it after sign-in.
     private var identifiedAs: AuthIdentity?
+    /// Whether PostHog currently holds an identity, tracked across launches so
+    /// a reset owed from a previous run is not missed.  Bookkeeping, not a user
+    /// preference, so it stays out of `AppPreferences`.
+    private static let analyticsIdentifiedKey = "analyticsIdentified"
     private var lastShowInMenuBar: Bool
     private var lastUpdateChannel: String
     private var lastTelemetryEnabled: Bool
@@ -399,19 +403,29 @@ final class ApplicationCoordinator: NSObject {
     /// reset on sign-out so the next account starts from a fresh anonymous ID.
     private func syncAnalyticsIdentity() {
         let identity = authSession.status == .signedIn ? authSession.identity : nil
-        guard identity != identifiedAs else { return }
-        identifiedAs = identity
 
         guard let identity else {
+            identifiedAs = nil
+            // The in-process cache cannot answer this on a signed-out launch:
+            // the session may have ended while the app was closed (revoked
+            // refresh token, cleared Keychain), leaving PostHog identified from
+            // a previous run.  `analyticsIdentified` outlives the process, so
+            // it is what decides whether a reset is still owed.
+            guard UserDefaults.standard.bool(forKey: Self.analyticsIdentifiedKey) else { return }
+            UserDefaults.standard.set(false, forKey: Self.analyticsIdentifiedKey)
             Analytics.reset()
             return
         }
+
+        guard identity != identifiedAs else { return }
+        identifiedAs = identity
         // Built with `if let` rather than optional subscripts: assigning a
         // `String?` into `[String: Any]` boxes the Optional itself.
         var properties: [String: Any] = [:]
         if let email = identity.email { properties["email"] = email }
         if let name = identity.name { properties["name"] = name }
         if let emailVerified = identity.emailVerified { properties["email_verified"] = emailVerified }
+        UserDefaults.standard.set(true, forKey: Self.analyticsIdentifiedKey)
         Analytics.identify(identity.subject, properties: properties)
     }
 
