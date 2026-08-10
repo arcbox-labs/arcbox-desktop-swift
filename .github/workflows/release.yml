@@ -696,10 +696,22 @@ jobs:
     name: Create Release
     needs: [build-dmg]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    # No GITHUB_TOKEN scopes: this job speaks to the releases API as the app
+    # below, and downloading this run's own artifacts needs no permissions.
+    permissions: {}
 
     steps:
+      # release-please creates the draft release as this app, and GITHUB_TOKEN
+      # cannot modify another integration's draft — v1.34.5's first attempt got
+      # 403 "Resource not accessible by integration" on the update, after
+      # finding the draft just fine. Publishing as the same app avoids that.
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
@@ -721,6 +733,7 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          token: ${{ steps.app-token.outputs.token }}
           tag_name: ${{ needs.build-dmg.outputs.version || github.ref_name }}
           name: ArcBox ${{ needs.build-dmg.outputs.version || github.ref_name }}
           draft: false
