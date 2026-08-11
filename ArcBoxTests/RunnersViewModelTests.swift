@@ -320,6 +320,29 @@ final class RunnersViewModelTests: XCTestCase {
         }
     }
 
+    func testStaleUnknownSnapshotShowsConnectivityState() {
+        for enrollment in [FleetEnrollmentState.unspecified, .unrecognized(42)] {
+            XCTAssertEqual(
+                resolve(
+                    snapshot: makeSnapshot(enrollment: enrollment, machineID: nil),
+                    loadState: .failed("State stream ended."),
+                    enrollmentState: .idle,
+                    isSignedIn: true
+                ),
+                .unavailable("State stream ended.")
+            )
+            XCTAssertEqual(
+                resolve(
+                    snapshot: makeSnapshot(enrollment: enrollment, machineID: nil),
+                    loadState: .connecting,
+                    enrollmentState: .idle,
+                    isSignedIn: true
+                ),
+                .connecting
+            )
+        }
+    }
+
     func testCoordinatorReadyWithoutSnapshotDoesNotSynthesizeHost() {
         XCTAssertEqual(
             resolve(

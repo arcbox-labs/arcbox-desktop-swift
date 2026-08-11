@@ -295,11 +295,13 @@ final class RunnersViewModel {
                     enrollmentContext: enrollmentContext
                 )
             case .unspecified:
-                return .failed("Fleet Agent did not report a valid enrollment state.")
+                return connectivityOverride(loadState: loadState)
+                    ?? .failed("Fleet Agent did not report a valid enrollment state.")
             case .unrecognized:
-                return .failed(
-                    "Fleet Agent reported an enrollment state this ArcBox version does not support."
-                )
+                return connectivityOverride(loadState: loadState)
+                    ?? .failed(
+                        "Fleet Agent reported an enrollment state this ArcBox version does not support."
+                    )
             }
         }
 
