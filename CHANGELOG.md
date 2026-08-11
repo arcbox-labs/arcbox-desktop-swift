@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.35.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.5...v1.35.0) (2026-08-11)
+
+
+### Features
+
+* **fleet:** integrate device auth, enrollment, and live runner management ([#320](https://github.com/arcboxlabs/arcbox-desktop/issues/320)) ([faa59dd](https://github.com/arcboxlabs/arcbox-desktop/commit/faa59dd6302501c3addb8405067a38baadd8cb32))
+* **telemetry:** wire up the analytics catalog, identify users, fix opt-out precedence ([#367](https://github.com/arcboxlabs/arcbox-desktop/issues/367)) ([428ead8](https://github.com/arcboxlabs/arcbox-desktop/commit/428ead8c1a2f1c505ba11d61555b6abc4dd418bd))
+
+
+### Bug Fixes
+
+* **build:** isolate signed packaging Xcode environment ([#376](https://github.com/arcboxlabs/arcbox-desktop/issues/376)) ([49d6b64](https://github.com/arcboxlabs/arcbox-desktop/commit/49d6b64a5e5dd251f61164470c4a1c5029864954))
+* **sandboxes:** reconcile authoritative port mappings ([#374](https://github.com/arcboxlabs/arcbox-desktop/issues/374)) ([1781592](https://github.com/arcboxlabs/arcbox-desktop/commit/178159276c4d6abd6f0ea385fe352fa41c936b6a))
+
+
+### Documentation
+
+* **agents:** describe the import order the formatter actually enforces ([#383](https://github.com/arcboxlabs/arcbox-desktop/issues/383)) ([0b1c850](https://github.com/arcboxlabs/arcbox-desktop/commit/0b1c85019f3567f17331669fe6c5fc97217a78eb))
+
+
+### CI
+
+* **release:** fail when the arcbox release has no binaries ([3914472](https://github.com/arcboxlabs/arcbox-desktop/commit/391447260770adedeb06acd0d89add26d416693e))
+* **release:** make the arcbox source build work ([1fd7213](https://github.com/arcboxlabs/arcbox-desktop/commit/1fd721313a0cb9015499161bf88a2f2dd4bdf6ef))
+* **release:** publish the draft as the app that created it ([68e4962](https://github.com/arcboxlabs/arcbox-desktop/commit/68e4962126e13014c814b5377027f9a9d44cef42))
+
 ## [1.34.5](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.4...v1.34.5) (2026-08-10)
 
 ### Highlights
