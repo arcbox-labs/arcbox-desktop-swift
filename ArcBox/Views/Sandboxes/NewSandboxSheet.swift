@@ -89,9 +89,9 @@ struct NewSandboxSheet: View {
                 Section {
                     Picker("Source", selection: $templateRef) {
                         Text("Built-in minimal").tag("")
-                        if !vm.templates.isEmpty {
+                        if !vm.addressableTemplates.isEmpty {
                             Section("Templates") {
-                                ForEach(vm.templates) { template in
+                                ForEach(vm.addressableTemplates) { template in
                                     Text(templateLabel(template)).tag(template.reference)
                                 }
                             }
@@ -107,7 +107,13 @@ struct NewSandboxSheet: View {
                 } header: {
                     Text("Source")
                 } footer: {
-                    if let selectedTemplate {
+                    // A failed catalog load otherwise reads as a catalog with
+                    // no templates in it.
+                    if case .failed(let message) = vm.templatesLoadState {
+                        Text("Templates unavailable: \(message)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else if let selectedTemplate {
                         Text(templateSummary(selectedTemplate))
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -220,7 +226,7 @@ struct NewSandboxSheet: View {
     /// The catalog template backing the current selection, if the selection is
     /// one — `docker:` references and the built-in minimal template are not.
     private var selectedTemplate: SandboxTemplateViewModel? {
-        vm.templates.first { $0.reference == templateRef }
+        vm.addressableTemplates.first { $0.reference == templateRef }
     }
 
     /// What an unset resource resolves to, which depends on the source.

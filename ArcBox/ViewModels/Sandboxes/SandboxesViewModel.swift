@@ -93,6 +93,17 @@ class SandboxesViewModel {
     var templatesLoadState: LoadPhase = .waiting
     var templatesRefreshError: String?
 
+    /// Catalog entries a Create request can actually address.
+    ///
+    /// A bare name resolves to the newest published version and falls back to
+    /// the draft only when nothing is published, so a draft shadowed by a
+    /// published version has no reference that reaches it. Offering one would
+    /// silently create from the published version instead.
+    var addressableTemplates: [SandboxTemplateViewModel] {
+        let published = Set(templates.lazy.filter { !$0.isDraft }.map(\.name))
+        return templates.filter { !$0.isDraft || !published.contains($0.name) }
+    }
+
     var sandboxCount: Int { sandboxes.count }
 
     var sortedSandboxes: [SandboxViewModel] {

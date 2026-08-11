@@ -124,7 +124,14 @@ extension SandboxesViewModel {
                 metadata: metadata,
                 options: ArcBoxClient.defaultCallOptions
             )
-            templates.removeAll { $0.reference == reference }
+            // A bare name takes every version of the template with it, so
+            // matching on `reference` alone would leave the versioned rows on
+            // screen until the next full load.
+            if reference.contains(":") {
+                templates.removeAll { $0.reference == reference }
+            } else {
+                templates.removeAll { $0.name == reference }
+            }
         } catch is CancellationError {
             return
         } catch {

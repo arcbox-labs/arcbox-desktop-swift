@@ -72,6 +72,34 @@ final class SandboxTemplateModelTests: XCTestCase {
         XCTAssertTrue(template.hasReadyProbe)
     }
 
+    // MARK: - Addressability
+
+    // The daemon resolves a bare name to the newest published version and
+    // falls back to the draft only when nothing is published, so a shadowed
+    // draft must not be offered: creating from it would silently use the
+    // published version instead.
+
+    func testShadowedDraftIsNotAddressable() {
+        let vm = SandboxesViewModel()
+        vm.templates = [
+            SandboxTemplateViewModel(from: makeTemplate(version: "1.0.0")),
+            SandboxTemplateViewModel(from: makeTemplate(version: "")),
+        ]
+        XCTAssertEqual(vm.addressableTemplates.map(\.reference), ["code-interpreter:1.0.0"])
+    }
+
+    func testUnshadowedDraftStaysAddressable() {
+        let vm = SandboxesViewModel()
+        vm.templates = [
+            SandboxTemplateViewModel(from: makeTemplate(version: "1.0.0")),
+            SandboxTemplateViewModel(from: makeTemplate(name: "web-scraper", version: "")),
+        ]
+        XCTAssertEqual(
+            vm.addressableTemplates.map(\.reference),
+            ["code-interpreter:1.0.0", "web-scraper"]
+        )
+    }
+
     // An unset `defaults` is the common case for a promoted snapshot. Reading
     // through it must not report a ready probe the template does not have.
     func testMissingDefaultsReadAsUnset() {
