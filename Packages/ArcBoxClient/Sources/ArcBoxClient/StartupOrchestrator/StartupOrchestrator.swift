@@ -1,7 +1,6 @@
 import Foundation
 import OSLog
 import Observation
-@preconcurrency import Sentry
 
 // MARK: - Internal Errors
 
@@ -329,9 +328,7 @@ public final class StartupOrchestrator {
             ClientLog.startup.error(
                 "\(step.label, privacy: .public) failed after \(elapsedMs, privacy: .public)ms: \(message, privacy: .private)"
             )
-            SentrySDK.capture(error: error) { scope in
-                scope.setTag(value: step.label, key: "startup_step")
-            }
+            ClientDiagnostics.capture(error, tags: ["startup_step": step.label])
             stepStatuses[step] = .failed(message)
             phase = .failed(step: step, message: message)
             return false

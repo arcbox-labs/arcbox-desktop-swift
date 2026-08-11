@@ -28,6 +28,22 @@ jobs:
           targets: aarch64-unknown-linux-musl
           components: clippy, rustfmt
 
+      # Ahead of the caches below: both key on the toolchain, because Swift
+      # build products are not portable across Xcode versions.
+      - name: Record build environment
+        id: build_environment
+        run: |
+          XCODE_CACHE_KEY=$(xcodebuild -version | awk 'NR == 1 { version = $2 } NR == 2 { build = $3 } END { print version "-" build }')
+          echo "xcode_cache_key=$XCODE_CACHE_KEY" >> "$GITHUB_OUTPUT"
+          echo "=== Build environment ==="
+          echo "Runner architecture: $(uname -m)"
+          echo "CPU: $(sysctl -n machdep.cpu.brand_string)"
+          echo "Logical CPUs: $(sysctl -n hw.logicalcpu)"
+          echo "Memory: $(sysctl -n hw.memsize) bytes"
+          xcodebuild -version
+          swiftc --version
+          df -h "$GITHUB_WORKSPACE"
+
       - name: Restore desktop Rust tooling cache
         id: desktop_rust_cache
         uses: actions/cache/restore@v6
@@ -42,6 +58,20 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-cargo-xtask-${{ hashFiles('xtask/Cargo.lock') }}-
             ${{ runner.os }}-${{ runner.arch }}-cargo-xtask-
 
+      # generate.sh builds protoc-gen-swift and protoc-gen-grpc-swift from
+      # Packages/ArcBoxClient, so this scratch path holds their SwiftPM
+      # checkouts as well as the built plugins. Caching it keeps a step that
+      # only regenerates protobuf off the network. No restore-keys: a partial
+      # match would seed the generator with plugins built from a different
+      # resolution, and the generated code has to match the runtime the app
+      # compiles it against.
+      - name: Restore protoc plugin cache
+        id: protoc_plugin_cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .build/protoc-plugins/
+          key: ${{ runner.os }}-${{ runner.arch }}-protoc-plugins-${{ steps.build_environment.outputs.xcode_cache_key }}-${{ hashFiles('Packages/ArcBoxClient/Package.resolved', 'Packages/ArcBoxClient/Package.swift', 'Packages/ArcBoxClient/generate.sh') }}
+
       - name: Verify protobuf generated code is up-to-date
         run: |
           brew install protobuf
@@ -50,6 +80,18 @@ jobs:
       # `protocol verify` above only compiles xtask; nothing ran its tests.
       - name: Lint and test xtask
         run: make lint-xtask test-xtask
+
+      # Release DMG extracts the same section to feed Sparkle's update dialog,
+      # and refuses to build without it. Running it here fails the release PR
+      # while a missing `### Highlights` is still an edit away from fixed —
+      # once that PR merges, the tag and the draft release already exist.
+      # On every other PR the manifest names the last shipped version, so this
+      # only re-checks an entry that is already curated.
+      - name: Verify curated release highlights
+        run: |
+          cargo xtask release notes \
+            --version "$(jq -r '."."' .release-please-manifest.json)" \
+            --output "$RUNNER_TEMP/release-notes.md"
 
       # `make lint` is what a contributor runs, and scripts/tool.sh holds the
       # version floors, so the two cannot drift apart.
@@ -75,20 +117,6 @@ jobs:
           brew install xcodegen
           make generate-xcodeproj
           git diff --exit-code ArcBox.xcodeproj ArcBox/Info.plist project.yml
-
-      - name: Record build environment
-        id: build_environment
-        run: |
-          XCODE_CACHE_KEY=$(xcodebuild -version | awk 'NR == 1 { version = $2 } NR == 2 { build = $3 } END { print version "-" build }')
-          echo "xcode_cache_key=$XCODE_CACHE_KEY" >> "$GITHUB_OUTPUT"
-          echo "=== Build environment ==="
-          echo "Runner architecture: $(uname -m)"
-          echo "CPU: $(sysctl -n machdep.cpu.brand_string)"
-          echo "Logical CPUs: $(sysctl -n hw.logicalcpu)"
-          echo "Memory: $(sysctl -n hw.memsize) bytes"
-          xcodebuild -version
-          swiftc --version
-          df -h "$GITHUB_WORKSPACE"
 
       - name: Restore Swift package cache
         id: swift_packages_cache
@@ -145,6 +173,13 @@ jobs:
             DESTINATION='platform=macOS,arch=arm64' \
             ARCHS=arm64 \
             XCODEBUILD_EXTRA=-showBuildTimingSummary
+
+      - name: Save protoc plugin cache
+        if: github.event_name == 'push' && steps.protoc_plugin_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .build/protoc-plugins/
+          key: ${{ steps.protoc_plugin_cache.outputs.cache-primary-key }}
 
       - name: Save desktop Rust tooling cache
         if: github.event_name == 'push' && steps.desktop_rust_cache.outputs.cache-hit != 'true'

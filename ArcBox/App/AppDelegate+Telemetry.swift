@@ -1,3 +1,4 @@
+import ArcBoxClient
 import Foundation
 import OSLog
 import PostHog
@@ -39,6 +40,11 @@ extension AppDelegate {
             scope.setTag(value: "app", key: "process_type")
             scope.setTag(value: version, key: "app_version")
         }
+
+        // ArcBoxClient emits breadcrumbs and errors into a sink it does not
+        // own; without this its diagnostics are dropped.
+        ClientDiagnostics.install(SentryDiagnosticsSink())
+
         Log.startup.info("Sentry initialized")
     }
 
