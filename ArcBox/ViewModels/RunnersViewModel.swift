@@ -285,11 +285,11 @@ final class RunnersViewModel {
                     recovery: .unenroll
                 )
             case .unenrolled:
-                guard normalizedMachineID(snapshot.machineID) == nil else {
-                    return .failed("Fleet Agent reported an invalid unenrolled state.")
-                }
                 if let override = connectivityOverride(loadState: loadState) {
                     return override
+                }
+                guard normalizedMachineID(snapshot.machineID) == nil else {
+                    return .failed("Fleet Agent reported an invalid unenrolled state.")
                 }
                 return resolveUnenrolledState(
                     enrollmentContext: enrollmentContext

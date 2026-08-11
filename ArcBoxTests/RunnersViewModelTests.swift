@@ -251,15 +251,27 @@ final class RunnersViewModelTests: XCTestCase {
         XCTAssertEqual(message, "State stream ended.")
     }
 
-    func testRetainedUnenrolledSnapshotCannotStartEnrollmentWhileWatchReconnects() {
-        let state = resolve(
-            snapshot: makeSnapshot(enrollment: .unenrolled, machineID: nil),
-            loadState: .failed("State stream ended."),
-            enrollmentState: .idle,
-            isSignedIn: true
-        )
+    func testStaleUnenrolledSnapshotConnectivityWinsOverRetainedIdentity() {
+        let snapshot = makeSnapshot(enrollment: .unenrolled, machineID: "fltm_stale")
 
-        XCTAssertEqual(state, .unavailable("State stream ended."))
+        XCTAssertEqual(
+            resolve(
+                snapshot: snapshot,
+                loadState: .failed("State stream ended."),
+                enrollmentState: .idle,
+                isSignedIn: true
+            ),
+            .unavailable("State stream ended.")
+        )
+        XCTAssertEqual(
+            resolve(
+                snapshot: snapshot,
+                loadState: .connecting,
+                enrollmentState: .idle,
+                isSignedIn: true
+            ),
+            .connecting
+        )
     }
 
     func testRetainedCredentialRejectedSnapshotShowsUnavailableWhileWatchReconnects() {
