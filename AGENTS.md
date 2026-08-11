@@ -60,4 +60,4 @@ Any state change inside a `fixedSize(vertical: true)` subtree in a main-window v
 - Crash reporting: only the app links Sentry. Packages emit through `ClientDiagnostics` and the app installs the sink — a package that imports Sentry drags its ~500 MB of binary artifacts into protobuf regeneration
 - Prefer `async/await` over Combine; use `Task.detached` only for Sendable-isolated gRPC calls
 - No Combine, no third-party UI libraries; only external deps: Sparkle, SwiftTerm, Sentry, PostHog
-- Imports: Foundation/SwiftUI first, then local packages, then third-party; one blank line before body
+- Imports: one alphabetically sorted block, with `@testable` imports in a separate block below it; one blank line before the body. This is enforced by swift-format's `OrderedImports`, so `make format` is authoritative — do not hand-order imports
