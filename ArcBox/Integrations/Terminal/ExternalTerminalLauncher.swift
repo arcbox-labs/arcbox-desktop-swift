@@ -62,6 +62,14 @@ enum ExternalTerminalLauncher {
             removeCommandScript(at: scriptURL)
             throw error
         }
+        // Only past the throwing launch — every failure path above propagates,
+        // so a failed attempt never counts as a terminal open.
+        Analytics.capture(
+            .terminalOpened,
+            properties: [
+                "surface": "external",
+                "target": containerID == nil ? "host" : "container",
+            ])
     }
 
     private static func makeCommand(containerID: String?, shell: String) -> String {

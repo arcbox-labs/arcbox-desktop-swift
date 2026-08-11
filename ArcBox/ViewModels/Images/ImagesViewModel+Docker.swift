@@ -153,6 +153,7 @@ extension ImagesViewModel {
             return false
         }
         let parsed = parseImageReference(reference)
+        let startedAt = CFAbsoluteTimeGetCurrent()
 
         do {
             let response = try await docker.api.ImageCreate(
@@ -160,6 +161,13 @@ extension ImagesViewModel {
             )
             _ = try response.ok
             Log.image.info("Pulled image \(reference, privacy: .private)")
+            Analytics.capture(
+                .imagePulled,
+                properties: [
+                    "duration_ms": Int((CFAbsoluteTimeGetCurrent() - startedAt) * 1000),
+                    "has_tag": parsed.tag != nil,
+                    "explicit_platform": platform != nil,
+                ])
             await loadImages(docker: docker)
             return true
         } catch {
@@ -211,6 +219,7 @@ extension ImagesViewModel {
             let response = try await docker.api.ImageDelete(path: .init(name: dockerId), query: .init(force: true))
             if applyImageDeletion(response, id: id) {
                 Log.image.info("Removed image \(dockerId, privacy: .private)")
+                Analytics.capture(.imageRemoved)
             }
         } catch {
             Log.image.error(

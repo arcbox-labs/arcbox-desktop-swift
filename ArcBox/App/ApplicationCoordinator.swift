@@ -49,8 +49,16 @@ final class ApplicationCoordinator: NSObject {
     private var startupTask: Task<Void, Never>?
     private var connectionTask: Task<Void, Never>?
     private var lastDaemonState: DaemonState?
+    /// The identity currently mirrored into PostHog, so re-identify only runs
+    /// when it actually changes — `loadUserInfo()` enriches it after sign-in.
+    private var identifiedAs: AuthIdentity?
+    /// Whether PostHog currently holds an identity, tracked across launches so
+    /// a reset owed from a previous run is not missed.  Bookkeeping, not a user
+    /// preference, so it stays out of `AppPreferences`.
+    private static let analyticsIdentifiedKey = "analyticsIdentified"
     private var lastShowInMenuBar: Bool
     private var lastUpdateChannel: String
+    private var lastTelemetryEnabled: Bool
     private var isOnboarding: Bool
     private var deepLinksConfigured = false
     private var started = false
@@ -66,6 +74,7 @@ final class ApplicationCoordinator: NSObject {
         updaterSettings = UpdaterSettingsModel(updater: updaterController.updater)
         lastShowInMenuBar = UserDefaults.standard.bool(forKey: "showInMenuBar")
         lastUpdateChannel = UserDefaults.standard.string(forKey: "updateChannel") ?? "stable"
+        lastTelemetryEnabled = UserDefaults.standard.bool(forKey: "telemetryEnabled")
         isOnboarding = !hasCompletedOnboarding
         super.init()
     }
@@ -94,6 +103,7 @@ final class ApplicationCoordinator: NSObject {
             configureDeepLinks()
         }
         observeDaemonState()
+        observeAuthIdentity()
         _ = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
             object: UserDefaults.standard,
@@ -161,6 +171,7 @@ final class ApplicationCoordinator: NSObject {
         if let tab {
             appVM.settingsTab = tab
         }
+        Analytics.capture(.settingsOpened, properties: ["tab": appVM.settingsTab?.rawValue ?? "none"])
         if settingsWindowController == nil {
             let screen =
                 NSApp.keyWindow?.screen
@@ -398,6 +409,58 @@ final class ApplicationCoordinator: NSObject {
         trackDaemonState()
     }
 
+    private func observeAuthIdentity() {
+        syncAnalyticsIdentity()
+        trackAuthIdentity()
+    }
+
+    private func trackAuthIdentity() {
+        withObservationTracking {
+            _ = authSession.status
+            _ = authSession.identity
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.authIdentityDidChange()
+            }
+        }
+    }
+
+    private func authIdentityDidChange() {
+        guard !isTerminating else { return }
+        trackAuthIdentity()
+        syncAnalyticsIdentity()
+    }
+
+    /// Mirrors platform sign-in state into PostHog: identify while signed in,
+    /// reset on sign-out so the next account starts from a fresh anonymous ID.
+    private func syncAnalyticsIdentity() {
+        let identity = authSession.status == .signedIn ? authSession.identity : nil
+
+        guard let identity else {
+            identifiedAs = nil
+            // The in-process cache cannot answer this on a signed-out launch:
+            // the session may have ended while the app was closed (revoked
+            // refresh token, cleared Keychain), leaving PostHog identified from
+            // a previous run.  `analyticsIdentified` outlives the process, so
+            // it is what decides whether a reset is still owed.
+            guard UserDefaults.standard.bool(forKey: Self.analyticsIdentifiedKey) else { return }
+            UserDefaults.standard.set(false, forKey: Self.analyticsIdentifiedKey)
+            Analytics.reset()
+            return
+        }
+
+        guard identity != identifiedAs else { return }
+        identifiedAs = identity
+        // Built with `if let` rather than optional subscripts: assigning a
+        // `String?` into `[String: Any]` boxes the Optional itself.
+        var properties: [String: Any] = [:]
+        if let email = identity.email { properties["email"] = email }
+        if let name = identity.name { properties["name"] = name }
+        if let emailVerified = identity.emailVerified { properties["email_verified"] = emailVerified }
+        UserDefaults.standard.set(true, forKey: Self.analyticsIdentifiedKey)
+        Analytics.identify(identity.subject, properties: properties)
+    }
+
     private func trackDaemonState() {
         withObservationTracking {
             _ = daemonManager.state
@@ -618,6 +681,31 @@ final class ApplicationCoordinator: NSObject {
         if updateChannel != lastUpdateChannel {
             lastUpdateChannel = updateChannel
             updaterController.updater.resetUpdateCycle()
+            Analytics.register(["update_channel": updateChannel])
         }
+
+        let telemetryEnabled = defaults.bool(forKey: "telemetryEnabled")
+        if telemetryEnabled != lastTelemetryEnabled {
+            lastTelemetryEnabled = telemetryEnabled
+            telemetryPreferenceDidChange(enabled: telemetryEnabled)
+        }
+    }
+
+    /// Applies the Privacy toggle.  Opting back in has to re-run identify:
+    /// the SDK drops `identify` while opted out, so a user who signs in first
+    /// and enables telemetry afterwards would otherwise stay anonymous.
+    private func telemetryPreferenceDidChange(enabled: Bool) {
+        #if DEBUG
+            // Development builds never send telemetry; see `initPostHog`.
+            return
+        #else
+            if enabled {
+                Analytics.optIn()
+                identifiedAs = nil
+                syncAnalyticsIdentity()
+            } else {
+                Analytics.optOut()
+            }
+        #endif
     }
 }

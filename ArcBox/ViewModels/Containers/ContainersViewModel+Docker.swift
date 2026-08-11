@@ -76,6 +76,7 @@ extension ContainersViewModel {
             } else {
                 setContainerRunningState(id, isRunning: true)
                 succeeded = true
+                Analytics.capture(.containerStarted, properties: ["backend": "docker", "batch": false])
             }
         } catch {
             Log.container.error(
@@ -101,6 +102,7 @@ extension ContainersViewModel {
                 lastError = message
             } else {
                 setContainerRunningState(id, isRunning: false)
+                Analytics.capture(.containerStopped, properties: ["backend": "docker", "batch": false])
             }
         } catch {
             Log.container.error(
@@ -124,6 +126,7 @@ extension ContainersViewModel {
                 lastError = message
             } else {
                 removeContainerLocally(id)
+                Analytics.capture(.containerRemoved, properties: ["backend": "docker", "batch": false])
                 NotificationCenter.default.post(name: .dockerDataChanged, object: nil)
             }
         } catch {

@@ -221,6 +221,11 @@ class DockerTerminalSession {
                 )
             }
             state = .connected
+            // `imageContainerName` is set only by the image paths, so it is
+            // already the surface discriminator — no second parameter to drift.
+            Analytics.capture(
+                .terminalOpened,
+                properties: ["surface": imageContainerName == nil ? "container" : "image"])
         } catch {
             close(replica)
             close(primary)
