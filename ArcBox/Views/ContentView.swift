@@ -37,6 +37,7 @@ struct ContentView: View {
     @Environment(VolumesViewModel.self) private var volumesVM
     @Environment(ImagesViewModel.self) private var imagesVM
     @Environment(NetworksViewModel.self) private var networksVM
+    @Environment(RunnersViewModel.self) private var runnersVM
 
     // Feature ViewModels -- local to main window
     @State private var activityVM = ActivityViewModel()
@@ -108,6 +109,9 @@ struct ContentView: View {
                 Section(section.rawValue.capitalized) {
                     ForEach(section.items) { item in
                         Label(item.label, systemImage: item.sfSymbol)
+                            // A zero badge renders nothing, so only the runner
+                            // row shows its in-flight job count.
+                            .badge(item == .runner ? runnersVM.activeJobCount : 0)
                             .tag(item)
                     }
                 }
@@ -131,7 +135,7 @@ struct ContentView: View {
     private var resourceDeepLinkAvailability: ResourceDeepLinkAvailability? {
         guard let request = appVM.pendingResourceDeepLink else { return nil }
         switch request.section {
-        case .activity:
+        case .activity, .runner:
             return nil
         case .containers:
             return ResourceDeepLinkAvailability(
@@ -228,7 +232,7 @@ struct ContentView: View {
         guard let request = appVM.pendingResourceDeepLink else { return }
 
         switch request.section {
-        case .activity:
+        case .activity, .runner:
             break
         case .containers:
             await containersVM.loadContainersFromDocker(
@@ -252,7 +256,7 @@ struct ContentView: View {
 
     private func selectResource(_ request: AppViewModel.ResourceDeepLink) {
         switch request.section {
-        case .activity:
+        case .activity, .runner:
             break
         case .containers:
             containersVM.searchText = ""
@@ -323,6 +327,8 @@ struct ContentView: View {
         case .machines:
             MachinesView()
                 .environment(machinesVM)
+        case .runner:
+            RunnersView()
         case .sandboxes:
             SandboxesListView()
                 .environment(sandboxesVM)
@@ -364,6 +370,9 @@ struct ContentView: View {
         case .machines:
             MachineDetailView()
                 .environment(machinesVM)
+        case .runner:
+            // Job / host detail arrives with RUN-12 / RUN-13.
+            ContentUnavailableView("No Selection", systemImage: "square.dashed")
         case .sandboxes:
             SandboxDetailView()
                 .environment(sandboxesVM)

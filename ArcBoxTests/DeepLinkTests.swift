@@ -56,7 +56,7 @@ final class DeepLinkTests: XCTestCase {
 
     @MainActor func testResolvesValidAndReportsMissingIDsForEveryResourceSection() {
         let (router, appVM) = makeRouter()
-        let resourceSections = NavItem.allCases.filter { $0 != .activity }
+        let resourceSections = NavItem.allCases.filter { $0 != .activity && $0 != .runner }
 
         for item in resourceSections {
             let validID = "valid-\(item.rawValue)"
@@ -98,14 +98,19 @@ final class DeepLinkTests: XCTestCase {
         XCTAssertNil(appVM.deepLinkError)
     }
 
-    @MainActor func testRejectsActivityResourceIDVisibly() {
+    @MainActor func testRejectsSectionsWithoutResourceSelectionVisibly() {
         let (router, appVM) = makeRouter()
 
-        router.handle(URL(string: "arcbox://activity/event-id")!)
+        for item in [NavItem.activity, .runner] {
+            router.handle(URL(string: "arcbox://\(item.rawValue)/resource-id")!)
 
-        XCTAssertEqual(appVM.currentNav, .activity)
-        XCTAssertNil(appVM.pendingResourceDeepLink)
-        XCTAssertEqual(appVM.deepLinkError, "Activity links don’t support resource IDs.")
+            XCTAssertEqual(appVM.currentNav, item)
+            XCTAssertNil(appVM.pendingResourceDeepLink)
+            XCTAssertEqual(
+                appVM.deepLinkError,
+                "\(item.label) links don’t support resource IDs."
+            )
+        }
     }
 
     @MainActor func testDecodesPercentEncodedID() {
@@ -142,9 +147,7 @@ final class DeepLinkTests: XCTestCase {
             .init(
                 appVM: appVM,
                 openMainWindow: {},
-                openSettingsWindow: {},
-                oauthCallbackScheme: nil,
-                onOAuthCallback: { _ in }
+                openSettingsWindow: {}
             )
         )
         return (router, appVM)

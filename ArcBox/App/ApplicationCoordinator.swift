@@ -2,6 +2,7 @@ import AppKit
 import ArcBoxAuth
 import ArcBoxClient
 import DockerClient
+import FleetPlatformClient
 import Foundation
 import OSLog
 import Observation
@@ -18,15 +19,19 @@ final class ApplicationCoordinator: NSObject {
     let networksVM = NetworksViewModel()
     let volumesVM = VolumesViewModel()
     let systemVmBackendVM = SystemVmBackendModel()
+    // App-scoped so the Fleet Watch survives closing the main window.
+    let runnersVM = RunnersViewModel()
 
     private let eventMonitor = DockerEventMonitor()
     private let sandboxEventMonitor = SandboxEventMonitor()
     private let machineEventMonitor = MachineEventMonitor()
     private let sleepWakeManager = SleepWakeManager()
     private let deepLinkRouter = DeepLinkRouter()
+    private let fleetAgentConnection = FleetAgentConnection()
     private let updaterDelegate = UpdaterDelegate()
     private let updaterController: SPUStandardUpdaterController
     private let updaterSettings: UpdaterSettingsModel
+    private var fleetPlatformClient: FleetPlatformClient?
 
     private(set) var arcboxClient: ArcBoxClient?
     private(set) var dockerClient: DockerClient?
@@ -99,8 +104,30 @@ final class ApplicationCoordinator: NSObject {
             }
         }
 
+        fleetAgentConnection.start()
         Task { [weak self] in
-            await self?.authSession.loadUserInfo()
+            guard let self else { return }
+            await authSession.restoreSession()
+            initFleetPlatformClientIfNeeded()
+            runnersVM.start(
+                controlClient: fleetAgentConnection.controlClient,
+                platformClient: fleetPlatformClient,
+                authentication: authSession,
+                agentReadiness: fleetAgentConnection
+            )
+            await authSession.refreshSession()
+        }
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                _ = try await fleetAgentConnection.ensureReady()
+            } catch is CancellationError {
+                Log.fleet.info("Fleet Agent readiness probe cancelled")
+            } catch {
+                Log.fleet.info(
+                    "Fleet Agent is not ready: \(error.localizedDescription, privacy: .private)"
+                )
+            }
         }
 
         if !isOnboarding {
@@ -197,7 +224,7 @@ final class ApplicationCoordinator: NSObject {
         guard !isTerminating else { return false }
         isTerminating = true
 
-        WebAuthenticationController.shared.cancelForTermination()
+        authSession.cancelSignIn()
         statusItemController?.closePopover()
         statusItemController?.setVisible(false)
         let screen = NSApp.keyWindow?.screen ?? NSApp.mainWindow?.screen ?? NSScreen.main
@@ -224,6 +251,19 @@ final class ApplicationCoordinator: NSObject {
     }
 
     func shutdown() async {
+        let enrollmentSettled = await runnersVM.prepareForTermination()
+        if !enrollmentSettled {
+            Log.fleet.warning(
+                "Fleet enrollment did not settle before the application termination deadline"
+            )
+        }
+        let connectionClosedGracefully = await fleetAgentConnection.shutdown()
+        if !connectionClosedGracefully {
+            Log.fleet.warning(
+                "Fleet client transport required forced shutdown during application termination"
+            )
+        }
+
         startupTask?.cancel()
         await startupOrchestrator?.cancelForTermination()
         await startupTask?.value
@@ -259,11 +299,7 @@ final class ApplicationCoordinator: NSObject {
             .init(
                 appVM: appVM,
                 openMainWindow: { [weak self] in self?.showMainWindow() },
-                openSettingsWindow: { [weak self] in self?.showSettings() },
-                oauthCallbackScheme: OIDCClientConfiguration.redirectURI.scheme,
-                onOAuthCallback: { [weak self] url in
-                    Task { await self?.authSession.handleAuthorizationCallback(url) }
-                }
+                openSettingsWindow: { [weak self] in self?.showSettings() }
             ))
     }
 
@@ -472,6 +508,7 @@ final class ApplicationCoordinator: NSObject {
             .environment(volumesVM)
             .environment(sandboxEventMonitor)
             .environment(authSession)
+            .environment(runnersVM)
             .environment(\.arcboxClient, arcboxClient)
             .environment(\.dockerClient, dockerClient)
             .environment(\.startupOrchestrator, startupOrchestrator)
@@ -490,6 +527,7 @@ final class ApplicationCoordinator: NSObject {
                 .environment(authSession)
                 .environment(systemVmBackendVM)
                 .environment(updaterSettings)
+                .environment(runnersVM.fleet)
                 .environment(\.arcboxClient, arcboxClient)
                 .environment(\.dockerClient, dockerClient)
                 .environment(\.accessTokenProvider, authSession)
@@ -519,12 +557,26 @@ final class ApplicationCoordinator: NSObject {
             showSettings(tab: .account)
             return
         }
-        guard authSession.status != .signingIn, !authSession.configuration.isPlaceholder else {
-            return
-        }
+        guard authSession.status != .restoring, authSession.status != .signingIn,
+            !authSession.configuration.isPlaceholder
+        else { return }
         Task {
-            await authSession.signIn(using: WebAuthenticationController.shared.authenticate)
+            await authSession.signIn()
         }
+    }
+
+    /// Create the authenticated Platform REST client without starting network work.
+    private func initFleetPlatformClientIfNeeded() {
+        guard fleetPlatformClient == nil else { return }
+
+        let configuration = FleetPlatformConfiguration.current
+        Log.fleet.info(
+            "Creating FleetPlatformClient for \(configuration.baseURL.absoluteString, privacy: .public)"
+        )
+        fleetPlatformClient = FleetPlatformClient(
+            configuration: configuration,
+            accessTokenProvider: authSession
+        )
     }
 
     private func activate() {
