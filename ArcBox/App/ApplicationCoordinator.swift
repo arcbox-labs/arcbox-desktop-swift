@@ -28,8 +28,11 @@ final class ApplicationCoordinator: NSObject {
     private let sleepWakeManager = SleepWakeManager()
     private let deepLinkRouter = DeepLinkRouter()
     private let fleetAgentConnection = FleetAgentConnection()
-    private let notifications = UserNotificationService()
-    private var sandboxNotificationRules = SandboxNotificationRules()
+    private lazy var notifications = NotificationCoordinator(
+        isUserWatching: { [weak self] in self?.isUserWatching($0) ?? false },
+        openDestination: { [weak self] in self?.deepLinkRouter.handle($0) },
+        isDaemonRunning: { [weak self] in self?.daemonManager.state.isRunning ?? false }
+    )
     private let updaterDelegate = UpdaterDelegate()
     private let updaterController: SPUStandardUpdaterController
     private let updaterSettings: UpdaterSettingsModel
@@ -58,7 +61,6 @@ final class ApplicationCoordinator: NSObject {
     /// a reset owed from a previous run is not missed.  Bookkeeping, not a user
     /// preference, so it stays out of `AppPreferences`.
     private static let analyticsIdentifiedKey = "analyticsIdentified"
-    private var pendingDaemonAlert: Task<Void, Never>?
     private var lastShowInMenuBar: Bool
     private var lastUpdateChannel: String
     private var lastTelemetryEnabled: Bool
@@ -239,8 +241,7 @@ final class ApplicationCoordinator: NSObject {
         guard !isTerminating else { return false }
         isTerminating = true
 
-        pendingDaemonAlert?.cancel()
-        pendingDaemonAlert = nil
+        notifications.stop()
         authSession.cancelSignIn()
         statusItemController?.closePopover()
         statusItemController?.setVisible(false)
@@ -321,41 +322,10 @@ final class ApplicationCoordinator: NSObject {
     }
 
     private func configureNotifications() {
-        notifications.isUserWatching = { [weak self] destination in
-            self?.isUserWatching(destination) ?? false
-        }
-        notifications.openDestination = { [weak self] destination in
-            self?.deepLinkRouter.handle(destination)
-        }
         sandboxEventMonitor.onEvent = { [weak self] event in
-            guard let self, let notification = sandboxNotificationRules.notification(for: event) else {
-                return
-            }
-            notifications.post(notification)
+            self?.notifications.handleSandboxEvent(event)
         }
         notifications.start()
-    }
-
-    /// Tell the user about a daemon problem, but only once it has outlasted the
-    /// alert's confirmation window. Every state change restarts this, so a
-    /// daemon that drops and recovers — waking from sleep, a stream hiccup —
-    /// says nothing at all.
-    private func reportDaemonHealth(from previous: DaemonState?, to current: DaemonState) {
-        pendingDaemonAlert?.cancel()
-        pendingDaemonAlert = nil
-
-        guard let alert = DaemonNotificationRules.alert(from: previous, to: current) else { return }
-        guard alert.confirmAfter > .zero else {
-            notifications.post(alert.notification)
-            return
-        }
-
-        pendingDaemonAlert = Task { [weak self] in
-            try? await Task.sleep(for: alert.confirmAfter)
-            guard !Task.isCancelled, let self, !isTerminating else { return }
-            guard !daemonManager.state.isRunning else { return }
-            notifications.post(alert.notification)
-        }
     }
 
     /// Whether what a notification would announce is already on screen. A
@@ -536,7 +506,7 @@ final class ApplicationCoordinator: NSObject {
         let previousState = lastDaemonState
         lastDaemonState = state
 
-        reportDaemonHealth(from: previousState, to: state)
+        notifications.handleDaemonState(from: previousState, to: state)
 
         if state.isRunning {
             if dockerClient == nil {

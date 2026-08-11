@@ -50,6 +50,7 @@
 		2754C5F694613CA3A06DBC7E /* ContainerLogsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 269B74A3C7704AB81139FA52 /* ContainerLogsModels.swift */; };
 		27A1480C02167F8BFC6D86B4 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C396CA9355FFB5ACB7DD1D32 /* MainWindowController.swift */; };
 		299DA63B52A4A414F246A0D8 /* ServicesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66F91CF47E53375781959EC9 /* ServicesListView.swift */; };
+		299F68933B6F5869B01B0F43 /* NotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D649CF8EC65915ED940D02A /* NotificationCoordinator.swift */; };
 		2C12FA161C343D99BD2E8AFD /* NetworksListViewControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA27F4AC273B14038EDB6593 /* NetworksListViewControllerTests.swift */; };
 		2C918E08295E3751C9FD1EC1 /* MachineDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9C7ADBBD83C5F92EEBAAD88 /* MachineDetailView.swift */; };
 		2D13FABE82FCAF045B2CF25D /* LoadPhase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4AA61258823B0E929F4520 /* LoadPhase.swift */; };
@@ -359,6 +360,7 @@
 		35969670AC4F826B4A3BB567 /* ImagesListViewControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagesListViewControllerTests.swift; sourceTree = "<group>"; };
 		3750055AEC4C49576A78A909 /* ByteFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ByteFormattingTests.swift; sourceTree = "<group>"; };
 		3CD990EEEF43CDA673BC1816 /* ActivityRowGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRowGroupingTests.swift; sourceTree = "<group>"; };
+		3D649CF8EC65915ED940D02A /* NotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationCoordinator.swift; sourceTree = "<group>"; };
 		3DAC9EE4F067CB69F022C1E0 /* ActivityViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityViewModel.swift; sourceTree = "<group>"; };
 		3E30F5FC430804013B58C6F1 /* com.arcboxlabs.desktop.daemon.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = com.arcboxlabs.desktop.daemon.plist; sourceTree = "<group>"; };
 		3ED1683EF0A3490B8B7B5CF6 /* InfoTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoTableView.swift; sourceTree = "<group>"; };
@@ -1204,6 +1206,7 @@
 			children = (
 				98123C19CE4AB275C8D899E2 /* AppNotification.swift */,
 				FEA9D33B25DF9BB204D4B637 /* DaemonNotificationRules.swift */,
+				3D649CF8EC65915ED940D02A /* NotificationCoordinator.swift */,
 				665F6200AEC097082B2C43CA /* SandboxNotificationRules.swift */,
 				12240648D65030A504A21CC6 /* UserNotificationService.swift */,
 			);
@@ -1596,6 +1599,7 @@
 				72CCF0BC7FEAEB988595757C /* NewNetworkSheet.swift in Sources */,
 				B29A0911581DF9A70350B726 /* NewSandboxSheet.swift in Sources */,
 				D745D0D7EF5FF65174C47F28 /* NewVolumeSheet.swift in Sources */,
+				299F68933B6F5869B01B0F43 /* NotificationCoordinator.swift in Sources */,
 				A9BC7D2040EC032EBBC709E4 /* OnboardingView.swift in Sources */,
 				4C3BC465BFE58BF0D59AFE78 /* OnboardingWindowController.swift in Sources */,
 				97B9638AA9C685C6DB2780B4 /* PerformanceTracing.swift in Sources */,
