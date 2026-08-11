@@ -104,17 +104,16 @@ public final class AuthSession: AccessTokenProviding {
     public func refreshSession() async {
         guard status == .signedIn, let token = session?.sessionToken else { return }
         do {
-            guard
-                let snapshot = try await provider.session(
-                    token: token, configuration: configuration)
-            else {
+            let snapshot = try await provider.session(
+                token: token, configuration: configuration)
+            // The session may have been signed out or replaced while the
+            // request was in flight.
+            guard session?.sessionToken == token else { return }
+            guard let snapshot else {
                 ClientLog.auth.info("Provider no longer honors the stored session; signing out")
                 await forgetSession()
                 return
             }
-            // The session may have been signed out or replaced while the
-            // request was in flight.
-            guard session?.sessionToken == token else { return }
             identity = AuthIdentity(
                 subject: snapshot.user.id,
                 email: normalized(snapshot.user.email),

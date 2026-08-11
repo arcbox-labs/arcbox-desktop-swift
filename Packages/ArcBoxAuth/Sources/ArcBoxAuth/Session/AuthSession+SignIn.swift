@@ -4,8 +4,8 @@ extension AuthSession {
     /// Runs the device-authorization sign-in (RFC 8628): requests a device
     /// code, opens the verification page in the default browser, and polls
     /// the token endpoint until the user approves there. Failures land in
-    /// `status` rather than being thrown; cancellation quietly returns to
-    /// `.signedOut`.
+    /// `status` rather than being thrown; cancellation before approval quietly
+    /// returns to `.signedOut`.
     ///
     /// While the browser approval is pending, `deviceAuthorization` carries
     /// the user code and verification URL for display.
@@ -45,9 +45,9 @@ extension AuthSession {
             let granted = try await pollUntilGranted(grant: grant)
             let stored = StoredSession(
                 sessionToken: granted.sessionToken, expiresAt: granted.expiresAt)
-            await persist(stored)
             try Task.checkCancellation()
             adopt(stored)
+            await persist(stored)
             await refreshSession()
         } catch is CancellationError {
             if status == .signingIn { status = .signedOut }

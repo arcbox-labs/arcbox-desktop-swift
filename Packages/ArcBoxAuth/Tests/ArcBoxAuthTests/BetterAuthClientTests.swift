@@ -30,6 +30,18 @@ struct BetterAuthClientTests {
         #expect(cookieHeaders.allSatisfy { $0 == nil })
     }
 
+    @Test func propagatesURLSessionCancellation() async {
+        let configuration = BetterAuthClient.makeSessionConfiguration()
+        configuration.protocolClasses = [CancellationURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let client = BetterAuthClient(session: session)
+
+        await #expect(throws: CancellationError.self) {
+            try await client.requestDeviceCode(configuration: AuthTestSupport.configuration)
+        }
+    }
+
     @Test func legacyCleanupIsLimitedToBetterAuthCookies() throws {
         let secureToken = try cookie(named: "__Secure-better-auth.session_token")
         let secureData = try cookie(named: "__Secure-better-auth.session_data")
@@ -231,6 +243,18 @@ private class CookieRecordingURLProtocol: URLProtocol {
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: body)
         client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+private class CancellationURLProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        client?.urlProtocol(self, didFailWithError: URLError(.cancelled))
     }
 
     override func stopLoading() {}

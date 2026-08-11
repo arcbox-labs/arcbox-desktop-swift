@@ -11,12 +11,14 @@ struct AuthSessionTests {
     private let browser = BrowserSpy()
 
     private func makeSession(
-        configuration: AuthClientConfiguration = AuthTestSupport.configuration
+        configuration: AuthClientConfiguration = AuthTestSupport.configuration,
+        provider: (any AuthProviding)? = nil,
+        tokenStore: (any TokenStoring)? = nil
     ) -> AuthSession {
         AuthSession(
             configuration: configuration,
-            provider: provider,
-            tokenStore: store,
+            provider: provider ?? self.provider,
+            tokenStore: tokenStore ?? store,
             sleeper: sleeper.sleep,
             openURL: browser.open
         )
@@ -112,6 +114,24 @@ struct AuthSessionTests {
         #expect(session.status == .signedOut)
         #expect(session.deviceAuthorization == nil)
         #expect(store.stored == nil)
+    }
+
+    @Test func cancellationAfterTokenGrantDoesNotRollBackTheCommittedSession() async throws {
+        let gatedStore = GatedTokenStore()
+        let session = makeSession(tokenStore: gatedStore)
+        let signIn = Task { await session.signIn() }
+        while await gatedStore.saveCalls == 0 {
+            await Task.yield()
+        }
+
+        session.cancelSignIn()
+        await gatedStore.releaseSave()
+        await signIn.value
+
+        #expect(session.status == .signedIn)
+        #expect(try await session.accessToken() == "session-1")
+        let stored = await gatedStore.stored
+        #expect(stored?.sessionToken == "session-1")
     }
 
     @Test func placeholderConfigurationCannotSignIn() async {
@@ -212,6 +232,31 @@ struct AuthSessionTests {
 
         #expect(session.status == .signedIn)
         #expect(try await session.accessToken() == "stored-token")
+    }
+
+    @Test func staleRefreshCannotClearAReplacementSession() async throws {
+        let gate = AuthAsyncGate()
+        let provider = FakeAuthProvider(sessionGate: gate)
+        provider.configure { state in
+            state.sessionResult = .success(nil)
+        }
+        let store = InMemoryTokenStore(initial: Self.storedSession)
+        let session = makeSession(provider: provider, tokenStore: store)
+        await session.restoreSession()
+
+        let refresh = Task { await session.refreshSession() }
+        while provider.sessionCalls == 0 {
+            await Task.yield()
+        }
+        let replacement = StoredSession(sessionToken: "replacement-token", expiresAt: nil)
+        try store.save(replacement)
+        session.adopt(replacement)
+        await gate.open()
+        await refresh.value
+
+        #expect(session.status == .signedIn)
+        #expect(try await session.accessToken() == "replacement-token")
+        #expect(store.stored == replacement)
     }
 
     // MARK: - Sign-out

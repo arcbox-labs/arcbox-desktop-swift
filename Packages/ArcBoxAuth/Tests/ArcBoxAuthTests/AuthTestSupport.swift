@@ -90,6 +90,47 @@ final class InMemoryTokenStore: TokenStoring {
     }
 }
 
+actor GatedTokenStore: TokenStoring {
+    private(set) var stored: StoredSession?
+    private(set) var saveCalls = 0
+    private var saveContinuation: CheckedContinuation<Void, Never>?
+
+    func save(_ session: StoredSession) async {
+        saveCalls += 1
+        if saveCalls == 1 {
+            await withCheckedContinuation { saveContinuation = $0 }
+        }
+        stored = session
+    }
+
+    func load() -> StoredSession? { stored }
+
+    func clear() {
+        stored = nil
+    }
+
+    func releaseSave() {
+        saveContinuation?.resume()
+        saveContinuation = nil
+    }
+}
+
+actor AuthAsyncGate {
+    private var isOpen = false
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func wait() async {
+        guard !isOpen else { return }
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func open() {
+        isOpen = true
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
 /// Scripted provider: poll outcomes are consumed in order; the last entry
 /// repeats for any further polls.
 final class FakeAuthProvider: AuthProviding {
@@ -110,6 +151,11 @@ final class FakeAuthProvider: AuthProviding {
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
+    private let sessionGate: AuthAsyncGate?
+
+    init(sessionGate: AuthAsyncGate? = nil) {
+        self.sessionGate = sessionGate
+    }
 
     var deviceCodeCalls: Int { state.withLock { $0.deviceCodeCalls } }
     var pollCalls: Int { state.withLock { $0.pollCalls } }
@@ -146,10 +192,14 @@ final class FakeAuthProvider: AuthProviding {
         token: String,
         configuration: AuthClientConfiguration
     ) async throws -> SessionSnapshot? {
-        try state.withLock { s in
+        let result = state.withLock { s in
             s.sessionCalls += 1
             return s.sessionResult
-        }.get()
+        }
+        if let sessionGate {
+            await sessionGate.wait()
+        }
+        return try result.get()
     }
 
     func signOut(token: String, configuration: AuthClientConfiguration) async throws {

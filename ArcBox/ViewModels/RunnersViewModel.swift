@@ -250,7 +250,10 @@ final class RunnersViewModel {
         if let snapshot {
             switch snapshot.enrollment {
             case .attaching, .attached, .updating:
-                guard normalizedMachineID(snapshot.machineID) != nil else {
+                if normalizedMachineID(snapshot.machineID) == nil {
+                    if let override = connectivityOverride(loadState: loadState) {
+                        return override
+                    }
                     return .failed("Fleet Agent reported an invalid machine identity.")
                 }
                 return .enrolled(
@@ -348,9 +351,7 @@ final class RunnersViewModel {
         }
     }
 
-    /// A non-live `loadState` for a terminal snapshot (unenrolled, credential-rejected,
-    /// detached) means the watch has disconnected and the snapshot is stale — surface
-    /// connectivity instead of offering recovery actions the disconnected client can't serve.
+    /// Surfaces connectivity when a retained snapshot cannot be trusted while the watch is stale.
     private static func connectivityOverride(loadState: FleetLoadState) -> RunnersViewState? {
         switch loadState {
         case .idle, .connecting:
