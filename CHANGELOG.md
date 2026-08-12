@@ -2,6 +2,12 @@
 
 ## [1.35.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.5...v1.35.0) (2026-08-11)
 
+### Highlights
+
+Runners arrive: sign in, enroll this Mac as a Fleet device, and manage its runners from the new Runners section, which stays current as agent state changes instead of waiting for a refresh.
+
+The Sandboxes Ports tab now reflects the daemon's own record of exposed ports, so mappings made from the CLI or SDK show up, stale rows clear themselves, and Refresh is there when you want to re-check. Analytics also honours the Privacy toggle more faithfully: while it is on, a signed-in account is identified by email and name, and switching it back on after signing in no longer leaves the session anonymous.
+
 
 ### Features
 
