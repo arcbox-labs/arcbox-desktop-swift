@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.35.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.35.0...v1.35.1) (2026-08-12)
+
+
+### Bug Fixes
+
+* **ui:** slide the detail tab indicator instead of morphing glass ([#386](https://github.com/arcboxlabs/arcbox-desktop/issues/386)) ([1c34044](https://github.com/arcboxlabs/arcbox-desktop/commit/1c34044a7d633bbbb58d14464d8eb9248855fcca))
+
+
+### Miscellaneous
+
+* bump arcbox version to v0.6.5 ([#385](https://github.com/arcboxlabs/arcbox-desktop/issues/385)) ([fb232b0](https://github.com/arcboxlabs/arcbox-desktop/commit/fb232b046d3b74b7db5001c9c8ead3394dce1ce5))
+
 ## [1.35.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.34.5...v1.35.0) (2026-08-11)
 
 ### Highlights
