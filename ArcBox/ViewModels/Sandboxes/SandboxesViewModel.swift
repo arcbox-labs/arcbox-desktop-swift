@@ -24,8 +24,10 @@ enum SandboxSortField: String, CaseIterable {
 /// Parameters for creating a sandbox.
 struct SandboxCreateSpec {
     var labels: [String: String] = [:]
-    /// Docker image reference; sent to the daemon as a `docker:` template.
-    var image = ""
+    /// What boots inside the sandbox, in `CreateSandboxRequest.template` form:
+    /// empty for the built-in minimal template, `docker:<ref>` for a local
+    /// image, or `name[:version]` for a catalog template.
+    var template = ""
     var vcpus: UInt32 = 0
     var memoryMiB: UInt64 = 0
     var cmd: [String] = []
@@ -84,6 +86,23 @@ class SandboxesViewModel {
 
     /// The sandbox whose mappings are currently visible in the Ports tab.
     var exposedPortsSandboxID: String?
+
+    /// The template catalog, one entry per version. Fleet-wide, not per
+    /// sandbox: loaded on demand by the create sheet and the Snapshots tab.
+    var templates: [SandboxTemplateViewModel] = []
+    var templatesLoadState: LoadPhase = .waiting
+    var templatesRefreshError: String?
+
+    /// Catalog entries a Create request can actually address.
+    ///
+    /// A bare name resolves to the newest published version and falls back to
+    /// the draft only when nothing is published, so a draft shadowed by a
+    /// published version has no reference that reaches it. Offering one would
+    /// silently create from the published version instead.
+    var addressableTemplates: [SandboxTemplateViewModel] {
+        let published = Set(templates.lazy.filter { !$0.isDraft }.map(\.name))
+        return templates.filter { !$0.isDraft || !published.contains($0.name) }
+    }
 
     var sandboxCount: Int { sandboxes.count }
 
