@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.36.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.35.1...v1.36.0) (2026-08-13)
+
+### Highlights
+
+ArcBox keeps running after you close its window, so a sandbox execution that finished and a daemon that died were both invisible until you went back and looked. This build tells you instead: every failed execution, successes that ran long enough to be worth a mention, and a warning when the daemon reports a fatal error or stops responding. Clicking a notification takes you to what it is about.
+
+Each kind can be turned off on its own in General settings. An execution retrying in a loop leaves its latest result on screen rather than one banner per attempt, and nothing interrupts you about a view you already have open.
+
+
+### Features
+
+* **notifications:** notify on sandbox results and daemon health ([#366](https://github.com/arcboxlabs/arcbox-desktop/issues/366)) ([1274aef](https://github.com/arcboxlabs/arcbox-desktop/commit/1274aefcf0af928b62603db2ac04cec8b006eafb))
+
 ## [1.35.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.35.0...v1.35.1) (2026-08-12)
 
 ### Highlights
