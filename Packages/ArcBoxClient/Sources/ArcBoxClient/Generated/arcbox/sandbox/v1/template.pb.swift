@@ -260,8 +260,8 @@ public struct Arcbox_Sandbox_V1_BuildTemplateRequest: Sendable {
   public var labels: Dictionary<String,String> = [:]
 
   /// Also boot the built rootfs once and checkpoint it at READY, so the
-  /// template carries a warm snapshot (requires CORE-16; ignored for
-  /// `snapshot_id` sources, which are warm by construction).
+  /// template carries a warm snapshot (ignored for `snapshot_id` sources,
+  /// which are warm by construction).
   public var prewarm: Bool = false
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
