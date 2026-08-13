@@ -31,7 +31,7 @@ cargo xtask macos dmg --sign "Developer ID Application: …" --notarize
 | `protocol bump` | Update `arcbox.version` and regenerate the Swift protobuf client atomically. |
 | `protocol verify` | Regenerate the Swift protobuf client from `arcbox.version` and fail if checked-in generated files drift. |
 | `release resolve` | Resolve build version, channel, prerelease flag, and arcbox ref into `GITHUB_OUTPUT`. |
-| `release notes` | Extract the required curated Highlights for one release from `CHANGELOG.md`. |
+| `release notes` | Build one release's notes from `CHANGELOG.md`: curated Highlights plus its user-facing sections. Fails when it has neither. |
 | `release appcast` | Generate or merge a Sparkle 2.x appcast XML feed. |
 | `release latest-json` | Update the `latest.json` channel manifest. |
 

@@ -81,17 +81,40 @@ jobs:
       - name: Lint and test xtask
         run: make lint-xtask test-xtask
 
-      # Release DMG extracts the same section to feed Sparkle's update dialog,
-      # and refuses to build without it. Running it here fails the release PR
-      # while a missing `### Highlights` is still an edit away from fixed —
-      # once that PR merges, the tag and the draft release already exist.
-      # On every other PR the manifest names the last shipped version, so this
-      # only re-checks an entry that is already curated.
-      - name: Verify curated release highlights
+      # Release DMG builds its notes with this same command, so running it here
+      # catches an unshippable release while it is still an edit — once the
+      # release PR merges, the tag and the draft release already exist.
+      #
+      # It now only fails when a release has nothing to tell anyone: no
+      # curated prose *and* no user-facing entries. Fatal on the release PR
+      # and on master, where that guards the tag and says master is
+      # unshippable; a warning elsewhere. Failing everywhere is what turned
+      # one bad release PR into 22 hours of blocked CI after 1.35.0, at a step
+      # that runs before Lint, Build and Test.
+      - name: Verify release notes can be built
+        shell: bash
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          cargo xtask release notes \
-            --version "$(jq -r '."."' .release-please-manifest.json)" \
-            --output "$RUNNER_TEMP/release-notes.md"
+          VERSION=$(jq -r '."."' .release-please-manifest.json)
+          if cargo xtask release notes \
+            --version "$VERSION" \
+            --output "$RUNNER_TEMP/release-notes.md"; then
+            exit 0
+          fi
+
+          GUIDANCE="Notes are built from the '### Highlights' prose plus the release's user-facing sections, and $VERSION has neither — Sparkle would have nothing to show. Write a '### Highlights' section under '## [$VERSION]' in CHANGELOG.md saying what this build means for someone using it."
+          case "$HEAD_REF" in
+            release-please--*)
+              echo "::error::No release notes can be built for $VERSION. $GUIDANCE"
+              exit 1
+              ;;
+          esac
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            echo "::error::No release notes can be built for $VERSION on master. $GUIDANCE"
+            exit 1
+          fi
+          echo "::warning::No release notes can be built for $VERSION, so it cannot ship a DMG. Not failing this PR — $GUIDANCE"
 
       # `make lint` is what a contributor runs, and scripts/tool.sh holds the
       # version floors, so the two cannot drift apart.
