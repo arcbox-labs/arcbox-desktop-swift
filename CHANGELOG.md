@@ -2,6 +2,12 @@
 
 ## [1.37.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.36.0...v1.37.0) (2026-08-13)
 
+### Highlights
+
+Sandboxes can start from a template now, not just a bare Docker image. The create sheet's Source picker groups the built-in minimal template, your catalog templates and Docker images together, and says which one restores warm and which cold-boots — a template carrying a pre-warmed snapshot reaches READY in under a second instead of booting from scratch. Any snapshot you already have can be promoted into a template from the Snapshots tab; nothing is rebuilt, the checkpoint becomes the template's warm image.
+
+Because a template brings its own defaults, the CPU and memory steppers go down to "Template default" rather than bottoming out at 1 vCPU and 128 MiB. Setting either one replaces the template's defaults for both, and the form tells you so where you set it.
+
 
 ### Features
 
