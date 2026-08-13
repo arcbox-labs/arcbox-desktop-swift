@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.37.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.36.0...v1.37.0) (2026-08-13)
+
+
+### Features
+
+* **sandboxes:** surface the sandbox template catalog (CORE-107) ([#387](https://github.com/arcboxlabs/arcbox-desktop/issues/387)) ([6c1341f](https://github.com/arcboxlabs/arcbox-desktop/commit/6c1341f381ecbd96ee7b197999475eee8be55b02))
+
+
+### Bug Fixes
+
+* **client:** regenerate the template client against v0.6.6 ([#395](https://github.com/arcboxlabs/arcbox-desktop/issues/395)) ([c3c0693](https://github.com/arcboxlabs/arcbox-desktop/commit/c3c069340d4feb050a991bcec458aad056fb006e))
+* **client:** regenerate the template client for the v0.6.6 pin ([#394](https://github.com/arcboxlabs/arcbox-desktop/issues/394)) ([fb67a26](https://github.com/arcboxlabs/arcbox-desktop/commit/fb67a267390f10fd36a00ab345993dfc2bc9e704))
+
+
+### Miscellaneous
+
+* bump arcbox version to v0.6.6 ([#391](https://github.com/arcboxlabs/arcbox-desktop/issues/391)) ([1653287](https://github.com/arcboxlabs/arcbox-desktop/commit/16532878a79c828a1d9bf012b672d32bb5a5c619))
+
 ## [1.36.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.35.1...v1.36.0) (2026-08-13)
 
 ### Highlights
