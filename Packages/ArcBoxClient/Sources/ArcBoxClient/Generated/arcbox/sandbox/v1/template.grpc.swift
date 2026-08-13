@@ -132,10 +132,12 @@ extension Arcbox_Sandbox_V1_TemplateService {
     /// >
     /// > TemplateService manages the template catalog. Control plane.
     /// > 
-    /// > Contract-only in CORE-58 phase 1: the daemon answers UNIMPLEMENTED
-    /// > until the catalog lands with CORE-21. Build additionally depends on the
-    /// > rootfs pipeline (CORE-5) and, for pre-warmed snapshots, FC 1.16
-    /// > network overrides (CORE-16).
+    /// > Served as of CORE-107: every RPC below is implemented, all three Build
+    /// > sources work, and `CreateSandboxRequest.template` resolves
+    /// > `name[:version]` against the catalog. Clients that also talk to older
+    /// > daemons detect it with the `templates` flag in
+    /// > `GetCapabilitiesResponse.features` rather than on this service
+    /// > existing.
     public protocol StreamingServiceProtocol: GRPCCore.RegistrableRPCService {
         /// Handle the "Build" method.
         ///
@@ -246,10 +248,12 @@ extension Arcbox_Sandbox_V1_TemplateService {
     /// >
     /// > TemplateService manages the template catalog. Control plane.
     /// > 
-    /// > Contract-only in CORE-58 phase 1: the daemon answers UNIMPLEMENTED
-    /// > until the catalog lands with CORE-21. Build additionally depends on the
-    /// > rootfs pipeline (CORE-5) and, for pre-warmed snapshots, FC 1.16
-    /// > network overrides (CORE-16).
+    /// > Served as of CORE-107: every RPC below is implemented, all three Build
+    /// > sources work, and `CreateSandboxRequest.template` resolves
+    /// > `name[:version]` against the catalog. Clients that also talk to older
+    /// > daemons detect it with the `templates` flag in
+    /// > `GetCapabilitiesResponse.features` rather than on this service
+    /// > existing.
     public protocol ServiceProtocol: Arcbox_Sandbox_V1_TemplateService.StreamingServiceProtocol {
         /// Handle the "Build" method.
         ///
@@ -358,10 +362,12 @@ extension Arcbox_Sandbox_V1_TemplateService {
     /// >
     /// > TemplateService manages the template catalog. Control plane.
     /// > 
-    /// > Contract-only in CORE-58 phase 1: the daemon answers UNIMPLEMENTED
-    /// > until the catalog lands with CORE-21. Build additionally depends on the
-    /// > rootfs pipeline (CORE-5) and, for pre-warmed snapshots, FC 1.16
-    /// > network overrides (CORE-16).
+    /// > Served as of CORE-107: every RPC below is implemented, all three Build
+    /// > sources work, and `CreateSandboxRequest.template` resolves
+    /// > `name[:version]` against the catalog. Clients that also talk to older
+    /// > daemons detect it with the `templates` flag in
+    /// > `GetCapabilitiesResponse.features` rather than on this service
+    /// > existing.
     public protocol SimpleServiceProtocol: Arcbox_Sandbox_V1_TemplateService.ServiceProtocol {
         /// Handle the "Build" method.
         ///
@@ -664,10 +670,12 @@ extension Arcbox_Sandbox_V1_TemplateService {
     /// >
     /// > TemplateService manages the template catalog. Control plane.
     /// > 
-    /// > Contract-only in CORE-58 phase 1: the daemon answers UNIMPLEMENTED
-    /// > until the catalog lands with CORE-21. Build additionally depends on the
-    /// > rootfs pipeline (CORE-5) and, for pre-warmed snapshots, FC 1.16
-    /// > network overrides (CORE-16).
+    /// > Served as of CORE-107: every RPC below is implemented, all three Build
+    /// > sources work, and `CreateSandboxRequest.template` resolves
+    /// > `name[:version]` against the catalog. Clients that also talk to older
+    /// > daemons detect it with the `templates` flag in
+    /// > `GetCapabilitiesResponse.features` rather than on this service
+    /// > existing.
     public protocol ClientProtocol: Sendable {
         /// Call the "Build" method.
         ///
@@ -801,10 +809,12 @@ extension Arcbox_Sandbox_V1_TemplateService {
     /// >
     /// > TemplateService manages the template catalog. Control plane.
     /// > 
-    /// > Contract-only in CORE-58 phase 1: the daemon answers UNIMPLEMENTED
-    /// > until the catalog lands with CORE-21. Build additionally depends on the
-    /// > rootfs pipeline (CORE-5) and, for pre-warmed snapshots, FC 1.16
-    /// > network overrides (CORE-16).
+    /// > Served as of CORE-107: every RPC below is implemented, all three Build
+    /// > sources work, and `CreateSandboxRequest.template` resolves
+    /// > `name[:version]` against the catalog. Clients that also talk to older
+    /// > daemons detect it with the `templates` flag in
+    /// > `GetCapabilitiesResponse.features` rather than on this service
+    /// > existing.
     public struct Client<Transport>: ClientProtocol where Transport: GRPCCore.ClientTransport {
         private let client: GRPCCore.GRPCClient<Transport>
 
