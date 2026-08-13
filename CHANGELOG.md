@@ -2,6 +2,12 @@
 
 ## [1.35.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.35.0...v1.35.1) (2026-08-12)
 
+### Highlights
+
+1.35.0 never reached anyone, so this is the build that brings Runners with it: sign in, enrol this Mac as a Fleet device, and manage its runners from the new Runners section, which stays current as agent state changes rather than waiting for a refresh.
+
+The Sandboxes Ports tab now reflects the daemon's own record of exposed ports, so mappings made from the CLI or SDK appear, stale rows clear themselves, and Refresh is there when you want to re-check. Analytics honours the Privacy toggle more faithfully too. Detail tabs move their indicator instead of morphing it, and the bundled ArcBox engine moves to v0.6.5.
+
 
 ### Bug Fixes
 
