@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.36.0](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.35.1...v1.36.0) (2026-08-13)
+
+
+### Features
+
+* **notifications:** notify on sandbox results and daemon health ([#366](https://github.com/arcboxlabs/arcbox-desktop/issues/366)) ([1274aef](https://github.com/arcboxlabs/arcbox-desktop/commit/1274aefcf0af928b62603db2ac04cec8b006eafb))
+
 ## [1.35.1](https://github.com/arcboxlabs/arcbox-desktop/compare/v1.35.0...v1.35.1) (2026-08-12)
 
 ### Highlights
