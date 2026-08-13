@@ -28,6 +28,11 @@ final class ApplicationCoordinator: NSObject {
     private let sleepWakeManager = SleepWakeManager()
     private let deepLinkRouter = DeepLinkRouter()
     private let fleetAgentConnection = FleetAgentConnection()
+    private lazy var notifications = NotificationCoordinator(
+        isUserWatching: { [weak self] in self?.isUserWatching($0) ?? false },
+        openDestination: { [weak self] in self?.deepLinkRouter.handle($0) },
+        isDaemonRunning: { [weak self] in self?.daemonManager.state.isRunning ?? false }
+    )
     private let updaterDelegate = UpdaterDelegate()
     private let updaterController: SPUStandardUpdaterController
     private let updaterSettings: UpdaterSettingsModel
@@ -104,6 +109,7 @@ final class ApplicationCoordinator: NSObject {
         }
         observeDaemonState()
         observeAuthIdentity()
+        configureNotifications()
         _ = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
             object: UserDefaults.standard,
@@ -235,6 +241,7 @@ final class ApplicationCoordinator: NSObject {
         guard !isTerminating else { return false }
         isTerminating = true
 
+        notifications.stop()
         authSession.cancelSignIn()
         statusItemController?.closePopover()
         statusItemController?.setVisible(false)
@@ -312,6 +319,26 @@ final class ApplicationCoordinator: NSObject {
                 openMainWindow: { [weak self] in self?.showMainWindow() },
                 openSettingsWindow: { [weak self] in self?.showSettings() }
             ))
+    }
+
+    private func configureNotifications() {
+        sandboxEventMonitor.onEvent = { [weak self] event in
+            self?.notifications.handleSandboxEvent(event)
+        }
+        notifications.start()
+    }
+
+    /// Whether what a notification would announce is already on screen. A
+    /// closed or backgrounded window means the user is not watching, whatever
+    /// the last selected section was.
+    private func isUserWatching(_ destination: DeepLink) -> Bool {
+        guard NSApp.isActive, mainWindowController?.window?.isVisible == true else { return false }
+        switch destination {
+        case .main, .settings:
+            return true
+        case .section(let item, _):
+            return appVM.currentNav == item
+        }
     }
 
     private func startRuntimeIfNeeded(allowingAdministratorPrompt: Bool = false) {
@@ -476,7 +503,10 @@ final class ApplicationCoordinator: NSObject {
         trackDaemonState()
         let state = daemonManager.state
         guard state != lastDaemonState else { return }
+        let previousState = lastDaemonState
         lastDaemonState = state
+
+        notifications.handleDaemonState(from: previousState, to: state)
 
         if state.isRunning {
             if dockerClient == nil {

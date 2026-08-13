@@ -19,6 +19,8 @@ struct GeneralSettingsView: View {
     @AppStorage("terminalTheme") private var terminalTheme = "system"
     @AppStorage("externalTerminal") private var externalTerminal = ExternalTerminalApp.terminalBundleIdentifier
     @AppStorage("telemetryEnabled") private var telemetryEnabled = true
+    @AppStorage(AppNotification.Category.sandbox.preferenceKey) private var notifySandboxResults = true
+    @AppStorage(AppNotification.Category.daemonHealth.preferenceKey) private var notifyDaemonProblems = true
 
     @State private var isExportingDiagnostics = false
     @State private var loginItemErrorMessage: String?
@@ -72,6 +74,35 @@ struct GeneralSettingsView: View {
                     Text("Stable").tag("stable")
                     Text("Beta").tag("beta")
                 }
+            }
+
+            Section("Notifications") {
+                LabeledContent {
+                    Toggle("", isOn: $notifySandboxResults)
+                        .labelsHidden()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sandbox execution results")
+                        Text("Every failure, and successful runs longer than 30 seconds.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                LabeledContent {
+                    Toggle("", isOn: $notifyDaemonProblems)
+                        .labelsHidden()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Daemon problems")
+                        Text("When the daemon stops, or stays unreachable for 30 seconds.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Button("Open Notification Settings...") {
+                    openNotificationSettings()
+                }
+                .font(.caption)
             }
 
             Section("Privacy") {
@@ -266,6 +297,18 @@ struct GeneralSettingsView: View {
             status == .requiresApproval
             ? "macOS requires approval before ArcBox can start at login."
             : nil
+    }
+
+    /// The toggles above only gate what ArcBox sends; whether any of it is
+    /// allowed through is a system-level decision that lives in System
+    /// Settings. There is no API for that pane — unlike login items, which have
+    /// `SMAppService.openSystemSettingsLoginItems()` — so this goes through the
+    /// URL scheme. It is not documented by Apple, so a pane identifier change
+    /// would leave the button opening nothing rather than misbehaving.
+    private func openNotificationSettings() {
+        let pane = "x-apple.systempreferences:com.apple.Notifications-Settings.extension"
+        guard let url = URL(string: "\(pane)?id=\(Bundle.main.bundleIdentifier ?? "")") else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private func updateLoginItem(enabled: Bool) {
