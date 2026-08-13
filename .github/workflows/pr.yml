@@ -81,20 +81,17 @@ jobs:
       - name: Lint and test xtask
         run: make lint-xtask test-xtask
 
-      # Release DMG extracts the same section to feed Sparkle's update dialog,
-      # and refuses to build without it. Running it here fails the release PR
-      # while a missing `### Highlights` is still an edit away from fixed —
-      # once that PR merges, the tag and the draft release already exist.
+      # Release DMG builds its notes with this same command, so running it here
+      # catches an unshippable release while it is still an edit — once the
+      # release PR merges, the tag and the draft release already exist.
       #
-      # Fatal only where it protects something: the release PR, and master.
-      # release-please never writes that section, so every release PR starts
-      # out failing this by construction — and because the version comes from
-      # the manifest, one merged that way put *every* PR on the same failure,
-      # at a step that runs before Lint, Build and Test. That cost 22 hours of
-      # blocked CI after 1.35.0. Elsewhere the finding is still worth seeing,
-      # so it is reported as a warning rather than turned into everyone's
-      # problem.
-      - name: Verify curated release highlights
+      # It now only fails when a release has nothing to tell anyone: no
+      # curated prose *and* no user-facing entries. Fatal on the release PR
+      # and on master, where that guards the tag and says master is
+      # unshippable; a warning elsewhere. Failing everywhere is what turned
+      # one bad release PR into 22 hours of blocked CI after 1.35.0, at a step
+      # that runs before Lint, Build and Test.
+      - name: Verify release notes can be built
         shell: bash
         env:
           HEAD_REF: ${{ github.head_ref }}
@@ -106,18 +103,18 @@ jobs:
             exit 0
           fi
 
-          GUIDANCE="Add a '### Highlights' section under '## [$VERSION]' in CHANGELOG.md. It is what Sparkle renders in the update dialog, and Release DMG refuses to build without it."
+          GUIDANCE="Notes are built from the '### Highlights' prose plus the release's user-facing sections, and $VERSION has neither — Sparkle would have nothing to show. Write a '### Highlights' section under '## [$VERSION]' in CHANGELOG.md saying what this build means for someone using it."
           case "$HEAD_REF" in
             release-please--*)
-              echo "::error::Release $VERSION has no curated highlights. $GUIDANCE"
+              echo "::error::No release notes can be built for $VERSION. $GUIDANCE"
               exit 1
               ;;
           esac
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
-            echo "::error::Release $VERSION has no curated highlights on master. $GUIDANCE"
+            echo "::error::No release notes can be built for $VERSION on master. $GUIDANCE"
             exit 1
           fi
-          echo "::warning::Release $VERSION has no curated highlights, so no DMG can be built for it. Not failing this PR — $GUIDANCE"
+          echo "::warning::No release notes can be built for $VERSION, so it cannot ship a DMG. Not failing this PR — $GUIDANCE"
 
       # `make lint` is what a contributor runs, and scripts/tool.sh holds the
       # version floors, so the two cannot drift apart.
