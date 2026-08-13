@@ -85,13 +85,39 @@ jobs:
       # and refuses to build without it. Running it here fails the release PR
       # while a missing `### Highlights` is still an edit away from fixed —
       # once that PR merges, the tag and the draft release already exist.
-      # On every other PR the manifest names the last shipped version, so this
-      # only re-checks an entry that is already curated.
+      #
+      # Fatal only where it protects something: the release PR, and master.
+      # release-please never writes that section, so every release PR starts
+      # out failing this by construction — and because the version comes from
+      # the manifest, one merged that way put *every* PR on the same failure,
+      # at a step that runs before Lint, Build and Test. That cost 22 hours of
+      # blocked CI after 1.35.0. Elsewhere the finding is still worth seeing,
+      # so it is reported as a warning rather than turned into everyone's
+      # problem.
       - name: Verify curated release highlights
+        shell: bash
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          cargo xtask release notes \
-            --version "$(jq -r '."."' .release-please-manifest.json)" \
-            --output "$RUNNER_TEMP/release-notes.md"
+          VERSION=$(jq -r '."."' .release-please-manifest.json)
+          if cargo xtask release notes \
+            --version "$VERSION" \
+            --output "$RUNNER_TEMP/release-notes.md"; then
+            exit 0
+          fi
+
+          GUIDANCE="Add a '### Highlights' section under '## [$VERSION]' in CHANGELOG.md. It is what Sparkle renders in the update dialog, and Release DMG refuses to build without it."
+          case "$HEAD_REF" in
+            release-please--*)
+              echo "::error::Release $VERSION has no curated highlights. $GUIDANCE"
+              exit 1
+              ;;
+          esac
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            echo "::error::Release $VERSION has no curated highlights on master. $GUIDANCE"
+            exit 1
+          fi
+          echo "::warning::Release $VERSION has no curated highlights, so no DMG can be built for it. Not failing this PR — $GUIDANCE"
 
       # `make lint` is what a contributor runs, and scripts/tool.sh holds the
       # version floors, so the two cannot drift apart.
