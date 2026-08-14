@@ -2098,12 +2098,10 @@ public struct Arcbox_V1_SetupStatus: Sendable {
     /// accepts commands. Its container runtime may still be starting.
     case vmReady // = 4
 
-    /// The host services this daemon runs are up: the DNS server and,
-    /// with a Linux VM, the Docker API are bound (a --no-linux-vm daemon
-    /// runs no Docker API). Both fail startup rather than reaching this
-    /// phase if they cannot bind. The Kubernetes proxy is started here
-    /// too but is best-effort — a port 16443 already in use is tolerated
-    /// — so it is the one service this phase does not promise.
+    /// The host services this daemon promises are up: DNS and, with a Linux
+    /// VM, Docker plus any explicitly requested Kubernetes proxy are bound.
+    /// The canonical best-effort 16443 proxy remains the exception: a port
+    /// conflict leaves Kubernetes RPCs unavailable but does not fail startup.
     case networkReady // = 5
 
     /// Startup complete.
