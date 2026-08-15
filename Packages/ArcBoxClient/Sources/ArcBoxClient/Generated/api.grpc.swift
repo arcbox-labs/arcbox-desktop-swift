@@ -5352,7 +5352,9 @@ extension Arcbox_V1_MigrationService {
         ///
         /// > Source IDL Documentation:
         /// >
-        /// > Runs a prepared migration plan and streams execution progress.
+        /// > Runs a prepared migration plan and streams execution progress. Repeating
+        /// > the same request attaches to the existing run and replays its latest
+        /// > progress or terminal result.
         ///
         /// - Parameters:
         ///   - request: A streaming request of `Arcbox_V1_RunMigrationRequest` messages.
@@ -5401,7 +5403,9 @@ extension Arcbox_V1_MigrationService {
         ///
         /// > Source IDL Documentation:
         /// >
-        /// > Runs a prepared migration plan and streams execution progress.
+        /// > Runs a prepared migration plan and streams execution progress. Repeating
+        /// > the same request attaches to the existing run and replays its latest
+        /// > progress or terminal result.
         ///
         /// - Parameters:
         ///   - request: A request containing a single `Arcbox_V1_RunMigrationRequest` message.
@@ -5448,7 +5452,9 @@ extension Arcbox_V1_MigrationService {
         ///
         /// > Source IDL Documentation:
         /// >
-        /// > Runs a prepared migration plan and streams execution progress.
+        /// > Runs a prepared migration plan and streams execution progress. Repeating
+        /// > the same request attaches to the existing run and replays its latest
+        /// > progress or terminal result.
         ///
         /// - Parameters:
         ///   - request: A `Arcbox_V1_RunMigrationRequest` message.
@@ -5594,7 +5600,9 @@ extension Arcbox_V1_MigrationService {
         ///
         /// > Source IDL Documentation:
         /// >
-        /// > Runs a prepared migration plan and streams execution progress.
+        /// > Runs a prepared migration plan and streams execution progress. Repeating
+        /// > the same request attaches to the existing run and replays its latest
+        /// > progress or terminal result.
         ///
         /// - Parameters:
         ///   - request: A request containing a single `Arcbox_V1_RunMigrationRequest` message.
@@ -5672,7 +5680,9 @@ extension Arcbox_V1_MigrationService {
         ///
         /// > Source IDL Documentation:
         /// >
-        /// > Runs a prepared migration plan and streams execution progress.
+        /// > Runs a prepared migration plan and streams execution progress. Repeating
+        /// > the same request attaches to the existing run and replays its latest
+        /// > progress or terminal result.
         ///
         /// - Parameters:
         ///   - request: A request containing a single `Arcbox_V1_RunMigrationRequest` message.
@@ -5738,7 +5748,9 @@ extension Arcbox_V1_MigrationService.ClientProtocol {
     ///
     /// > Source IDL Documentation:
     /// >
-    /// > Runs a prepared migration plan and streams execution progress.
+    /// > Runs a prepared migration plan and streams execution progress. Repeating
+    /// > the same request attaches to the existing run and replays its latest
+    /// > progress or terminal result.
     ///
     /// - Parameters:
     ///   - request: A request containing a single `Arcbox_V1_RunMigrationRequest` message.
@@ -5802,7 +5814,9 @@ extension Arcbox_V1_MigrationService.ClientProtocol {
     ///
     /// > Source IDL Documentation:
     /// >
-    /// > Runs a prepared migration plan and streams execution progress.
+    /// > Runs a prepared migration plan and streams execution progress. Repeating
+    /// > the same request attaches to the existing run and replays its latest
+    /// > progress or terminal result.
     ///
     /// - Parameters:
     ///   - message: request message to send.

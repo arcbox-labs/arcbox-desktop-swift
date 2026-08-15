@@ -147,6 +147,21 @@ public struct Arcbox_V1_SystemInfo: Sendable {
   /// Guest IP addresses (excluding loopback).
   public var ipAddresses: [String] = []
 
+  /// Whether the guest distro's own init is still running its boot sequence.
+  ///
+  /// A Machine runs an upstream distro image whose init starts *after* the
+  /// agent, and typically reconfigures the network from scratch — flushing
+  /// the interface the boot shim already configured. Readiness must wait for
+  /// that to settle, so the host gates on this rather than on the agent
+  /// merely answering (CORE-66).
+  ///
+  /// Phrased as "pending" so the proto3 default is the safe one: an agent
+  /// predating this field decodes it as false and the host proceeds exactly
+  /// as it did before, instead of waiting out the readiness timeout on a
+  /// signal the agent never sends. Only a recognized init that is known to
+  /// still be starting sets it true.
+  public var distroInitPending: Bool = false
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -1193,7 +1208,7 @@ extension Arcbox_V1_AgentPingResponse: SwiftProtobuf.Message, SwiftProtobuf._Mes
 
 extension Arcbox_V1_SystemInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".SystemInfo"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}kernel_version\0\u{3}os_name\0\u{3}os_version\0\u{1}arch\0\u{3}total_memory\0\u{3}available_memory\0\u{3}cpu_count\0\u{3}load_average\0\u{1}hostname\0\u{1}uptime\0\u{3}ip_addresses\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}kernel_version\0\u{3}os_name\0\u{3}os_version\0\u{1}arch\0\u{3}total_memory\0\u{3}available_memory\0\u{3}cpu_count\0\u{3}load_average\0\u{1}hostname\0\u{1}uptime\0\u{3}ip_addresses\0\u{3}distro_init_pending\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -1212,6 +1227,7 @@ extension Arcbox_V1_SystemInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       case 9: try { try decoder.decodeSingularStringField(value: &self.hostname) }()
       case 10: try { try decoder.decodeSingularUInt64Field(value: &self.uptime) }()
       case 11: try { try decoder.decodeRepeatedStringField(value: &self.ipAddresses) }()
+      case 12: try { try decoder.decodeSingularBoolField(value: &self.distroInitPending) }()
       default: break
       }
     }
@@ -1251,6 +1267,9 @@ extension Arcbox_V1_SystemInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     if !self.ipAddresses.isEmpty {
       try visitor.visitRepeatedStringField(value: self.ipAddresses, fieldNumber: 11)
     }
+    if self.distroInitPending != false {
+      try visitor.visitSingularBoolField(value: self.distroInitPending, fieldNumber: 12)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1266,6 +1285,7 @@ extension Arcbox_V1_SystemInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     if lhs.hostname != rhs.hostname {return false}
     if lhs.uptime != rhs.uptime {return false}
     if lhs.ipAddresses != rhs.ipAddresses {return false}
+    if lhs.distroInitPending != rhs.distroInitPending {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
