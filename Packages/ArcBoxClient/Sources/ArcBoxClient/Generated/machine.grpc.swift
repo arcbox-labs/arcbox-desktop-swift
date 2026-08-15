@@ -252,7 +252,30 @@ extension Arcbox_V1_MachineService {
         ///
         /// > Source IDL Documentation:
         /// >
-        /// > Starts a stopped machine.
+        /// > Starts a stopped machine and returns once it is usable.
+        /// > 
+        /// > "Usable" means the distro's own init has finished booting, not merely
+        /// > that the agent answers: the boot shim backgrounds the agent before
+        /// > exec'ing /sbin/init, and that init reconfigures the network from
+        /// > scratch, so a call issued in between can fail with ENETUNREACH.
+        /// > 
+        /// > Budget for the distro's boot, not for the VM's: measured ~2.2s on
+        /// > alpine/openrc and ~14s on ubuntu/systemd, against ~0.5s before ArcBox
+        /// > 0.7.0, which returned into that window rather than after it.
+        /// > 
+        /// > Two limits, because each hands control back other than as stated above:
+        /// > 
+        /// >   - Boot completion is observed through a hook the agent installs into
+        /// >     the distro's init, so it needs an init that is recognized (systemd
+        /// >     or openrc). Where none is, or where the install fails, no signal is
+        /// >     coming — and rather than wait out a signal that will never arrive,
+        /// >     Start falls back to the pre-0.7.0 behaviour of returning once the
+        /// >     agent reports a routable IP. The ENETUNREACH window above is then
+        /// >     still reachable.
+        /// >   - The 60s readiness budget is checked between probes, so it bounds
+        /// >     the retry loop rather than any one probe. A guest that accepts the
+        /// >     connection and then stalls mid-answer holds Start open past it.
+        /// >     Keep a client-side timeout; do not treat 60s as a guarantee.
         ///
         /// - Parameters:
         ///   - request: A streaming request of `Arcbox_V1_StartMachineRequest` messages.
@@ -507,7 +530,30 @@ extension Arcbox_V1_MachineService {
         ///
         /// > Source IDL Documentation:
         /// >
-        /// > Starts a stopped machine.
+        /// > Starts a stopped machine and returns once it is usable.
+        /// > 
+        /// > "Usable" means the distro's own init has finished booting, not merely
+        /// > that the agent answers: the boot shim backgrounds the agent before
+        /// > exec'ing /sbin/init, and that init reconfigures the network from
+        /// > scratch, so a call issued in between can fail with ENETUNREACH.
+        /// > 
+        /// > Budget for the distro's boot, not for the VM's: measured ~2.2s on
+        /// > alpine/openrc and ~14s on ubuntu/systemd, against ~0.5s before ArcBox
+        /// > 0.7.0, which returned into that window rather than after it.
+        /// > 
+        /// > Two limits, because each hands control back other than as stated above:
+        /// > 
+        /// >   - Boot completion is observed through a hook the agent installs into
+        /// >     the distro's init, so it needs an init that is recognized (systemd
+        /// >     or openrc). Where none is, or where the install fails, no signal is
+        /// >     coming — and rather than wait out a signal that will never arrive,
+        /// >     Start falls back to the pre-0.7.0 behaviour of returning once the
+        /// >     agent reports a routable IP. The ENETUNREACH window above is then
+        /// >     still reachable.
+        /// >   - The 60s readiness budget is checked between probes, so it bounds
+        /// >     the retry loop rather than any one probe. A guest that accepts the
+        /// >     connection and then stalls mid-answer holds Start open past it.
+        /// >     Keep a client-side timeout; do not treat 60s as a guarantee.
         ///
         /// - Parameters:
         ///   - request: A request containing a single `Arcbox_V1_StartMachineRequest` message.
@@ -760,7 +806,30 @@ extension Arcbox_V1_MachineService {
         ///
         /// > Source IDL Documentation:
         /// >
-        /// > Starts a stopped machine.
+        /// > Starts a stopped machine and returns once it is usable.
+        /// > 
+        /// > "Usable" means the distro's own init has finished booting, not merely
+        /// > that the agent answers: the boot shim backgrounds the agent before
+        /// > exec'ing /sbin/init, and that init reconfigures the network from
+        /// > scratch, so a call issued in between can fail with ENETUNREACH.
+        /// > 
+        /// > Budget for the distro's boot, not for the VM's: measured ~2.2s on
+        /// > alpine/openrc and ~14s on ubuntu/systemd, against ~0.5s before ArcBox
+        /// > 0.7.0, which returned into that window rather than after it.
+        /// > 
+        /// > Two limits, because each hands control back other than as stated above:
+        /// > 
+        /// >   - Boot completion is observed through a hook the agent installs into
+        /// >     the distro's init, so it needs an init that is recognized (systemd
+        /// >     or openrc). Where none is, or where the install fails, no signal is
+        /// >     coming — and rather than wait out a signal that will never arrive,
+        /// >     Start falls back to the pre-0.7.0 behaviour of returning once the
+        /// >     agent reports a routable IP. The ENETUNREACH window above is then
+        /// >     still reachable.
+        /// >   - The 60s readiness budget is checked between probes, so it bounds
+        /// >     the retry loop rather than any one probe. A guest that accepts the
+        /// >     connection and then stalls mid-answer holds Start open past it.
+        /// >     Keep a client-side timeout; do not treat 60s as a guarantee.
         ///
         /// - Parameters:
         ///   - request: A `Arcbox_V1_StartMachineRequest` message.
@@ -1496,7 +1565,30 @@ extension Arcbox_V1_MachineService {
         ///
         /// > Source IDL Documentation:
         /// >
-        /// > Starts a stopped machine.
+        /// > Starts a stopped machine and returns once it is usable.
+        /// > 
+        /// > "Usable" means the distro's own init has finished booting, not merely
+        /// > that the agent answers: the boot shim backgrounds the agent before
+        /// > exec'ing /sbin/init, and that init reconfigures the network from
+        /// > scratch, so a call issued in between can fail with ENETUNREACH.
+        /// > 
+        /// > Budget for the distro's boot, not for the VM's: measured ~2.2s on
+        /// > alpine/openrc and ~14s on ubuntu/systemd, against ~0.5s before ArcBox
+        /// > 0.7.0, which returned into that window rather than after it.
+        /// > 
+        /// > Two limits, because each hands control back other than as stated above:
+        /// > 
+        /// >   - Boot completion is observed through a hook the agent installs into
+        /// >     the distro's init, so it needs an init that is recognized (systemd
+        /// >     or openrc). Where none is, or where the install fails, no signal is
+        /// >     coming — and rather than wait out a signal that will never arrive,
+        /// >     Start falls back to the pre-0.7.0 behaviour of returning once the
+        /// >     agent reports a routable IP. The ENETUNREACH window above is then
+        /// >     still reachable.
+        /// >   - The 60s readiness budget is checked between probes, so it bounds
+        /// >     the retry loop rather than any one probe. A guest that accepts the
+        /// >     connection and then stalls mid-answer holds Start open past it.
+        /// >     Keep a client-side timeout; do not treat 60s as a guarantee.
         ///
         /// - Parameters:
         ///   - request: A request containing a single `Arcbox_V1_StartMachineRequest` message.
@@ -1835,7 +1927,30 @@ extension Arcbox_V1_MachineService {
         ///
         /// > Source IDL Documentation:
         /// >
-        /// > Starts a stopped machine.
+        /// > Starts a stopped machine and returns once it is usable.
+        /// > 
+        /// > "Usable" means the distro's own init has finished booting, not merely
+        /// > that the agent answers: the boot shim backgrounds the agent before
+        /// > exec'ing /sbin/init, and that init reconfigures the network from
+        /// > scratch, so a call issued in between can fail with ENETUNREACH.
+        /// > 
+        /// > Budget for the distro's boot, not for the VM's: measured ~2.2s on
+        /// > alpine/openrc and ~14s on ubuntu/systemd, against ~0.5s before ArcBox
+        /// > 0.7.0, which returned into that window rather than after it.
+        /// > 
+        /// > Two limits, because each hands control back other than as stated above:
+        /// > 
+        /// >   - Boot completion is observed through a hook the agent installs into
+        /// >     the distro's init, so it needs an init that is recognized (systemd
+        /// >     or openrc). Where none is, or where the install fails, no signal is
+        /// >     coming — and rather than wait out a signal that will never arrive,
+        /// >     Start falls back to the pre-0.7.0 behaviour of returning once the
+        /// >     agent reports a routable IP. The ENETUNREACH window above is then
+        /// >     still reachable.
+        /// >   - The 60s readiness budget is checked between probes, so it bounds
+        /// >     the retry loop rather than any one probe. A guest that accepts the
+        /// >     connection and then stalls mid-answer holds Start open past it.
+        /// >     Keep a client-side timeout; do not treat 60s as a guarantee.
         ///
         /// - Parameters:
         ///   - request: A request containing a single `Arcbox_V1_StartMachineRequest` message.
@@ -2278,7 +2393,30 @@ extension Arcbox_V1_MachineService.ClientProtocol {
     ///
     /// > Source IDL Documentation:
     /// >
-    /// > Starts a stopped machine.
+    /// > Starts a stopped machine and returns once it is usable.
+    /// > 
+    /// > "Usable" means the distro's own init has finished booting, not merely
+    /// > that the agent answers: the boot shim backgrounds the agent before
+    /// > exec'ing /sbin/init, and that init reconfigures the network from
+    /// > scratch, so a call issued in between can fail with ENETUNREACH.
+    /// > 
+    /// > Budget for the distro's boot, not for the VM's: measured ~2.2s on
+    /// > alpine/openrc and ~14s on ubuntu/systemd, against ~0.5s before ArcBox
+    /// > 0.7.0, which returned into that window rather than after it.
+    /// > 
+    /// > Two limits, because each hands control back other than as stated above:
+    /// > 
+    /// >   - Boot completion is observed through a hook the agent installs into
+    /// >     the distro's init, so it needs an init that is recognized (systemd
+    /// >     or openrc). Where none is, or where the install fails, no signal is
+    /// >     coming — and rather than wait out a signal that will never arrive,
+    /// >     Start falls back to the pre-0.7.0 behaviour of returning once the
+    /// >     agent reports a routable IP. The ENETUNREACH window above is then
+    /// >     still reachable.
+    /// >   - The 60s readiness budget is checked between probes, so it bounds
+    /// >     the retry loop rather than any one probe. A guest that accepts the
+    /// >     connection and then stalls mid-answer holds Start open past it.
+    /// >     Keep a client-side timeout; do not treat 60s as a guarantee.
     ///
     /// - Parameters:
     ///   - request: A request containing a single `Arcbox_V1_StartMachineRequest` message.
@@ -2664,7 +2802,30 @@ extension Arcbox_V1_MachineService.ClientProtocol {
     ///
     /// > Source IDL Documentation:
     /// >
-    /// > Starts a stopped machine.
+    /// > Starts a stopped machine and returns once it is usable.
+    /// > 
+    /// > "Usable" means the distro's own init has finished booting, not merely
+    /// > that the agent answers: the boot shim backgrounds the agent before
+    /// > exec'ing /sbin/init, and that init reconfigures the network from
+    /// > scratch, so a call issued in between can fail with ENETUNREACH.
+    /// > 
+    /// > Budget for the distro's boot, not for the VM's: measured ~2.2s on
+    /// > alpine/openrc and ~14s on ubuntu/systemd, against ~0.5s before ArcBox
+    /// > 0.7.0, which returned into that window rather than after it.
+    /// > 
+    /// > Two limits, because each hands control back other than as stated above:
+    /// > 
+    /// >   - Boot completion is observed through a hook the agent installs into
+    /// >     the distro's init, so it needs an init that is recognized (systemd
+    /// >     or openrc). Where none is, or where the install fails, no signal is
+    /// >     coming — and rather than wait out a signal that will never arrive,
+    /// >     Start falls back to the pre-0.7.0 behaviour of returning once the
+    /// >     agent reports a routable IP. The ENETUNREACH window above is then
+    /// >     still reachable.
+    /// >   - The 60s readiness budget is checked between probes, so it bounds
+    /// >     the retry loop rather than any one probe. A guest that accepts the
+    /// >     connection and then stalls mid-answer holds Start open past it.
+    /// >     Keep a client-side timeout; do not treat 60s as a guarantee.
     ///
     /// - Parameters:
     ///   - message: request message to send.
